@@ -16,6 +16,11 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     montoSemana: 0
   });
   const [userCobros, setUserCobros] = useState([]);
+  const [pedidosStats, setPedidosStats] = useState({
+    total: 0,
+    pendientes: 0,
+    recibidos: 0
+  });
 
   useEffect(() => {
     const q = query(collection(db, "cobranzas"));
@@ -71,7 +76,33 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       });
     });
 
-    return () => unsubscribe();
+    // Pedidos de clientes
+    const pedidosQ = query(collection(db, "pedidosClientes"));
+    const unsubPedidos = onSnapshot(pedidosQ, (querySnapshot) => {
+      let data = [];
+      querySnapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() });
+      });
+      // Filtrar por rol
+      let filtered = data;
+      if (user.role === "Santi" || user.role === "Guille") {
+        filtered = data.filter(p => p.cobrador === user.role);
+      } else if (user.role === "admin") {
+        filtered = data;
+      } else {
+        filtered = [];
+      }
+      setPedidosStats({
+        total: filtered.length,
+        pendientes: filtered.filter(p => p.estadoRecepcion === "pendiente").length,
+        recibidos: filtered.filter(p => p.estadoRecepcion === "recibido").length
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      unsubPedidos();
+    };
   }, [user]);
 
   // Calcular clientes únicos y pendientes fuera del useEffect
@@ -160,7 +191,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
                 <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
                   <i className="pi pi-exclamation-triangle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#ef4444" }}></i>
                   <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                    Pendientes
+                    Cobro no cargado en Flexxus
                   </h3>
                 </div>
                 <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#ef4444" }}>{pendientesAdmin}</h2>
@@ -205,7 +236,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
               <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
                 <i className="pi pi-exclamation-triangle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#ef4444" }}></i>
                 <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Pendientes
+                  Cobro no cargado en Flexxus
                 </h3>
               </div>
               <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#ef4444" }}>{pendientes}</h2>
@@ -213,6 +244,43 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
           </div>
         </div>
       ) : null}
+
+      {/* Bloques de resumen de pedidos de clientes */}
+      <div className="p-grid p-fluid p-mt-2">
+        <div className="p-col-12 p-md-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-shopping-cart p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#0ea5e9" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                Pedidos de Clientes
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#0ea5e9" }}>{pedidosStats.total}</h2>
+          </Card>
+        </div>
+        <div className="p-col-12 p-md-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                Pedidos Pendientes
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{pedidosStats.pendientes}</h2>
+          </Card>
+        </div>
+        <div className="p-col-12 p-md-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-check-circle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#22c55e" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                Pedidos Recibidos
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#22c55e" }}>{pedidosStats.recibidos}</h2>
+          </Card>
+        </div>
+      </div>
 
       {/* Progreso de carga en sistema */}
       {user.role === "cobrador" && (

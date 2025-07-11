@@ -17,12 +17,42 @@ import { Toast } from "primereact/toast";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Tag } from "primereact/tag";
 import { saveAs } from "file-saver";
+import { Calendar } from "primereact/calendar";
+import { Dropdown } from "primereact/dropdown";
+import { InputText } from "primereact/inputtext";
 
 function ListaPedidosClientes({ user }) {
+  const estados = [
+    { label: "Todos", value: null },
+    { label: "Pendiente", value: "pendiente" },
+    { label: "Recibido", value: "recibido" },
+    { label: "Enviado", value: "enviado" }
+  ];
+  const condiciones = [
+    { label: "Todos", value: null },
+    { label: "Contado", value: "contado" },
+    { label: "Cuenta Corriente", value: "cuenta_corriente" }
+  ];
+  const cobradores = [
+    { label: "Todos", value: null },
+    { label: "Mariano", value: "Mariano" },
+    { label: "Ruben", value: "Ruben" },
+    { label: "Diego", value: "Diego" },
+    { label: "Guille", value: "Guille" },
+    { label: "Santi", value: "Santi" },
+    { label: "German", value: "German" }
+  ];
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const toast = useRef(null);
+  const [filters, setFilters] = useState({
+    fecha: null,
+    cliente: "",
+    estado: null,
+    condicion: null,
+    cobrador: null
+  });
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -195,6 +225,24 @@ function ListaPedidosClientes({ user }) {
     </div>
   );
 
+  // Filtrado local
+  const pedidosFiltrados = pedidos.filter(p => {
+    // Fecha
+    if (filters.fecha && p.fecha) {
+      const fechaPedido = p.fecha.toDate ? p.fecha.toDate() : new Date(p.fecha.seconds * 1000);
+      if (fechaPedido.toLocaleDateString("es-AR") !== filters.fecha.toLocaleDateString("es-AR")) return false;
+    }
+    // Cliente
+    if (filters.cliente && !p.cliente.toLowerCase().includes(filters.cliente.toLowerCase())) return false;
+    // Estado
+    if (filters.estado && p.estadoRecepcion !== filters.estado) return false;
+    // Condición
+    if (filters.condicion && p.condicion !== filters.condicion) return false;
+    // Cobrador (solo admin)
+    if (user.role === "admin" && filters.cobrador && p.cobrador !== filters.cobrador) return false;
+    return true;
+  });
+
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
@@ -210,8 +258,75 @@ function ListaPedidosClientes({ user }) {
             />
           )}
         </div>
+        {/* Filtros */}
+        <div className="p-mb-3 p-p-2 surface-100 border-round border-1" style={{ borderColor: "#e5e7eb" }}>
+          <div className="grid">
+            <div className="col-12 md:col-6 lg:col-2">
+              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
+                Fecha
+              </label>
+              <Calendar 
+                value={filters.fecha} 
+                onChange={e => setFilters({ ...filters, fecha: e.value })}
+                dateFormat="dd/mm/yy" 
+                showIcon 
+                placeholder="Selecciona fecha"
+                className="w-full"
+              />
+            </div>
+            <div className="col-12 md:col-6 lg:col-2">
+              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
+                Cliente
+              </label>
+              <InputText 
+                value={filters.cliente} 
+                onChange={e => setFilters({ ...filters, cliente: e.target.value })}
+                placeholder="Buscar por cliente"
+                className="w-full"
+              />
+            </div>
+            <div className="col-12 md:col-6 lg:col-2">
+              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
+                Estado
+              </label>
+              <Dropdown 
+                value={filters.estado} 
+                options={estados} 
+                onChange={e => setFilters({ ...filters, estado: e.value })}
+                placeholder="Selecciona estado"
+                className="w-full"
+              />
+            </div>
+            <div className="col-12 md:col-6 lg:col-2">
+              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
+                Condición
+              </label>
+              <Dropdown 
+                value={filters.condicion} 
+                options={condiciones} 
+                onChange={e => setFilters({ ...filters, condicion: e.value })}
+                placeholder="Selecciona condición"
+                className="w-full"
+              />
+            </div>
+            {user.role === "admin" && (
+              <div className="col-12 md:col-6 lg:col-2">
+                <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
+                  Registrado por
+                </label>
+                <Dropdown 
+                  value={filters.cobrador} 
+                  options={cobradores} 
+                  onChange={e => setFilters({ ...filters, cobrador: e.value })}
+                  placeholder="Selecciona cobrador"
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
+        </div>
         <DataTable 
-          value={pedidos}
+          value={pedidosFiltrados}
           paginator 
           rows={8} 
           responsiveLayout="stack"
