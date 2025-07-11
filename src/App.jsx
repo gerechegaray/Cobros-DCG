@@ -7,6 +7,8 @@ import CobrosList from "./CobrosList";
 import Reports from "./components/Reports";
 import UserProfile from "./components/UserProfile";
 import PedidosEnviados from "./components/PedidosEnviados";
+import CargarPedido from "./components/CargarPedido";
+import ListaPedidosClientes from "./components/ListaPedidosClientes";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -104,7 +106,9 @@ function App() {
       return [
         ...baseItems,
         { label: "Cargar Cobro", icon: "pi pi-plus", value: "form" },
+        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", value: "cargar-pedido" },
         { label: "Lista de Cobranzas", icon: "pi pi-list", value: "list" },
+        { label: "Lista de Pedidos", icon: "pi pi-list", value: "lista-pedidos" },
         { label: "Pedidos Enviados", icon: "pi pi-send", value: "pedidos" },
         { label: "Reportes", icon: "pi pi-file-pdf", value: "reports" },
         { label: "Mi Perfil", icon: "pi pi-user", value: "profile" }
@@ -113,7 +117,9 @@ function App() {
       return [
         ...baseItems,
         { label: "Cargar Cobro", icon: "pi pi-plus", value: "form" },
+        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", value: "cargar-pedido" },
         { label: "Mis Cobranzas", icon: "pi pi-list", value: "my-cobros" },
+        { label: "Lista de Pedidos", icon: "pi pi-list", value: "lista-pedidos" },
         { label: "Pedidos Enviados", icon: "pi pi-send", value: "pedidos" },
         { label: "Reportes", icon: "pi pi-file-pdf", value: "reports" },
         { label: "Mi Perfil", icon: "pi pi-user", value: "profile" }
@@ -128,6 +134,10 @@ function App() {
         return <Dashboard user={user} onNavigateToCobros={() => setActiveTab("my-cobros")} onNavigateToMyCobros={(tab) => setActiveTab(tab)} />;
       case "form":
         return <CobroForm user={user} />;
+      case "cargar-pedido":
+        return <CargarPedido user={user} />;
+      case "lista-pedidos":
+        return <ListaPedidosClientes user={user} />;
       case "list":
         return user.role === "admin" ? <CobrosList user={user} onNavigateToDashboard={() => setActiveTab("dashboard")} /> : null;
       case "my-cobros":
