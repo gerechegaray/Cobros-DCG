@@ -15,6 +15,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     montoMes: 0,
     montoSemana: 0
   });
+  const [userCobros, setUserCobros] = useState([]);
 
   useEffect(() => {
     const q = query(collection(db, "cobranzas"));
@@ -24,7 +25,6 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         data.push({ id: doc.id, ...doc.data() });
       });
 
-      // Filtrar datos según el rol del usuario
       let filteredData = data;
       if (user.role === "Santi" || user.role === "Guille") {
         filteredData = data.filter(cobro => cobro.cobrador === user.role);
@@ -32,6 +32,9 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         filteredData = data;
       }
 
+      setUserCobros(filteredData);
+
+      // ... cálculos de stats ...
       const totalCobranzas = filteredData.length;
       const totalMonto = filteredData.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
       const cargadasEnSistema = filteredData.filter(cobro => cobro.cargado).length;
@@ -71,6 +74,10 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     return () => unsubscribe();
   }, [user]);
 
+  // Calcular clientes únicos y pendientes fuera del useEffect
+  const clientesUnicos = new Set(userCobros.map(cobro => cobro.cliente)).size;
+  const pendientes = userCobros.filter(cobro => !cobro.cargado).length;
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -101,107 +108,153 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       {/* Alertas de cobros pendientes */}
       <Alerts user={user} onNavigateToMyCobros={onNavigateToMyCobros} />
 
-      {(user.role === "Santi" || user.role === "Guille") && (
-        <Card className="p-mb-3 p-surface-200" style={{ borderColor: "#f59e0b" }}>
-          <div className="p-d-flex p-ai-center p-gap-2">
-            <i className="pi pi-info-circle p-text-xl p-text-md-2xl" style={{ color: "#f59e0b" }}></i>
-            <div>
-              <h4 className="p-m-0 p-mb-1 p-text-sm p-text-md-lg" style={{ color: "#92400e" }}>Vista Personalizada</h4>
-              <p className="p-m-0 p-text-xs p-text-md-sm" style={{ color: "#92400e" }}>
-                Solo puedes ver tus propios cobros y estadísticas personales.
-              </p>
-            </div>
+      {/* Vista para Santi y Guille */}
+      {(user.role === "Santi" || user.role === "Guille") ? (
+        <div className="p-grid p-fluid">
+          {/* Cantidad de clientes cobrados */}
+          <div className="p-col-12 p-md-6 p-lg-3">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-users p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#2563eb" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  Cantidad de clientes cobrados
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#2563eb" }}>{clientesUnicos}</h2>
+            </Card>
           </div>
-        </Card>
+
+          {/* Total cobrado en el mes */}
+          <div className="p-col-12 p-md-6 p-lg-3">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-calendar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#7c3aed" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  Total cobrado en el mes
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#7c3aed" }}>{formatCurrency(stats.montoMes)}</h2>
+            </Card>
+          </div>
+
+          {/* Total cobrado en la semana */}
+          <div className="p-col-12 p-md-6 p-lg-3">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  Total cobrado en la semana
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{formatCurrency(stats.montoSemana)}</h2>
+            </Card>
+          </div>
+
+          {/* Pendientes de carga */}
+          <div className="p-col-12 p-md-6 p-lg-3">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-exclamation-triangle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#ef4444" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  Pendientes
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#ef4444" }}>{pendientes}</h2>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        // ... aquí va el dashboard original para admin/cobrador ...
+        <>
+          {/* Total de Cobranzas */}
+          <div className="p-col-12 p-md-6 p-lg-4">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-list p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#2563eb" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  {user.role === "admin" ? "Total Cobranzas" : "Mis Cobranzas"}
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#2563eb" }}>{stats.totalCobranzas}</h2>
+            </Card>
+          </div>
+
+          {/* Monto Total */}
+          <div className="p-col-12 p-md-6 p-lg-4">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-dollar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  {user.role === "admin" ? "Monto Total" : "Mi Monto Total"}
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#059669" }}>{formatCurrency(stats.totalMonto)}</h2>
+            </Card>
+          </div>
+
+          {/* Monto del Mes */}
+          <div className="p-col-12 p-md-6 p-lg-4">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-calendar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#7c3aed" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  {user.role === "admin" ? "Cobrado este Mes" : "Mi Cobro este Mes"}
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#7c3aed" }}>{formatCurrency(stats.montoMes)}</h2>
+            </Card>
+          </div>
+
+          {/* Monto de la Semana */}
+          <div className="p-col-12 p-md-6 p-lg-4">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  {user.role === "admin" ? "Cobrado esta Semana" : "Mi Cobro esta Semana"}
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{formatCurrency(stats.montoSemana)}</h2>
+            </Card>
+          </div>
+
+          {/* Cargadas en Sistema */}
+          <div className="p-col-12 p-md-6 p-lg-4">
+            <Card className="p-text-center">
+              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+                <i className="pi pi-check-circle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
+                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                  {user.role === "admin" ? "Cargadas en Sistema" : "Mis Cargadas"}
+                </h3>
+              </div>
+              <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#059669" }}>{stats.cargadasEnSistema}</h2>
+            </Card>
+          </div>
+        </>
       )}
 
-      <div className="p-grid p-fluid">
-        {/* Total de Cobranzas */}
-        <div className="p-col-12 p-md-6 p-lg-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-list p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#2563eb" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                {user.role === "admin" ? "Total Cobranzas" : "Mis Cobranzas"}
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#2563eb" }}>{stats.totalCobranzas}</h2>
-          </Card>
-        </div>
-
-        {/* Monto Total */}
-        <div className="p-col-12 p-md-6 p-lg-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-dollar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                {user.role === "admin" ? "Monto Total" : "Mi Monto Total"}
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#059669" }}>{formatCurrency(stats.totalMonto)}</h2>
-          </Card>
-        </div>
-
-        {/* Monto del Mes */}
-        <div className="p-col-12 p-md-6 p-lg-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-calendar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#7c3aed" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                {user.role === "admin" ? "Cobrado este Mes" : "Mi Cobro este Mes"}
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#7c3aed" }}>{formatCurrency(stats.montoMes)}</h2>
-          </Card>
-        </div>
-
-        {/* Monto de la Semana */}
-        <div className="p-col-12 p-md-6 p-lg-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                {user.role === "admin" ? "Cobrado esta Semana" : "Mi Cobro esta Semana"}
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{formatCurrency(stats.montoSemana)}</h2>
-          </Card>
-        </div>
-
-        {/* Cargadas en Sistema */}
-        <div className="p-col-12 p-md-6 p-lg-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-check-circle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                {user.role === "admin" ? "Cargadas en Sistema" : "Mis Cargadas"}
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#059669" }}>{stats.cargadasEnSistema}</h2>
-          </Card>
-        </div>
-      </div>
-
       {/* Progreso de carga en sistema */}
-      <Card className="p-mt-3">
-        <h3 className="p-mb-2 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-          {user.role === "admin" ? "Progreso de Carga en Sistema" : "Mi Progreso de Carga"}
-        </h3>
-        <div className="p-mb-2">
-          <div className="p-d-flex p-jc-between p-mb-1 p-text-xs p-text-md-sm">
-            <span>Cargadas: {stats.cargadasEnSistema}</span>
-            <span>Pendientes: {stats.pendientesDeCarga}</span>
+      {user.role === "cobrador" && (
+        <Card className="p-mt-3">
+          <h3 className="p-mb-2 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+            {user.role === "admin" ? "Progreso de Carga en Sistema" : "Mi Progreso de Carga"}
+          </h3>
+          <div className="p-mb-2">
+            <div className="p-d-flex p-jc-between p-mb-1 p-text-xs p-text-md-sm">
+              <span>Cargadas: {stats.cargadasEnSistema}</span>
+              <span>Pendientes: {stats.pendientesDeCarga}</span>
+            </div>
+            <ProgressBar 
+              value={porcentajeCargadas} 
+              style={{ height: "0.75rem" }}
+              color={porcentajeCargadas === 100 ? "#059669" : porcentajeCargadas > 50 ? "#f59e0b" : "#dc2626"}
+            />
           </div>
-          <ProgressBar 
-            value={porcentajeCargadas} 
-            style={{ height: "0.75rem" }}
-            color={porcentajeCargadas === 100 ? "#059669" : porcentajeCargadas > 50 ? "#f59e0b" : "#dc2626"}
-          />
-        </div>
-        <p className="p-m-0 p-text-xs p-text-md-sm" style={{ color: "#6b7280" }}>
-          {porcentajeCargadas.toFixed(1)}% de las cobranzas están cargadas en el sistema
-        </p>
-      </Card>
+          <p className="p-m-0 p-text-xs p-text-md-sm" style={{ color: "#6b7280" }}>
+            {porcentajeCargadas.toFixed(1)}% de las cobranzas están cargadas en el sistema
+          </p>
+        </Card>
+      )}
 
       {/* Botón para ver cobros (solo para cobradores) */}
       {user.role === "cobrador" && (
