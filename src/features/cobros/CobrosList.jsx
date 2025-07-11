@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { db } from "./firebase";
+import { db } from "../../services/firebase";
 import { collection, query, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";

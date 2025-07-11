@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { db } from "./firebase";
+import { db } from "../../services/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";

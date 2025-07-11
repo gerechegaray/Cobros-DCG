@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
-import { auth, googleProvider, db } from "../firebase";
+import { auth, googleProvider, db } from "../../services/firebase";
 import { signInWithPopup } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
