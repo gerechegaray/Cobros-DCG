@@ -15,6 +15,7 @@ function Login({ onLogin }) {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      
       const userRef = doc(db, "usuarios", user.email);
       const userSnap = await getDoc(userRef);
       let userData;
@@ -54,6 +55,7 @@ function Login({ onLogin }) {
         return;
       }
     } catch (error) {
+      console.error("Error en login:", error);
       toast.current.show({
         severity: "error",
         summary: "Error",

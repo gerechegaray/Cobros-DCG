@@ -90,8 +90,8 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2rem" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "2rem", color: "#1f2937" }}>
+    <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
+      <h2 className="p-text-center p-mb-3 p-text-lg p-text-md-xl p-text-lg-2xl" style={{ color: "#1f2937", wordWrap: "break-word" }}>
         {getDashboardTitle()}
       </h2>
 
@@ -99,12 +99,12 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       <Alerts user={user} onNavigateToMyCobros={onNavigateToMyCobros} />
 
       {user.role === "cobrador" && (
-        <Card style={{ marginBottom: "2rem", backgroundColor: "#fef3c7", border: "1px solid #f59e0b" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <i className="pi pi-info-circle" style={{ fontSize: "1.5rem", color: "#f59e0b" }}></i>
+        <Card className="p-mb-3 p-surface-200" style={{ borderColor: "#f59e0b" }}>
+          <div className="p-d-flex p-ai-center p-gap-2">
+            <i className="pi pi-info-circle p-text-xl p-text-md-2xl" style={{ color: "#f59e0b" }}></i>
             <div>
-              <h4 style={{ margin: "0 0 0.5rem 0", color: "#92400e" }}>Vista Personalizada</h4>
-              <p style={{ margin: 0, color: "#92400e", fontSize: "0.9rem" }}>
+              <h4 className="p-m-0 p-mb-1 p-text-sm p-text-md-lg" style={{ color: "#92400e" }}>Vista Personalizada</h4>
+              <p className="p-m-0 p-text-xs p-text-md-sm" style={{ color: "#92400e" }}>
                 Solo puedes ver tus propios cobros y estadísticas personales.
               </p>
             </div>
@@ -112,104 +112,108 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         </Card>
       )}
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-        gap: "1.5rem",
-        marginBottom: "2rem"
-      }}>
+      <div className="p-grid p-fluid">
         {/* Total de Cobranzas */}
-        <Card style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
-            <i className="pi pi-list" style={{ fontSize: "2rem", color: "#2563eb", marginRight: "0.5rem" }}></i>
-            <h3 style={{ margin: 0, color: "#1f2937" }}>
-              {user.role === "admin" ? "Total Cobranzas" : "Mis Cobranzas"}
-            </h3>
-          </div>
-          <h2 style={{ margin: 0, color: "#2563eb", fontSize: "2.5rem" }}>{stats.totalCobranzas}</h2>
-        </Card>
+        <div className="p-col-12 p-md-6 p-lg-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-list p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#2563eb" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                {user.role === "admin" ? "Total Cobranzas" : "Mis Cobranzas"}
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#2563eb" }}>{stats.totalCobranzas}</h2>
+          </Card>
+        </div>
 
         {/* Monto Total */}
-        <Card style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
-            <i className="pi pi-dollar" style={{ fontSize: "2rem", color: "#059669", marginRight: "0.5rem" }}></i>
-            <h3 style={{ margin: 0, color: "#1f2937" }}>
-              {user.role === "admin" ? "Monto Total" : "Mi Monto Total"}
-            </h3>
-          </div>
-          <h2 style={{ margin: 0, color: "#059669", fontSize: "2rem" }}>{formatCurrency(stats.totalMonto)}</h2>
-        </Card>
+        <div className="p-col-12 p-md-6 p-lg-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-dollar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                {user.role === "admin" ? "Monto Total" : "Mi Monto Total"}
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#059669" }}>{formatCurrency(stats.totalMonto)}</h2>
+          </Card>
+        </div>
 
         {/* Monto del Mes */}
-        <Card style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
-            <i className="pi pi-calendar" style={{ fontSize: "2rem", color: "#7c3aed", marginRight: "0.5rem" }}></i>
-            <h3 style={{ margin: 0, color: "#1f2937" }}>
-              {user.role === "admin" ? "Cobrado este Mes" : "Mi Cobro este Mes"}
-            </h3>
-          </div>
-          <h2 style={{ margin: 0, color: "#7c3aed", fontSize: "2rem" }}>{formatCurrency(stats.montoMes)}</h2>
-        </Card>
+        <div className="p-col-12 p-md-6 p-lg-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-calendar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#7c3aed" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                {user.role === "admin" ? "Cobrado este Mes" : "Mi Cobro este Mes"}
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#7c3aed" }}>{formatCurrency(stats.montoMes)}</h2>
+          </Card>
+        </div>
 
         {/* Monto de la Semana */}
-        <Card style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
-            <i className="pi pi-clock" style={{ fontSize: "2rem", color: "#f59e0b", marginRight: "0.5rem" }}></i>
-            <h3 style={{ margin: 0, color: "#1f2937" }}>
-              {user.role === "admin" ? "Cobrado esta Semana" : "Mi Cobro esta Semana"}
-            </h3>
-          </div>
-          <h2 style={{ margin: 0, color: "#f59e0b", fontSize: "2rem" }}>{formatCurrency(stats.montoSemana)}</h2>
-        </Card>
+        <div className="p-col-12 p-md-6 p-lg-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                {user.role === "admin" ? "Cobrado esta Semana" : "Mi Cobro esta Semana"}
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{formatCurrency(stats.montoSemana)}</h2>
+          </Card>
+        </div>
 
         {/* Cargadas en Sistema */}
-        <Card style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
-            <i className="pi pi-check-circle" style={{ fontSize: "2rem", color: "#059669", marginRight: "0.5rem" }}></i>
-            <h3 style={{ margin: 0, color: "#1f2937" }}>
-              {user.role === "admin" ? "Cargadas en Sistema" : "Mis Cargadas"}
-            </h3>
-          </div>
-          <h2 style={{ margin: 0, color: "#059669", fontSize: "2.5rem" }}>{stats.cargadasEnSistema}</h2>
-        </Card>
+        <div className="p-col-12 p-md-6 p-lg-4">
+          <Card className="p-text-center">
+            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
+              <i className="pi pi-check-circle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
+              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
+                {user.role === "admin" ? "Cargadas en Sistema" : "Mis Cargadas"}
+              </h3>
+            </div>
+            <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#059669" }}>{stats.cargadasEnSistema}</h2>
+          </Card>
+        </div>
       </div>
 
       {/* Progreso de carga en sistema */}
-      <Card>
-        <h3 style={{ marginBottom: "1rem", color: "#1f2937" }}>
+      <Card className="p-mt-3">
+        <h3 className="p-mb-2 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
           {user.role === "admin" ? "Progreso de Carga en Sistema" : "Mi Progreso de Carga"}
         </h3>
-        <div style={{ marginBottom: "1rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+        <div className="p-mb-2">
+          <div className="p-d-flex p-jc-between p-mb-1 p-text-xs p-text-md-sm">
             <span>Cargadas: {stats.cargadasEnSistema}</span>
             <span>Pendientes: {stats.pendientesDeCarga}</span>
           </div>
           <ProgressBar 
             value={porcentajeCargadas} 
-            style={{ height: "1rem" }}
+            style={{ height: "0.75rem" }}
             color={porcentajeCargadas === 100 ? "#059669" : porcentajeCargadas > 50 ? "#f59e0b" : "#dc2626"}
           />
         </div>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>
+        <p className="p-m-0 p-text-xs p-text-md-sm" style={{ color: "#6b7280" }}>
           {porcentajeCargadas.toFixed(1)}% de las cobranzas están cargadas en el sistema
         </p>
       </Card>
 
       {/* Botón para ver cobros (solo para cobradores) */}
       {user.role === "cobrador" && (
-        <Card style={{ marginTop: "2rem", backgroundColor: "#f0f9ff", border: "1px solid #0ea5e9" }}>
-          <div style={{ textAlign: "center" }}>
-            <h3 style={{ margin: "0 0 1rem 0", color: "#0c4a6e" }}>
+        <Card className="p-mt-4 p-surface-100" style={{ borderColor: "#0ea5e9" }}>
+          <div className="p-text-center">
+            <h3 className="p-m-0 p-mb-3 p-text-lg" style={{ color: "#0c4a6e" }}>
               Ver Mis Cobranzas
             </h3>
-            <p style={{ margin: "0 0 1.5rem 0", color: "#0369a1", fontSize: "0.9rem" }}>
+            <p className="p-m-0 p-mb-4 p-text-sm" style={{ color: "#0369a1" }}>
               Revisa todos los cobros que has realizado y su estado actual
             </p>
             <Button 
               label="Ver Mis Cobranzas" 
               icon="pi pi-list" 
-              className="p-button-primary"
-              size="large"
+              className="p-button-primary p-button-lg"
               onClick={() => onNavigateToCobros && onNavigateToCobros()}
               style={{ 
                 padding: "1rem 2rem", 

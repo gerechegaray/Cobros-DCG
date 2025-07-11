@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
@@ -27,8 +27,9 @@ function Alerts({ user, onNavigateToMyCobros }) {
 
       setPendingCobros(filteredData);
       setTotalPending(filteredData.length);
+    }, (error) => {
+      console.error("Error al cargar datos:", error);
     });
-
     return () => unsubscribe();
   }, [user]);
 

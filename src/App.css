@@ -40,3 +40,384 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Estilos responsive para móviles */
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
+  
+  /* Ajustes para la tabla en móviles */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  /* Hacer que los botones sean más pequeños en móviles */
+  .p-button.p-button-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Ajustar el header de la tabla para móviles */
+  .p-datatable .p-datatable-header {
+    padding: 0.5rem;
+  }
+  
+  /* Mejorar la legibilidad de los filtros en móviles */
+  .p-dropdown,
+  .p-calendar,
+  .p-inputtext {
+    font-size: 0.875rem;
+  }
+  
+  /* Ajustar el espaciado de los filtros */
+  .p-grid .p-col-12 {
+    margin-bottom: 1rem;
+  }
+  
+  /* Hacer que los tags sean más compactos */
+  .p-tag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  /* Ajustar el contenedor principal para móviles */
+  .p-p-3 {
+    padding: 0.75rem !important;
+  }
+  
+  /* Mejorar la responsividad de la tabla de cobranzas */
+  .p-datatable.p-datatable-scrollable {
+    font-size: 0.75rem;
+  }
+  
+  /* Ajustar el ancho mínimo de las columnas en móviles */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    min-width: auto !important;
+    width: auto !important;
+  }
+  
+  /* Hacer que los filtros se apilen mejor en móviles */
+  .p-grid.p-fluid .p-col-12 {
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Ajustar el header de la tabla para móviles */
+  .p-datatable .p-datatable-header {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  /* Mejorar la visualización de los botones en móviles */
+  .p-button {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  /* Ajustar el espaciado de los filtros en móviles */
+  .p-surface-100 {
+    padding: 0.75rem !important;
+  }
+}
+
+/* Estilos para pantallas muy pequeñas */
+@media (max-width: 480px) {
+  #root {
+    padding: 0.5rem;
+  }
+  
+  /* Reducir aún más el padding de la tabla */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Hacer los botones aún más pequeños */
+  .p-button.p-button-sm {
+    padding: 0.125rem 0.25rem;
+    font-size: 0.625rem;
+  }
+  
+  /* Ajustar el header para pantallas muy pequeñas */
+  .p-text-xl {
+    font-size: 1.25rem !important;
+  }
+  
+  .p-text-2xl {
+    font-size: 1.5rem !important;
+  }
+  
+  /* Mejorar la visualización de la tabla en pantallas muy pequeñas */
+  .p-datatable {
+    font-size: 0.625rem;
+  }
+  
+  /* Ajustar el espaciado de los filtros */
+  .p-grid .p-col-12 {
+    margin-bottom: 0.25rem;
+  }
+  
+  /* Hacer que los filtros ocupen todo el ancho */
+  .p-col-12 {
+    width: 100% !important;
+  }
+}
+
+/* Mejorar la experiencia de scroll en móviles */
+.p-datatable.p-datatable-scrollable .p-datatable-wrapper {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Asegurar que los elementos de filtro no se desborden */
+.p-fluid .p-dropdown,
+.p-fluid .p-calendar,
+.p-fluid .p-inputtext {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Mejorar la visualización de la tabla en dispositivos móviles */
+@media (max-width: 768px) {
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Hacer que la tabla sea más compacta en móviles */
+  .p-datatable {
+    font-size: 0.75rem;
+  }
+  
+  /* Ajustar el scroll horizontal en móviles */
+  .p-datatable.p-datatable-scrollable {
+    overflow-x: auto;
+  }
+}
+
+/* Solucionar el problema de corte en móviles - GLOBAL */
+@media (max-width: 768px) {
+  /* Asegurar que el contenedor principal no tenga overflow */
+  #root {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Ajustar TODOS los contenedores principales */
+  .p-p-2,
+  .p-p-3,
+  .p-p-4,
+  .p-p-5 {
+    padding: 0.5rem !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Asegurar que TODAS las tablas no se desborden */
+  .p-datatable {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Ajustar TODOS los Cards para móviles */
+  .p-card {
+    margin: 0 !important;
+    padding: 0.5rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Asegurar que TODOS los grids no se desborden */
+  .p-grid {
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .p-col-12,
+  .p-col-6,
+  .p-col-4,
+  .p-col-3 {
+    padding: 0.25rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Ajustar TODOS los headers de tabla */
+  .p-datatable .p-datatable-header {
+    padding: 0.5rem !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* Asegurar que TODAS las tablas tengan scroll horizontal suave */
+  .p-datatable.p-datatable-scrollable {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ajustar TODOS los contenedores de filtros */
+  .p-surface-100 {
+    margin: 0 !important;
+    padding: 0.5rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Asegurar que TODOS los botones no se desborden */
+  .p-button {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+    white-space: nowrap;
+    max-width: 100% !important;
+  }
+  
+  /* Ajustar TODOS los textos del header */
+  .p-text-xl,
+  .p-text-2xl,
+  .p-text-lg {
+    font-size: 1.25rem !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  
+  /* Asegurar que TODOS los formularios sean responsive */
+  .p-fluid {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Asegurar que TODOS los inputs sean responsive */
+  .p-inputtext,
+  .p-dropdown,
+  .p-calendar {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Asegurar que TODOS los labels sean responsive */
+  .p-block {
+    width: 100% !important;
+    max-width: 100% !important;
+    word-wrap: break-word !important;
+  }
+  
+  /* Asegurar que TODOS los contenedores de botones sean responsive */
+  .p-d-flex {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Asegurar que TODOS los gaps sean más pequeños en móviles */
+  .p-gap-1 {
+    gap: 0.25rem !important;
+  }
+  
+  .p-gap-2 {
+    gap: 0.5rem !important;
+  }
+}
+
+/* Estilos específicos para pantallas muy pequeñas */
+@media (max-width: 480px) {
+  /* Reducir aún más el padding */
+  .p-p-2,
+  .p-p-3,
+  .p-p-4,
+  .p-p-5 {
+    padding: 0.25rem !important;
+  }
+  
+  /* Asegurar que TODAS las tablas sean completamente responsive */
+  .p-datatable {
+    font-size: 0.625rem !important;
+  }
+  
+  /* Ajustar TODAS las columnas para pantallas muy pequeñas */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.25rem !important;
+    font-size: 0.625rem !important;
+    min-width: auto !important;
+    max-width: 100% !important;
+  }
+  
+  /* Hacer que TODOS los filtros ocupen todo el ancho disponible */
+  .p-fluid .p-dropdown,
+  .p-fluid .p-calendar,
+  .p-fluid .p-inputtext {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Asegurar que el contenedor principal no tenga márgenes */
+  #root {
+    padding: 0.25rem !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Asegurar que TODOS los textos sean legibles */
+  .p-text-xs {
+    font-size: 0.625rem !important;
+  }
+  
+  .p-text-sm {
+    font-size: 0.75rem !important;
+  }
+  
+  .p-text-lg {
+    font-size: 1rem !important;
+  }
+  
+  .p-text-xl {
+    font-size: 1.125rem !important;
+  }
+  
+  .p-text-2xl {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* Asegurar que TODAS las tablas tengan scroll horizontal en todos los dispositivos */
+.p-datatable.p-datatable-scrollable .p-datatable-wrapper {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ajustar TODOS los contenedores principales para evitar desbordamiento */
+.p-fluid {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Asegurar que TODOS los elementos tengan box-sizing correcto */
+* {
+  box-sizing: border-box;
+}
+
+/* Asegurar que el body y html no tengan overflow */
+body, html {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}

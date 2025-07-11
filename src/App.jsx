@@ -7,17 +7,52 @@ import CobrosList from "./CobrosList";
 import Reports from "./components/Reports";
 import UserProfile from "./components/UserProfile";
 import PedidosEnviados from "./components/PedidosEnviados";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [loading, setLoading] = useState(true);
 
-  // Verificar si hay un usuario logueado al cargar la app
+  // Verificar autenticación real de Firebase
   useEffect(() => {
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Buscar datos del usuario en Firestore
+          const userRef = doc(db, "usuarios", firebaseUser.email);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            
+            if (userData.role === "admin" || userData.role === "cobrador") {
+              setUser(userData);
+              localStorage.setItem('userData', JSON.stringify(userData));
+            } else {
+              setUser(null);
+              localStorage.removeItem('userData');
+            }
+          } else {
+            setUser(null);
+            localStorage.removeItem('userData');
+          }
+        } catch (error) {
+          console.error("Error al obtener datos del usuario:", error);
+          setUser(null);
+          localStorage.removeItem('userData');
+        }
+      } else {
+        setUser(null);
+        localStorage.removeItem('userData');
+      }
+      
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleLogin = (userData) => {
@@ -26,6 +61,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    auth.signOut();
     localStorage.removeItem('userData');
     setUser(null);
   };
@@ -33,6 +69,24 @@ function App() {
   const handleUserUpdate = (updatedUser) => {
     setUser(updatedUser);
   };
+
+  // Mostrar loading mientras verifica autenticación
+  if (loading) {
+    return (
+      <div style={{ 
+        minHeight: "100vh", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+        backgroundColor: "#f8fafc"
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <i className="pi pi-spin pi-spinner" style={{ fontSize: "3rem", color: "#2563eb" }}></i>
+          <p style={{ marginTop: "1rem", color: "#6b7280" }}>Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Si no hay usuario logueado, mostrar pantalla de login
   if (!user) {

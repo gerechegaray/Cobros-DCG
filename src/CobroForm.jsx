@@ -79,36 +79,29 @@ function CobroForm({ user }) {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "2rem" }}>
+    <div className="p-p-3 p-p-md-4 p-p-lg-5" style={{ maxWidth: "600px", margin: "0 auto" }}>
       <Toast ref={toast} />
       
-      <Card>
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <i className="pi pi-plus-circle" style={{ fontSize: "3rem", color: "#2563eb", marginBottom: "1rem" }}></i>
-          <h2 style={{ margin: 0, color: "#1f2937" }}>Cargar Nuevo Cobro</h2>
-          <p style={{ margin: "0.5rem 0 0 0", color: "#6b7280" }}>
+      <Card className="p-fluid">
+        <div className="p-text-center p-mb-4">
+          <i className="pi pi-plus-circle p-text-4xl p-text-primary" style={{ marginBottom: "1rem" }}></i>
+          <h2 className="p-m-0 p-text-xl p-text-md-2xl" style={{ color: "#1f2937" }}>Cargar Nuevo Cobro</h2>
+          <p className="p-mt-2 p-mb-0 p-text-sm" style={{ color: "#6b7280" }}>
             Completa los datos del cobro realizado
           </p>
           {user.role === "cobrador" && (
-            <div style={{ 
-              marginTop: "1rem", 
-              padding: "0.5rem", 
-              backgroundColor: "#fef3c7", 
-              borderRadius: "4px",
-              fontSize: "0.875rem",
-              color: "#92400e"
-            }}>
-              <i className="pi pi-user" style={{ marginRight: "0.5rem" }}></i>
+            <div className="p-mt-3 p-p-2 p-surface-200 p-border-round p-text-sm" style={{ color: "#92400e" }}>
+              <i className="pi pi-user p-mr-2"></i>
               Cargando como: <strong>{user.name}</strong>
             </div>
           )}
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: "grid", gap: "1.5rem" }}>
+          <div className="p-grid p-fluid">
             {/* Fecha */}
-            <div>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
+            <div className="p-col-12">
+              <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Fecha del Cobro *
               </label>
               <Calendar 
@@ -116,42 +109,42 @@ function CobroForm({ user }) {
                 onChange={(e) => setFecha(e.value)} 
                 dateFormat="dd/mm/yy" 
                 showIcon 
-                style={{ width: "100%" }}
+                className="p-fluid"
                 placeholder="Selecciona la fecha"
               />
             </div>
 
             {/* Cliente */}
-            <div>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
+            <div className="p-col-12">
+              <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Cliente *
               </label>
               <InputText 
                 value={cliente} 
                 onChange={(e) => setCliente(e.target.value)} 
-                style={{ width: "100%" }}
+                className="p-fluid"
                 placeholder="Nombre del cliente"
               />
             </div>
 
             {/* Monto */}
-            <div>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
+            <div className="p-col-12">
+              <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Monto *
               </label>
               <InputText 
                 value={monto} 
                 onChange={(e) => setMonto(e.target.value)} 
                 keyfilter="money" 
-                style={{ width: "100%" }}
+                className="p-fluid"
                 placeholder="0.00"
               />
             </div>
 
             {/* Cobrador - Solo visible para admin */}
             {user.role === "admin" && (
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
+              <div className="p-col-12">
+                <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                   Quién cobró *
                 </label>
                 <Dropdown 
@@ -159,14 +152,14 @@ function CobroForm({ user }) {
                   options={cobradores} 
                   onChange={(e) => setCobrador(e.value)} 
                   placeholder="Selecciona el cobrador"
-                  style={{ width: "100%" }}
+                  className="p-fluid"
                 />
               </div>
             )}
 
             {/* Forma de cobro */}
-            <div>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
+            <div className="p-col-12">
+              <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Forma de cobro *
               </label>
               <Dropdown 
@@ -174,30 +167,35 @@ function CobroForm({ user }) {
                 options={formasDeCobro} 
                 onChange={(e) => setForma(e.value)} 
                 placeholder="Selecciona la forma de cobro"
-                style={{ width: "100%" }}
+                className="p-fluid"
               />
             </div>
 
             {/* Cargado en sistema */}
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Checkbox 
-                checked={cargado} 
-                onChange={(e) => setCargado(e.checked)} 
-                inputId="cargado" 
-              />
-              <label htmlFor="cargado" style={{ color: "#374151" }}>
-                ¿Cargado en el sistema?
-              </label>
+            <div className="p-col-12">
+              <div className="p-d-flex p-ai-center p-gap-2">
+                <Checkbox 
+                  checked={cargado} 
+                  onChange={(e) => setCargado(e.checked)} 
+                  inputId="cargado" 
+                />
+                <label htmlFor="cargado" className="p-text-sm" style={{ color: "#374151" }}>
+                  ¿Cargado en el sistema?
+                </label>
+              </div>
             </div>
 
             {/* Botón submit */}
-            <Button 
-              type="submit" 
-              label={loading ? "Guardando..." : "Guardar Cobro"} 
-              icon={loading ? "pi pi-spin pi-spinner" : "pi pi-save"}
-              style={{ width: "100%", height: "3rem" }}
-              disabled={loading}
-            />
+            <div className="p-col-12">
+              <Button 
+                type="submit" 
+                label={loading ? "Guardando..." : "Guardar Cobro"} 
+                icon={loading ? "pi pi-spin pi-spinner" : "pi pi-save"}
+                className="p-fluid"
+                style={{ height: "3rem" }}
+                disabled={loading}
+              />
+            </div>
           </div>
         </form>
       </Card>

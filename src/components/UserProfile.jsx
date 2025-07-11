@@ -138,228 +138,234 @@ function UserProfile({ user, onUserUpdate }) {
   };
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "2rem" }}>
+    <div className="p-p-3 p-p-md-4 p-p-lg-5" style={{ maxWidth: "800px", margin: "0 auto" }}>
       <Toast ref={toast} />
       
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ margin: 0, color: "#1f2937", fontSize: "2rem" }}>
+      <div className="p-mb-4">
+        <h1 className="p-m-0 p-text-2xl p-text-md-3xl" style={{ color: "#1f2937" }}>
           Mi Perfil
         </h1>
-        <p style={{ margin: "0.5rem 0 0 0", color: "#6b7280" }}>
+        <p className="p-mt-2 p-mb-0 p-text-sm" style={{ color: "#6b7280" }}>
           Gestiona tu información personal y seguridad
         </p>
       </div>
 
-      <div style={{ display: "grid", gap: "2rem" }}>
+      <div className="p-grid p-fluid">
         {/* Información del perfil */}
-        <Card>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h2 style={{ margin: 0, color: "#1f2937", fontSize: "1.5rem" }}>
-              Información Personal
-            </h2>
-            <p style={{ margin: "0.5rem 0 0 0", color: "#6b7280" }}>
-              Actualiza tus datos personales
-            </p>
-          </div>
-
-          <form onSubmit={handleProfileUpdate}>
-            <div style={{ display: "grid", gap: "1.5rem" }}>
-              {/* Nombre */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Nombre completo *
-                </label>
-                <InputText 
-                  value={profileData.name} 
-                  onChange={(e) => setProfileData({...profileData, name: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="Tu nombre completo"
-                  required
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Email
-                </label>
-                <InputText 
-                  value={profileData.email} 
-                  onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="tu@email.com"
-                  type="email"
-                  disabled
-                />
-                <small style={{ color: "#6b7280" }}>
-                  El email no se puede modificar por seguridad
-                </small>
-              </div>
-
-              {/* Teléfono */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Teléfono
-                </label>
-                <InputText 
-                  value={profileData.phone} 
-                  onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="+54 9 11 1234-5678"
-                />
-              </div>
-
-              {/* Dirección */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Dirección
-                </label>
-                <InputText 
-                  value={profileData.address} 
-                  onChange={(e) => setProfileData({...profileData, address: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="Tu dirección"
-                />
-              </div>
-
-              {/* Botón actualizar */}
-              <Button 
-                type="submit" 
-                label={loading ? "Actualizando..." : "Actualizar Perfil"} 
-                icon={loading ? "pi pi-spin pi-spinner" : "pi pi-save"}
-                style={{ width: "100%", height: "3rem" }}
-                disabled={loading}
-              />
+        <div className="p-col-12">
+          <Card>
+            <div className="p-mb-4">
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl" style={{ color: "#1f2937" }}>
+                Información Personal
+              </h2>
+              <p className="p-mt-2 p-mb-0 p-text-sm" style={{ color: "#6b7280" }}>
+                Actualiza tus datos personales
+              </p>
             </div>
-          </form>
-        </Card>
 
-        <Divider />
+            <form onSubmit={handleProfileUpdate}>
+              <div className="p-grid p-fluid">
+                {/* Nombre */}
+                <div className="p-col-12">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Nombre completo *
+                  </label>
+                  <InputText 
+                    value={profileData.name} 
+                    onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                    className="p-fluid"
+                    placeholder="Tu nombre completo"
+                    required
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="p-col-12">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Email
+                  </label>
+                  <InputText 
+                    value={profileData.email} 
+                    onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                    className="p-fluid"
+                    placeholder="tu@email.com"
+                    type="email"
+                    disabled
+                  />
+                  <small className="p-text-xs" style={{ color: "#6b7280" }}>
+                    El email no se puede modificar por seguridad
+                  </small>
+                </div>
+
+                {/* Teléfono */}
+                <div className="p-col-12 p-md-6">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Teléfono
+                  </label>
+                  <InputText 
+                    value={profileData.phone} 
+                    onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                    className="p-fluid"
+                    placeholder="+54 9 11 1234-5678"
+                  />
+                </div>
+
+                {/* Dirección */}
+                <div className="p-col-12 p-md-6">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Dirección
+                  </label>
+                  <InputText 
+                    value={profileData.address} 
+                    onChange={(e) => setProfileData({...profileData, address: e.target.value})}
+                    className="p-fluid"
+                    placeholder="Tu dirección"
+                  />
+                </div>
+
+                {/* Botón actualizar */}
+                <div className="p-col-12">
+                  <Button 
+                    type="submit" 
+                    label={loading ? "Actualizando..." : "Actualizar Perfil"} 
+                    icon={loading ? "pi pi-spin pi-spinner" : "pi pi-save"}
+                    className="p-fluid"
+                    style={{ height: "3rem" }}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            </form>
+          </Card>
+        </div>
+
+        <div className="p-col-12">
+          <Divider />
+        </div>
 
         {/* Cambio de contraseña */}
-        <Card>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h2 style={{ margin: 0, color: "#1f2937", fontSize: "1.5rem" }}>
-              Cambiar Contraseña
-            </h2>
-            <p style={{ margin: "0.5rem 0 0 0", color: "#6b7280" }}>
-              Actualiza tu contraseña de acceso
-            </p>
-          </div>
-
-          <form onSubmit={handlePasswordChange}>
-            <div style={{ display: "grid", gap: "1.5rem" }}>
-              {/* Contraseña actual */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Contraseña actual *
-                </label>
-                <Password 
-                  value={passwordData.currentPassword} 
-                  onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="Tu contraseña actual"
-                  required
-                  feedback={false}
-                  toggleMask
-                />
-              </div>
-
-              {/* Nueva contraseña */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Nueva contraseña *
-                </label>
-                <Password 
-                  value={passwordData.newPassword} 
-                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="Nueva contraseña (mín. 6 caracteres)"
-                  required
-                  feedback={true}
-                  toggleMask
-                />
-              </div>
-
-              {/* Confirmar nueva contraseña */}
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
-                  Confirmar nueva contraseña *
-                </label>
-                <Password 
-                  value={passwordData.confirmPassword} 
-                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                  style={{ width: "100%" }}
-                  placeholder="Confirma tu nueva contraseña"
-                  required
-                  feedback={false}
-                  toggleMask
-                />
-              </div>
-
-              {/* Botón cambiar contraseña */}
-              <Button 
-                type="submit" 
-                label={passwordLoading ? "Cambiando contraseña..." : "Cambiar Contraseña"} 
-                icon={passwordLoading ? "pi pi-spin pi-spinner" : "pi pi-lock"}
-                style={{ width: "100%", height: "3rem" }}
-                disabled={passwordLoading}
-              />
+        <div className="p-col-12">
+          <Card>
+            <div className="p-mb-4">
+              <h2 className="p-m-0 p-text-xl p-text-md-2xl" style={{ color: "#1f2937" }}>
+                Cambiar Contraseña
+              </h2>
+              <p className="p-mt-2 p-mb-0 p-text-sm" style={{ color: "#6b7280" }}>
+                Actualiza tu contraseña de acceso
+              </p>
             </div>
-          </form>
-        </Card>
+
+            <form onSubmit={handlePasswordChange}>
+              <div className="p-grid p-fluid">
+                {/* Contraseña actual */}
+                <div className="p-col-12">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Contraseña actual *
+                  </label>
+                  <Password 
+                    value={passwordData.currentPassword} 
+                    onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                    className="p-fluid"
+                    placeholder="Tu contraseña actual"
+                    required
+                    feedback={false}
+                    toggleMask
+                  />
+                </div>
+
+                {/* Nueva contraseña */}
+                <div className="p-col-12 p-md-6">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Nueva contraseña *
+                  </label>
+                  <Password 
+                    value={passwordData.newPassword} 
+                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                    className="p-fluid"
+                    placeholder="Nueva contraseña (mín. 6 caracteres)"
+                    required
+                    feedback={true}
+                    toggleMask
+                  />
+                </div>
+
+                {/* Confirmar nueva contraseña */}
+                <div className="p-col-12 p-md-6">
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Confirmar nueva contraseña *
+                  </label>
+                  <Password 
+                    value={passwordData.confirmPassword} 
+                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                    className="p-fluid"
+                    placeholder="Confirma tu nueva contraseña"
+                    required
+                    feedback={false}
+                    toggleMask
+                  />
+                </div>
+
+                {/* Botón cambiar contraseña */}
+                <div className="p-col-12">
+                  <Button 
+                    type="submit" 
+                    label={passwordLoading ? "Cambiando contraseña..." : "Cambiar Contraseña"} 
+                    icon={passwordLoading ? "pi pi-spin pi-spinner" : "pi pi-lock"}
+                    className="p-fluid"
+                    style={{ height: "3rem" }}
+                    disabled={passwordLoading}
+                  />
+                </div>
+              </div>
+            </form>
+          </Card>
+        </div>
 
         {/* Información adicional */}
-        <Card>
-          <div style={{ marginBottom: "1rem" }}>
-            <h3 style={{ margin: 0, color: "#1f2937", fontSize: "1.25rem" }}>
-              Información de la cuenta
-            </h3>
-          </div>
-          
-          <div style={{ display: "grid", gap: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: "500", color: "#374151" }}>Rol:</span>
-              <Tag 
-                value={user.role === "admin" ? "Administrador" : "Cobrador"} 
-                severity={user.role === "admin" ? "danger" : "info"}
-              />
+        <div className="p-col-12">
+          <Card>
+            <div className="p-mb-3">
+              <h3 className="p-m-0 p-text-lg p-text-md-xl" style={{ color: "#1f2937" }}>
+                Información de la cuenta
+              </h3>
             </div>
             
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: "500", color: "#374151" }}>Email:</span>
-              <span style={{ color: "#6b7280" }}>{user.email}</span>
+            <div className="p-grid p-fluid">
+              <div className="p-col-12 p-md-6">
+                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
+                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Usuario:</span>
+                  <span className="p-text-sm" style={{ color: "#6b7280" }}>{user.email}</span>
+                </div>
+              </div>
+              <div className="p-col-12 p-md-6">
+                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
+                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Rol:</span>
+                  <Tag 
+                    value={user.role === "admin" ? "Administrador" : "Cobrador"} 
+                    severity={user.role === "admin" ? "danger" : "info"}
+                    className="p-text-xs"
+                  />
+                </div>
+              </div>
+              <div className="p-col-12 p-md-6">
+                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
+                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Estado:</span>
+                  <span className="p-text-sm" style={{ color: "#6b7280" }}>
+                    {user.role === "admin" ? "Acceso completo" : "Acceso limitado"}
+                  </span>
+                </div>
+              </div>
+              <div className="p-col-12 p-md-6">
+                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
+                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Permisos:</span>
+                  <span className="p-text-sm" style={{ color: "#6b7280" }}>
+                    {user.role === "admin" ? "Acceso completo" : "Acceso limitado"}
+                  </span>
+                </div>
+              </div>
             </div>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: "500", color: "#374151" }}>Último acceso:</span>
-              <span style={{ color: "#6b7280" }}>
-                {new Date().toLocaleDateString('es-AR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-            </div>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: "500", color: "#374151" }}>Estado:</span>
-              <Tag 
-                value="Activo" 
-                severity="success"
-              />
-            </div>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: "500", color: "#374151" }}>Permisos:</span>
-              <span style={{ color: "#6b7280" }}>
-                {user.role === "admin" ? "Acceso completo" : "Acceso limitado"}
-              </span>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
