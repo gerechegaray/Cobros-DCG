@@ -83,7 +83,7 @@ function Login({ onLogin }) {
       <Card style={{ width: "400px", maxWidth: "90vw" }}>
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <i className="pi pi-dollar" style={{ fontSize: "3rem", color: "#2563eb", marginBottom: "1rem" }}></i>
-          <h2 style={{ margin: 0, color: "#1f2937" }}>Sistema de Cobranzas</h2>
+          <h2 style={{ margin: 0, color: "#1f2937" }}>Sistema de Gestión</h2>
           <p style={{ margin: "0.5rem 0 0 0", color: "#6b7280" }}>
             Inicia sesión con Google para continuar
           </p>

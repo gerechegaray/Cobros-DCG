@@ -150,22 +150,13 @@ function Alerts({ user, onNavigateToMyCobros }) {
 
       <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
         {user.role === "admin" ? (
-          <>
-            <Button 
-              label="Ver todos los cobros" 
-              icon="pi pi-list" 
-              className="p-button-outlined p-button-danger"
-              size="small"
-              onClick={() => onNavigateToMyCobros && onNavigateToMyCobros("list")}
-            />
-            <Button 
-              label="Ir a lista" 
-              icon="pi pi-arrow-right" 
-              className="p-button-danger"
-              size="small"
-              onClick={() => onNavigateToMyCobros && onNavigateToMyCobros("list")}
-            />
-          </>
+          <Button 
+            label="Ir a lista" 
+            icon="pi pi-arrow-right" 
+            className="p-button-danger"
+            size="small"
+            onClick={() => onNavigateToMyCobros && onNavigateToMyCobros("list")}
+          />
         ) : (
           <Button 
             label="Ver Mis Cobranzas" 

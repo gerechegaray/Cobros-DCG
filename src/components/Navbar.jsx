@@ -45,7 +45,7 @@ function Navbar({ activeTab, setActiveTab, user, onLogout, menuItems }) {
           {/* Logo y título */}
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <i className="pi pi-dollar" style={{ fontSize: "2rem", color: "white" }}></i>
-            <h1 style={{ color: "white", margin: 0, fontSize: "1.5rem" }}>Sistema de Cobranzas</h1>
+            <h1 style={{ color: "white", margin: 0, fontSize: "1.5rem" }}>Sistema de Gestión</h1>
           </div>
 
           {/* Menú desktop */}
@@ -53,7 +53,7 @@ function Navbar({ activeTab, setActiveTab, user, onLogout, menuItems }) {
             {menuItems.map((item) => (
               <Button
                 key={item.value}
-                label={item.label}
+                label={item.label === "Dashboard" ? "Resumen" : item.label}
                 icon={item.icon}
                 className={activeTab === item.value ? "p-button-raised" : "p-button-text"}
                 style={{

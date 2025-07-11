@@ -22,6 +22,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     cobrador: { value: null, matchMode: FilterMatchMode.EQUALS },
     forma: { value: null, matchMode: FilterMatchMode.EQUALS },
     cliente: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    cargado: { value: null, matchMode: FilterMatchMode.EQUALS },
   });
 
   const cobradores = [
@@ -45,6 +46,12 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     { label: "Transferencia", value: "Transferencia" },
     { label: "Cheque", value: "Cheque" },
     { label: "Otro", value: "Otro" },
+  ];
+
+  const estadoCarga = [
+    { label: "Todos", value: null },
+    { label: "Cargados", value: true },
+    { label: "No cargados", value: false },
   ];
 
   useEffect(() => {
@@ -162,6 +169,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
       cobrador: { value: null, matchMode: FilterMatchMode.EQUALS },
       forma: { value: null, matchMode: FilterMatchMode.EQUALS },
       cliente: { value: null, matchMode: FilterMatchMode.CONTAINS },
+      cargado: { value: null, matchMode: FilterMatchMode.EQUALS },
     });
   };
 
@@ -244,6 +252,18 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
               value={filters.cliente.value || ""} 
               onChange={(e) => setFilters({...filters, cliente: {...filters.cliente, value: e.target.value}})}
               placeholder="Buscar por cliente"
+              className="w-full"
+            />
+          </div>
+          <div className="col-12 md:col-6 lg:col-3">
+            <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
+              Estado de carga
+            </label>
+            <Dropdown 
+              value={filters.cargado.value} 
+              options={estadoCarga} 
+              onChange={(e) => setFilters({...filters, cargado: {...filters.cargado, value: e.value}})}
+              placeholder="Selecciona estado"
               className="w-full"
             />
           </div>
