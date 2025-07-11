@@ -20,6 +20,7 @@ import { saveAs } from "file-saver";
 import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
+import { ConfirmDialog } from "primereact/confirmdialog";
 
 function ListaPedidosClientes({ user }) {
   const estados = [
@@ -53,6 +54,7 @@ function ListaPedidosClientes({ user }) {
     condicion: null,
     cobrador: null
   });
+  const [expandedRows, setExpandedRows] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -225,6 +227,34 @@ function ListaPedidosClientes({ user }) {
     </div>
   );
 
+  // Renderiza la tabla interna de ítems
+  const itemsTemplate = (rowData) => {
+    if (Array.isArray(rowData.items) && rowData.items.length > 0) {
+      return (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, background: '#f8fafc', borderRadius: 8, boxShadow: '0 1px 4px #e5e7eb' }}>
+          <thead>
+            <tr style={{ background: '#e0e7ef' }}>
+              <th style={{ textAlign: 'center', padding: 6, borderBottom: '1px solid #cbd5e1', width: 80 }}>Cantidad</th>
+              <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #cbd5e1' }}>Producto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rowData.items.map((item, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={{ padding: 6, textAlign: 'center', fontWeight: 600, color: '#0ea5e9', background: '#f1f5f9' }}>{item.cantidad}</td>
+                <td style={{ padding: 6 }}>{item.producto}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    } else if (rowData.contenido) {
+      return <div style={{ maxWidth: "300px", wordWrap: "break-word" }}>{rowData.contenido}</div>;
+    } else {
+      return <span>-</span>;
+    }
+  };
+
   // Filtrado local
   const pedidosFiltrados = pedidos.filter(p => {
     // Fecha
@@ -246,6 +276,7 @@ function ListaPedidosClientes({ user }) {
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
+      <ConfirmDialog />
       <Card>
         <div className="p-d-flex p-jc-between p-ai-center p-mb-3 p-flex-column p-flex-md-row">
           <h3 className="p-m-0 p-text-lg p-text-md-xl" style={{ color: "#1f2937" }}>Listado de Pedidos de Clientes</h3>
@@ -334,7 +365,11 @@ function ListaPedidosClientes({ user }) {
           className="p-datatable-sm p-fluid"
           style={{ width: '100%' }}
           loading={loading}
+          rowExpansionTemplate={itemsTemplate}
+          expandedRows={expandedRows}
+          onRowToggle={e => setExpandedRows(e.data)}
         >
+          <Column expander style={{ width: '3em' }} />
           <Column 
             field="fecha" 
             header="Fecha" 
@@ -347,9 +382,9 @@ function ListaPedidosClientes({ user }) {
             style={{ wordWrap: "break-word", whiteSpace: "normal" }} 
           />
           <Column 
-            field="contenido" 
-            header="Contenido" 
-            body={contenidoTemplate}
+            field="items" 
+            header="Ítems" 
+            body={() => <span style={{ color: '#6b7280' }}>Ver detalle</span>}
             style={{ wordWrap: "break-word", whiteSpace: "normal" }} 
           />
           <Column 
