@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
-import Login from "./components/Login";
-import Navbar from "./components/Navbar";
-import Dashboard from "./components/Dashboard";
-import CobroForm from "./CobroForm";
-import CobrosList from "./CobrosList";
-import Reports from "./components/Reports";
-import UserProfile from "./components/UserProfile";
-import PedidosEnviados from "./components/PedidosEnviados";
-import CargarPedido from "./components/CargarPedido";
-import ListaPedidosClientes from "./components/ListaPedidosClientes";
-import { auth, db } from "./firebase";
+import Login from "./features/auth/Login";
+import Navbar from "./components/layout/Navbar";
+import Dashboard from "./features/dashboard/Dashboard";
+import CobroForm from "./features/cobros/CobroForm";
+import CobrosList from "./features/cobros/CobrosList";
+import Reports from "./features/dashboard/Reports";
+import UserProfile from "./features/auth/UserProfile";
+
+import CargarPedido from "./features/pedidos/CargarPedido";
+import ListaPedidosClientes from "./features/pedidos/ListaPedidosClientes";
+import PedidosEnviados from "./features/pedidos/PedidosEnviados";
+import {auth, db} from "./services/firebase";
+
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
