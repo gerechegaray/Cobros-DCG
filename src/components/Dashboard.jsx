@@ -26,9 +26,10 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
 
       // Filtrar datos según el rol del usuario
       let filteredData = data;
-      if (user.role === "cobrador") {
-        // Cobradores solo ven sus propios cobros
-        filteredData = data.filter(cobro => cobro.cobrador === user.name);
+      if (user.role === "Santi" || user.role === "Guille") {
+        filteredData = data.filter(cobro => cobro.cobrador === user.role);
+      } else if (user.role === "admin") {
+        filteredData = data;
       }
 
       const totalCobranzas = filteredData.length;
@@ -84,8 +85,10 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   const getDashboardTitle = () => {
     if (user.role === "admin") {
       return "Dashboard General de Cobranzas";
-    } else {
+    } else if (user.role === "Santi" || user.role === "Guille") {
       return `Dashboard de ${user.name}`;
+    } else {
+      return "Dashboard";
     }
   };
 
@@ -98,7 +101,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       {/* Alertas de cobros pendientes */}
       <Alerts user={user} onNavigateToMyCobros={onNavigateToMyCobros} />
 
-      {user.role === "cobrador" && (
+      {(user.role === "Santi" || user.role === "Guille") && (
         <Card className="p-mb-3 p-surface-200" style={{ borderColor: "#f59e0b" }}>
           <div className="p-d-flex p-ai-center p-gap-2">
             <i className="pi pi-info-circle p-text-xl p-text-md-2xl" style={{ color: "#f59e0b" }}></i>

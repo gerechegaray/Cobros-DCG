@@ -94,6 +94,7 @@ function App() {
   }
 
   // Determinar qué pestañas mostrar según el rol
+  const isCobrador = user.role === "cobrador" || user.role === "Santi" || user.role === "Guille";
   const getMenuItems = () => {
     const baseItems = [
       { label: "Dashboard", icon: "pi pi-chart-bar", value: "dashboard" }
@@ -108,7 +109,7 @@ function App() {
         { label: "Reportes", icon: "pi pi-file-pdf", value: "reports" },
         { label: "Mi Perfil", icon: "pi pi-user", value: "profile" }
       ];
-    } else if (user.role === "cobrador") {
+    } else if (isCobrador) {
       return [
         ...baseItems,
         { label: "Cargar Cobro", icon: "pi pi-plus", value: "form" },
@@ -130,7 +131,7 @@ function App() {
       case "list":
         return user.role === "admin" ? <CobrosList user={user} onNavigateToDashboard={() => setActiveTab("dashboard")} /> : null;
       case "my-cobros":
-        return user.role === "cobrador" ? <CobrosList user={user} showOnlyMyCobros={true} onNavigateToDashboard={() => setActiveTab("dashboard")} /> : null;
+        return isCobrador ? <CobrosList user={user} showOnlyMyCobros={true} onNavigateToDashboard={() => setActiveTab("dashboard")} /> : null;
       case "pedidos":
         return <PedidosEnviados user={user} />;
       case "reports":

@@ -49,10 +49,27 @@ function PedidosEnviados({ user }) {
       querySnapshot.forEach((doc) => {
         data.push({ id: doc.id, ...doc.data() });
       });
-      if (user.role !== "admin") {
-        data = data.filter(p => p.cobrador === user.name);
+      
+      console.log("Todos los pedidos cargados:", data.length);
+      console.log("Usuario actual:", user);
+      console.log("Rol del usuario:", user?.role);
+      console.log("Nombre del usuario:", user?.name);
+      
+      // Filtrar según el rol del usuario
+      if (user.role === "admin") {
+        // Admin ve todos los pedidos
+        console.log("Admin - mostrando todos los pedidos");
+        setPedidos(data);
+      } else if (user.role === "Santi" || user.role === "Guille") {
+        // Santi y Guille solo ven sus propios pedidos
+        const filteredData = data.filter(p => p.cobrador === user.role);
+        console.log("Filtrando pedidos por cobrador:", user.role);
+        console.log("Pedidos filtrados:", filteredData.length);
+        setPedidos(filteredData);
+      } else {
+        console.log("Usuario sin rol válido");
+        setPedidos([]);
       }
-      setPedidos(data);
     });
     return () => unsubscribe();
   }, [user]);
@@ -71,6 +88,14 @@ function PedidosEnviados({ user }) {
       toast.current.show({ severity: "error", summary: "Error", detail: error });
       return;
     }
+    
+    console.log("Enviando pedido con datos:", {
+      fecha: form.fecha,
+      cliente: form.cliente,
+      comprobante: form.comprobante,
+      cobrador: user.role === "admin" ? form.cobrador : user.role
+    });
+    
     setLoading(true);
     try {
       if (editing) {
@@ -78,7 +103,7 @@ function PedidosEnviados({ user }) {
           fecha: form.fecha,
           cliente: form.cliente,
           comprobante: form.comprobante,
-          cobrador: user.role === "admin" ? form.cobrador : user.name
+          cobrador: user.role === "admin" ? form.cobrador : user.role
         });
         toast.current.show({ severity: "success", summary: "Editado", detail: "Pedido actualizado" });
         setEditing(null);
@@ -87,12 +112,13 @@ function PedidosEnviados({ user }) {
           fecha: form.fecha,
           cliente: form.cliente,
           comprobante: form.comprobante,
-          cobrador: user.role === "admin" ? form.cobrador : user.name
+          cobrador: user.role === "admin" ? form.cobrador : user.role
         });
         toast.current.show({ severity: "success", summary: "Guardado", detail: "Pedido registrado" });
       }
       setForm({ fecha: null, cliente: "", comprobante: "", cobrador: user.role === "admin" ? null : user.name });
     } catch (err) {
+      console.error("Error al guardar pedido:", err);
       toast.current.show({ severity: "error", summary: "Error", detail: "No se pudo guardar" });
     }
     setLoading(false);

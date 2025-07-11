@@ -20,9 +20,10 @@ function Alerts({ user, onNavigateToMyCobros }) {
       // Filtrar cobros pendientes según el rol del usuario
       let filteredData = data.filter(cobro => !cobro.cargado);
       
-      if (user.role === "cobrador") {
-        // Cobradores solo ven sus propios cobros pendientes
-        filteredData = filteredData.filter(cobro => cobro.cobrador === user.name);
+      if (user.role === "Santi" || user.role === "Guille") {
+        filteredData = filteredData.filter(cobro => cobro.cobrador === user.role);
+      } else if (user.role === "admin") {
+        filteredData = filteredData;
       }
 
       setPendingCobros(filteredData);

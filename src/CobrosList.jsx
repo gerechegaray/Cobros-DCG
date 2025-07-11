@@ -55,9 +55,29 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
         data.push({ id: doc.id, ...doc.data() });
       });
 
+      console.log("Todos los cobros cargados:", data.length);
+      console.log("Usuario actual:", user);
+      console.log("Rol del usuario:", user?.role);
+      console.log("Nombre del usuario:", user?.name);
+
       let filteredData = data;
+      // Filtrar según el rol del usuario
       if (showOnlyMyCobros && user) {
-        filteredData = data.filter(cobro => cobro.cobrador === user.name);
+        if (user.role === "Santi" || user.role === "Guille") {
+          // Santi y Guille solo ven sus propios cobros
+          filteredData = data.filter(cobro => cobro.cobrador === user.role);
+          console.log("Filtrando por cobrador:", user.role);
+          console.log("Cobros filtrados:", filteredData.length);
+        } else if (user.role === "admin") {
+          // Admin ve todos los cobros
+          filteredData = data;
+          console.log("Admin - mostrando todos los cobros");
+        }
+      } else if (user && (user.role === "Santi" || user.role === "Guille")) {
+        // En vista general, Santi y Guille solo ven sus propios cobros
+        filteredData = data.filter(cobro => cobro.cobrador === user.role);
+        console.log("Vista general - filtrando por cobrador:", user.role);
+        console.log("Cobros filtrados:", filteredData.length);
       }
 
       setCobros(filteredData);

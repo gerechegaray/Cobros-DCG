@@ -50,9 +50,17 @@ function Reports({ user }) {
         data.push({ id: doc.id, ...doc.data() });
       });
 
-      const filteredData = user.role === "cobrador"
-        ? data.filter(cobro => cobro.cobrador === user.name)
-        : data;
+      // Filtrar según el rol del usuario
+      let filteredData;
+      if (user.role === "admin") {
+        // Admin ve todos los cobros
+        filteredData = data;
+      } else if (user.role === "Santi" || user.role === "Guille") {
+        // Santi y Guille solo ven sus propios cobros
+        filteredData = data.filter(cobro => cobro.cobrador === user.role);
+      } else {
+        filteredData = [];
+      }
 
       setCobros(filteredData);
       setFilteredCobros(filteredData);

@@ -11,32 +11,40 @@ function Login({ onLogin }) {
   const toast = useRef(null);
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      const userRef = doc(db, "usuarios", user.email);
-      const userSnap = await getDoc(userRef);
-      let userData;
-      if (!userSnap.exists()) {
-        // Crear usuario con rol vacío
-        userData = {
+      console.log("Usuario autenticado:", user.email);
+      
+      // Buscar usuario en Firestore
+      const userDoc = await getDoc(doc(db, "usuarios", user.email));
+      
+      if (!userDoc.exists()) {
+        console.log("Usuario no existe en Firestore, creando...");
+        // Crear nuevo usuario con rol vacío
+        await setDoc(doc(db, "usuarios", user.email), {
           email: user.email,
-          name: user.displayName || user.email,
-          role: ""
-        };
-        await setDoc(userRef, userData);
+          name: user.displayName,
+          role: null
+        });
         toast.current.show({
           severity: "warn",
           summary: "Pendiente de autorización",
-          detail: "Tu usuario fue registrado. Espera a que un administrador te asigne un rol."
+          detail: "Tu cuenta está pendiente de autorización. Contacta al administrador."
         });
-        setLoading(false);
-        return;
       } else {
-        userData = userSnap.data();
-        if (userData.role === "admin" || userData.role === "cobrador") {
+        const userData = userDoc.data();
+        const role = userData.role;
+        
+        console.log("Usuario encontrado en Firestore:", userData);
+        console.log("Rol del usuario:", role);
+        
+        // Validar roles permitidos
+        const validRoles = ["admin", "Santi", "Guille"];
+        
+        if (role && validRoles.includes(role)) {
+          console.log("Rol válido, iniciando sesión...");
           localStorage.setItem('userData', JSON.stringify(userData));
           toast.current.show({
             severity: 'success',
@@ -45,24 +53,22 @@ function Login({ onLogin }) {
           });
           onLogin(userData);
         } else {
+          console.log("Rol no válido:", role);
           toast.current.show({
             severity: "warn",
             summary: "Pendiente de autorización",
-            detail: "Tu usuario está pendiente de autorización. Espera a que un administrador te asigne un rol."
+            detail: "Tu cuenta está pendiente de autorización. Contacta al administrador."
           });
         }
-        setLoading(false);
-        return;
       }
     } catch (error) {
       console.error("Error en login:", error);
       toast.current.show({
         severity: "error",
         summary: "Error",
-        detail: "No se pudo iniciar sesión"
+        detail: "Error al iniciar sesión. Intenta nuevamente."
       });
     }
-    setLoading(false);
   };
 
   return (
