@@ -131,6 +131,8 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     }
   };
 
+  console.log(user);
+  
   // Template para el estado cargado con botones de edición
   const cargadoTemplate = (rowData) => (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
