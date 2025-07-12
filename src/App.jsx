@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./features/auth/Login";
 import Navbar from "./components/layout/Navbar";
 import Dashboard from "./features/dashboard/Dashboard";
@@ -6,53 +7,50 @@ import CobroForm from "./features/cobros/CobroForm";
 import CobrosList from "./features/cobros/CobrosList";
 import Reports from "./features/dashboard/Reports";
 import UserProfile from "./features/auth/UserProfile";
-
 import CargarPedido from "./features/pedidos/CargarPedido";
 import ListaPedidosClientes from "./features/pedidos/ListaPedidosClientes";
 import PedidosEnviados from "./features/pedidos/PedidosEnviados";
-import {auth, db} from "./services/firebase";
-
+import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
 
-  // Verificar autenticación real de Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Buscar datos del usuario en Firestore
           const userRef = doc(db, "usuarios", firebaseUser.email);
           const userSnap = await getDoc(userRef);
-          
+
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            
-            if (userData.role === "admin" || userData.role === "cobrador") {
+            if (
+              userData.role === "admin" ||
+              userData.role === "cobrador" ||
+              ["Santi", "Guille"].includes(userData.role)
+            ) {
               setUser(userData);
-              localStorage.setItem('userData', JSON.stringify(userData));
+              localStorage.setItem("userData", JSON.stringify(userData));
             } else {
               setUser(null);
-              localStorage.removeItem('userData');
+              localStorage.removeItem("userData");
             }
           } else {
             setUser(null);
-            localStorage.removeItem('userData');
+            localStorage.removeItem("userData");
           }
         } catch (error) {
           console.error("Error al obtener datos del usuario:", error);
           setUser(null);
-          localStorage.removeItem('userData');
+          localStorage.removeItem("userData");
         }
       } else {
         setUser(null);
-        localStorage.removeItem('userData');
+        localStorage.removeItem("userData");
       }
-      
       setLoading(false);
     });
 
@@ -61,12 +59,11 @@ function App() {
 
   const handleLogin = (userData) => {
     setUser(userData);
-    setActiveTab("dashboard");
   };
 
   const handleLogout = () => {
     auth.signOut();
-    localStorage.removeItem('userData');
+    localStorage.removeItem("userData");
     setUser(null);
   };
 
@@ -74,16 +71,48 @@ function App() {
     setUser(updatedUser);
   };
 
-  // Mostrar loading mientras verifica autenticación
+  const isCobrador = user?.role === "cobrador" || ["Santi", "Guille"].includes(user?.role);
+
+  const getMenuItems = () => {
+    const baseItems = [{ label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" }];
+
+    if (user?.role === "admin") {
+      return [
+        ...baseItems,
+        { label: "Cargar Cobro", icon: "pi pi-plus", path: "/form" },
+        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", path: "/cargar-pedido" },
+        { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
+        { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
+        { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
+        { label: "Reportes", icon: "pi pi-file-pdf", path: "/reports" },
+        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
+      ];
+    } else if (isCobrador) {
+      return [
+        ...baseItems,
+        { label: "Cargar Cobro", icon: "pi pi-plus", path: "/form" },
+        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", path: "/cargar-pedido" },
+        { label: "Mis Cobranzas", icon: "pi pi-list", path: "/my-cobros" },
+        { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
+        { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
+        { label: "Reportes", icon: "pi pi-file-pdf", path: "/reports" },
+        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
+      ];
+    }
+    return baseItems;
+  };
+
   if (loading) {
     return (
-      <div style={{ 
-        minHeight: "100vh", 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "center",
-        backgroundColor: "#f8fafc"
-      }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#f8fafc"
+        }}
+      >
         <div style={{ textAlign: "center" }}>
           <i className="pi pi-spin pi-spinner" style={{ fontSize: "3rem", color: "#2563eb" }}></i>
           <p style={{ marginTop: "1rem", color: "#6b7280" }}>Cargando...</p>
@@ -92,82 +121,52 @@ function App() {
     );
   }
 
-  // Si no hay usuario logueado, mostrar pantalla de login
   if (!user) {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Determinar qué pestañas mostrar según el rol
-  const isCobrador = user.role === "cobrador" || user.role === "Santi" || user.role === "Guille";
-  const getMenuItems = () => {
-    const baseItems = [
-      { label: "Dashboard", icon: "pi pi-chart-bar", value: "dashboard" }
-    ];
-
-    if (user.role === "admin") {
-      return [
-        ...baseItems,
-        { label: "Cargar Cobro", icon: "pi pi-plus", value: "form" },
-        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", value: "cargar-pedido" },
-        { label: "Lista de Cobranzas", icon: "pi pi-list", value: "list" },
-        { label: "Lista de Pedidos", icon: "pi pi-list", value: "lista-pedidos" },
-        { label: "Pedidos Enviados", icon: "pi pi-send", value: "pedidos" },
-        { label: "Reportes", icon: "pi pi-file-pdf", value: "reports" },
-        { label: "Mi Perfil", icon: "pi pi-user", value: "profile" }
-      ];
-    } else if (isCobrador) {
-      return [
-        ...baseItems,
-        { label: "Cargar Cobro", icon: "pi pi-plus", value: "form" },
-        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", value: "cargar-pedido" },
-        { label: "Mis Cobranzas", icon: "pi pi-list", value: "my-cobros" },
-        { label: "Lista de Pedidos", icon: "pi pi-list", value: "lista-pedidos" },
-        { label: "Pedidos Enviados", icon: "pi pi-send", value: "pedidos" },
-        { label: "Reportes", icon: "pi pi-file-pdf", value: "reports" },
-        { label: "Mi Perfil", icon: "pi pi-user", value: "profile" }
-      ];
-    }
-    return baseItems;
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case "dashboard":
-        return <Dashboard user={user} onNavigateToCobros={() => setActiveTab("my-cobros")} onNavigateToMyCobros={(tab) => setActiveTab(tab)} />;
-      case "form":
-        return <CobroForm user={user} />;
-      case "cargar-pedido":
-        return <CargarPedido user={user} />;
-      case "lista-pedidos":
-        return <ListaPedidosClientes user={user} />;
-      case "list":
-        return user.role === "admin" ? <CobrosList user={user} onNavigateToDashboard={() => setActiveTab("dashboard")} /> : null;
-      case "my-cobros":
-        return isCobrador ? <CobrosList user={user} showOnlyMyCobros={true} onNavigateToDashboard={() => setActiveTab("dashboard")} /> : null;
-      case "pedidos":
-        return <PedidosEnviados user={user} />;
-      case "reports":
-        return <Reports user={user} />;
-      case "profile":
-        return <UserProfile user={user} onUserUpdate={handleUserUpdate} />;
-      default:
-        return <Dashboard user={user} onNavigateToCobros={() => setActiveTab("my-cobros")} onNavigateToMyCobros={(tab) => setActiveTab(tab)} />;
-    }
-  };
-
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
-      <Navbar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        user={user}
-        onLogout={handleLogout}
-        menuItems={getMenuItems()}
-      />
-      <main style={{ paddingTop: "1rem" }}>
-        {renderContent()}
-      </main>
-    </div>
+    <Router>
+      <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
+        <Navbar user={user} onLogout={handleLogout} menuItems={getMenuItems()} />
+        <main style={{ paddingTop: "1rem" }}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/dashboard" element={<Dashboard user={user} />} />
+            <Route path="/form" element={<CobroForm user={user} />} />
+            <Route
+              path="/cargar-pedido"
+              element={user?.role ? <CargarPedido user={user} /> : <Navigate to="/dashboard" />}
+            />
+
+            <Route path="/lista-pedidos" element={<ListaPedidosClientes user={user} />} />
+            <Route
+              path="/list"
+              element={
+                user.role === "admin" ? <CobrosList user={user} /> : <Navigate to="/dashboard" />
+              }
+            />
+            <Route
+              path="/my-cobros"
+              element={
+                isCobrador ? (
+                  <CobrosList user={user} showOnlyMyCobros />
+                ) : (
+                  <Navigate to="/dashboard" />
+                )
+              }
+            />
+            <Route path="/pedidos" element={<PedidosEnviados user={user} />} />
+            <Route path="/reports" element={<Reports user={user} />} />
+            <Route
+              path="/profile"
+              element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />}
+            />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
   );
 }
 
