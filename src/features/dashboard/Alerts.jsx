@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { db, auth } from "../../services/firebase";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { Card } from "primereact/card";
@@ -6,6 +7,7 @@ import { Button } from "primereact/button";
 import { Badge } from "primereact/badge";
 
 function Alerts({ user, onNavigateToMyCobros }) {
+  const navigate = useNavigate();
   const [pendingCobros, setPendingCobros] = useState([]);
   const [totalPending, setTotalPending] = useState(0);
 
@@ -151,11 +153,11 @@ function Alerts({ user, onNavigateToMyCobros }) {
       <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
         {user.role === "admin" ? (
           <Button 
-            label="Ir a lista" 
+            label="Ir a lista de cobranzas" 
             icon="pi pi-arrow-right" 
             className="p-button-danger"
             size="small"
-            onClick={() => onNavigateToMyCobros && onNavigateToMyCobros("list")}
+            onClick={() => navigate("/list")}
           />
         ) : (
           <Button 
@@ -163,7 +165,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
             icon="pi pi-list" 
             className="p-button-danger"
             size="small"
-            onClick={() => onNavigateToMyCobros && onNavigateToMyCobros("my-cobros")}
+            onClick={() => navigate("/list")}
           />
         )}
       </div>
