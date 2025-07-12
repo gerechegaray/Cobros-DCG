@@ -41,7 +41,8 @@ function CargarPedido({ user }) {
   useEffect(() => {
     const fetchProductos = async () => {
       try {
-        const response = await fetch(`http://localhost:3001/api/items?role=${user.role}`);
+        const response = await fetch(`https://cobros-dcg.onrender.com/api/items?role=${user.role}`);
+
         if (!response.ok) throw new Error("Error al obtener productos");
         const data = await response.json();
         const options = data.map((item) => ({
