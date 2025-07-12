@@ -143,7 +143,9 @@ function App() {
             <Route
               path="/list"
               element={
-                user.role === "admin" ? <CobrosList user={user} /> : <Navigate to="/dashboard" />
+                user.role === "admin" || user.role === "Santi" || user.role === "Guille"
+                  ? <CobrosList user={user} showOnlyMyCobros={user.role === "Santi" || user.role === "Guille"} />
+                  : <Navigate to="/dashboard" />
               }
             />
             <Route
