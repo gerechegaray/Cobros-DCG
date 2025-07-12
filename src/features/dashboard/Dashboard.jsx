@@ -134,152 +134,60 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   };
 
   return (
-    <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
-      <h2 className="p-text-center p-mb-3 p-text-lg p-text-md-xl p-text-lg-2xl" style={{ color: "#1f2937", wordWrap: "break-word" }}>
+    <div className="p-p-1 p-p-md-2 p-p-lg-3" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
+      <h2 className="p-text-center p-mb-2 p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word" }}>
         {getDashboardTitle()}
       </h2>
 
       {/* Alertas de cobros pendientes */}
       <Alerts user={user} onNavigateToMyCobros={onNavigateToMyCobros} />
 
-      {/* Vista para admin */}
-      {user.role === "admin" && (
-        <div className="p-grid p-fluid">
-          {/* Monto Total */}
-          <div className="p-col-12 p-md-6 p-lg-3">
-            <Card className="p-text-center">
-              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                <i className="pi pi-dollar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#059669" }}></i>
-                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Monto Total
-                </h3>
-              </div>
-              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#059669" }}>{formatCurrency(stats.totalMonto)}</h2>
-            </Card>
-          </div>
+      {/* Grupo de Cobranzas */}
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+        <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Cobranzas</h3>
+        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12 }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+              <span className="p-d-flex p-ai-center"><i className="pi pi-dollar p-mr-2" style={{ color: '#059669', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Monto Total</span></span>
+              <span style={{ color: '#059669', fontWeight: 600 }}>{formatCurrency(stats.totalMonto)}</span>
+            </li>
+            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+              <span className="p-d-flex p-ai-center"><i className="pi pi-calendar p-mr-2" style={{ color: '#7c3aed', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobrado este Mes</span></span>
+              <span style={{ color: '#7c3aed', fontWeight: 600 }}>{formatCurrency(stats.montoMes)}</span>
+            </li>
+            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+              <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobrado esta Semana</span></span>
+              <span style={{ color: '#f59e0b', fontWeight: 600 }}>{formatCurrency(stats.montoSemana)}</span>
+            </li>
+            {pendientesAdmin > 0 && (
+              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-exclamation-triangle p-mr-2" style={{ color: '#ef4444', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobro no cargado en Flexxus</span></span>
+                <span style={{ color: '#ef4444', fontWeight: 600 }}>{pendientesAdmin}</span>
+              </li>
+            )}
+          </ul>
+        </Card>
+      </div>
 
-          {/* Cobrado este Mes */}
-          <div className="p-col-12 p-md-6 p-lg-3">
-            <Card className="p-text-center">
-              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                <i className="pi pi-calendar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#7c3aed" }}></i>
-                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Cobrado este Mes
-                </h3>
-              </div>
-              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#7c3aed" }}>{formatCurrency(stats.montoMes)}</h2>
-            </Card>
-          </div>
-
-          {/* Cobrado esta Semana */}
-          <div className="p-col-12 p-md-6 p-lg-3">
-            <Card className="p-text-center">
-              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
-                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Cobrado esta Semana
-                </h3>
-              </div>
-              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{formatCurrency(stats.montoSemana)}</h2>
-            </Card>
-          </div>
-
-          {/* Pendientes solo si hay */}
-          {pendientesAdmin > 0 && (
-            <div className="p-col-12 p-md-6 p-lg-3">
-              <Card className="p-text-center">
-                <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                  <i className="pi pi-exclamation-triangle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#ef4444" }}></i>
-                  <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                    Cobro no cargado en Flexxus
-                  </h3>
-                </div>
-                <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#ef4444" }}>{pendientesAdmin}</h2>
-              </Card>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Vista para Santi y Guille */}
-      {(user.role === "Santi" || user.role === "Guille") ? (
-        <div className="p-grid p-fluid">
-          {/* Total cobrado en el mes */}
-          <div className="p-col-12 p-md-6 p-lg-3">
-            <Card className="p-text-center">
-              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                <i className="pi pi-calendar p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#7c3aed" }}></i>
-                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Total cobrado en el mes
-                </h3>
-              </div>
-              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#7c3aed" }}>{formatCurrency(stats.montoMes)}</h2>
-            </Card>
-          </div>
-
-          {/* Total cobrado en la semana */}
-          <div className="p-col-12 p-md-6 p-lg-3">
-            <Card className="p-text-center">
-              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
-                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Total cobrado en la semana
-                </h3>
-              </div>
-              <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{formatCurrency(stats.montoSemana)}</h2>
-            </Card>
-          </div>
-
-          {/* Pendientes de carga */}
-          <div className="p-col-12 p-md-6 p-lg-3">
-            <Card className="p-text-center">
-              <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-                <i className="pi pi-exclamation-triangle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#ef4444" }}></i>
-                <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                  Cobro no cargado en Flexxus
-                </h3>
-              </div>
-              <h2 className="p-m-0 p-text-2xl p-text-md-3xl p-text-lg-4xl" style={{ color: "#ef4444" }}>{pendientes}</h2>
-            </Card>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Bloques de resumen de pedidos de clientes */}
-      <div className="p-grid p-fluid p-mt-2">
-        <div className="p-col-12 p-md-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-shopping-cart p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#0ea5e9" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                Pedidos de Clientes
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#0ea5e9" }}>{pedidosStats.total}</h2>
-          </Card>
-        </div>
-        <div className="p-col-12 p-md-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-clock p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#f59e0b" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                Pedidos Pendientes
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#f59e0b" }}>{pedidosStats.pendientes}</h2>
-          </Card>
-        </div>
-        <div className="p-col-12 p-md-4">
-          <Card className="p-text-center">
-            <div className="p-d-flex p-ai-center p-jc-center p-mb-2">
-              <i className="pi pi-check-circle p-text-xl p-text-md-2xl p-mr-1 p-mr-md-2" style={{ color: "#22c55e" }}></i>
-              <h3 className="p-m-0 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-                Pedidos Recibidos
-              </h3>
-            </div>
-            <h2 className="p-m-0 p-text-xl p-text-md-2xl p-text-lg-3xl" style={{ color: "#22c55e" }}>{pedidosStats.recibidos}</h2>
-          </Card>
-        </div>
+      {/* Grupo de Pedidos */}
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+        <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Pedidos</h3>
+        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12 }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+              <span className="p-d-flex p-ai-center"><i className="pi pi-shopping-cart p-mr-2" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos de Clientes</span></span>
+              <span style={{ color: '#0ea5e9', fontWeight: 600 }}>{pedidosStats.total}</span>
+            </li>
+            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+              <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos Pendientes</span></span>
+              <span style={{ color: '#f59e0b', fontWeight: 600 }}>{pedidosStats.pendientes}</span>
+            </li>
+            <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
+              <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos Recibidos</span></span>
+              <span style={{ color: '#22c55e', fontWeight: 600 }}>{pedidosStats.recibidos}</span>
+            </li>
+          </ul>
+        </Card>
       </div>
 
       {/* Progreso de carga en sistema */}
