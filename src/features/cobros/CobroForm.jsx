@@ -100,7 +100,7 @@ function CobroForm({ user }) {
         <form onSubmit={handleSubmit}>
           <div className="p-grid p-fluid">
             {/* Fecha */}
-            <div className="p-col-12">
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Fecha del Cobro *
               </label>
@@ -115,7 +115,7 @@ function CobroForm({ user }) {
             </div>
 
             {/* Cliente */}
-            <div className="p-col-12">
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Cliente *
               </label>
@@ -128,7 +128,7 @@ function CobroForm({ user }) {
             </div>
 
             {/* Monto */}
-            <div className="p-col-12">
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Monto *
               </label>
@@ -143,7 +143,7 @@ function CobroForm({ user }) {
 
             {/* Cobrador - Solo visible para admin */}
             {user.role === "admin" && (
-              <div className="p-col-12">
+              <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
                 <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                   Quién cobró *
                 </label>
@@ -158,7 +158,7 @@ function CobroForm({ user }) {
             )}
 
             {/* Forma de cobro */}
-            <div className="p-col-12">
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Forma de cobro *
               </label>
@@ -172,7 +172,7 @@ function CobroForm({ user }) {
             </div>
 
             {/* Cargado en sistema */}
-            <div className="p-col-12">
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
               <div className="p-d-flex p-ai-center p-gap-2">
                 <Checkbox 
                   checked={cargado} 
@@ -186,7 +186,7 @@ function CobroForm({ user }) {
             </div>
 
             {/* Botón submit */}
-            <div className="p-col-12">
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
               <Button 
                 type="submit" 
                 label={loading ? "Guardando..." : "Guardar Cobro"} 
