@@ -11,6 +11,7 @@ import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { FilterMatchMode } from "primereact/api";
 import { Toast } from "primereact/toast";
+import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 
 function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const [cobros, setCobros] = useState([]);
@@ -144,18 +145,50 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   };
 
   const cargadoTemplate = (rowData) => (
-    <div className="flex align-items-center gap-2">
+    <div className="flex align-items-center gap-3" style={{ minWidth: 120 }}>
       <Tag 
         value={rowData.cargado ? "Sí" : "No"} 
         severity={rowData.cargado ? "success" : "danger"} 
+        style={{
+          fontSize: '1.1rem',
+          fontWeight: 700,
+          padding: '0.5rem 1.2rem',
+          borderRadius: 12,
+          minWidth: 48,
+          textAlign: 'center'
+        }}
       />
       {user?.role === "admin" && (
         <Button
           icon={rowData.cargado ? "pi pi-times" : "pi pi-check"}
-          className={rowData.cargado ? "p-button-danger p-button-sm" : "p-button-success p-button-sm"}
+          className={rowData.cargado ? "p-button-rounded p-button-text p-button-danger p-button-sm" : "p-button-rounded p-button-text p-button-success p-button-sm"}
+          style={{
+            width: 36,
+            height: 36,
+            minWidth: 36,
+            minHeight: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.2rem',
+            boxShadow: 'none',
+            border: 'none',
+            marginLeft: 8
+          }}
           size="small"
           loading={updatingId === rowData.id}
-          onClick={() => updateCargadoStatus(rowData.id, !rowData.cargado)}
+          onClick={() => {
+            if (rowData.cargado) {
+              confirmDialog({
+                message: '¿Seguro que deseas marcar este cobro como NO cargado?',
+                header: 'Confirmar cambio de estado',
+                icon: 'pi pi-exclamation-triangle',
+                accept: () => updateCargadoStatus(rowData.id, false)
+              });
+            } else {
+              updateCargadoStatus(rowData.id, true);
+            }
+          }}
           tooltip={rowData.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
           tooltipOptions={{ position: "top" }}
         />
@@ -275,6 +308,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   return (
     <div className="p-2 px-3 md:p-3 lg:p-4" style={{ width: "100%", margin: "0 auto", boxSizing: "border-box", overflowX: "auto" }}>
       <Toast ref={toast} />
+      <ConfirmDialog />
       <Card className="p-fluid" style={{ overflowX: "auto", width: "100%" }}>
         {/* Vista tipo cards para mobile */}
         <div className="cobros-cards-mobile" style={{ display: 'none' }}>
@@ -294,26 +328,60 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
               fontSize: '0.98rem',
               wordBreak: 'break-word'
             }}>
-              <div><b>Fecha:</b> {formatFecha(cobro)}</div>
-              <div><b>Cliente:</b> {cobro.cliente}</div>
-              <div><b>Monto:</b> {formatMonto(cobro)}</div>
-              <div><b>Quién cobró:</b> {cobro.cobrador}</div>
-              <div><b>Forma de cobro:</b> {cobro.forma}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <b>¿Cargado en el sistema?</b>
-                <Tag value={cobro.cargado ? "Sí" : "No"} severity={cobro.cargado ? "success" : "danger"} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <Tag
+                  value={cobro.cargado ? "Sí" : "No"}
+                  severity={cobro.cargado ? "success" : "danger"}
+                  style={{
+                    fontSize: '1.1rem',
+                    fontWeight: 700,
+                    padding: '0.5rem 1.2rem',
+                    borderRadius: 12,
+                    minWidth: 48,
+                    textAlign: 'center'
+                  }}
+                />
                 {user?.role === "admin" && (
                   <Button
                     icon={cobro.cargado ? "pi pi-times" : "pi pi-check"}
-                    className={cobro.cargado ? "p-button-danger p-button-sm" : "p-button-success p-button-sm"}
+                    className={cobro.cargado ? "p-button-rounded p-button-text p-button-danger p-button-sm" : "p-button-rounded p-button-text p-button-success p-button-sm"}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      minWidth: 36,
+                      minHeight: 36,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                      boxShadow: 'none',
+                      border: 'none',
+                      marginLeft: 8
+                    }}
                     size="small"
                     loading={updatingId === cobro.id}
-                    onClick={() => updateCargadoStatus(cobro.id, !cobro.cargado)}
+                    onClick={() => {
+                      if (cobro.cargado) {
+                        confirmDialog({
+                          message: '¿Seguro que deseas marcar este cobro como NO cargado?',
+                          header: 'Confirmar cambio de estado',
+                          icon: 'pi pi-exclamation-triangle',
+                          accept: () => updateCargadoStatus(cobro.id, false)
+                        });
+                      } else {
+                        updateCargadoStatus(cobro.id, true);
+                      }
+                    }}
                     tooltip={cobro.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
                     tooltipOptions={{ position: "top" }}
                   />
                 )}
               </div>
+              <div><b>Fecha:</b> {formatFecha(cobro)}</div>
+              <div><b>Cliente:</b> {cobro.cliente}</div>
+              <div><b>Monto:</b> {formatMonto(cobro)}</div>
+              <div><b>Quién cobró:</b> {cobro.cobrador}</div>
+              <div><b>Forma de cobro:</b> {cobro.forma}</div>
             </div>
           ))}
         </div>
