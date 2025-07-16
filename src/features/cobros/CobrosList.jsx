@@ -13,7 +13,6 @@ import { FilterMatchMode } from "primereact/api";
 import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Panel } from "primereact/panel";
-import flexxusApi from "../../services/flexxusApi";
 
 function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const [cobros, setCobros] = useState([]);
