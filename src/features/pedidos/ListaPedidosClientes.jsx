@@ -55,6 +55,8 @@ function ListaPedidosClientes({ user }) {
     cobrador: null
   });
   const [expandedRows, setExpandedRows] = useState(null);
+  // Estado para controlar qué card está expandida en mobile
+  const [expandedCardId, setExpandedCardId] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -624,7 +626,8 @@ function ListaPedidosClientes({ user }) {
                 flexDirection: 'column',
                 gap: 8,
                 fontSize: '0.98rem',
-                wordBreak: 'break-word'
+                wordBreak: 'break-word',
+                position: 'relative'
               }}>
                 <div><b>Fecha:</b> {formatFecha(pedido.fecha)}</div>
                 <div><b>Cliente:</b> {pedido.cliente}</div>
@@ -632,15 +635,59 @@ function ListaPedidosClientes({ user }) {
                 <div><b>Estado:</b> <Tag value={pedido.estadoRecepcion} severity={pedido.estadoRecepcion === 'recibido' ? 'success' : pedido.estadoRecepcion === 'enviado' ? 'info' : 'warning'} /></div>
                 <div><b>Observaciones:</b> {pedido.observaciones || '-'}</div>
                 <div><b>Registrado por:</b> {pedido.cobrador}</div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <Button icon="pi pi-eye" className="p-button-info p-button-sm" label="Ver detalle" onClick={() => setExpandedRows({ [pedido.id]: true })} />
+                {/* Botones mejorados */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <Button 
+                    icon={expandedCardId === pedido.id ? "pi pi-chevron-up" : "pi pi-eye"}
+                    className="p-button-rounded p-button-info p-button-sm"
+                    style={{ minWidth: 40, padding: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}
+                    label={expandedCardId === pedido.id ? "Ocultar" : "Ver detalle"}
+                    onClick={() => setExpandedCardId(expandedCardId === pedido.id ? null : pedido.id)}
+                  />
                   {user.role === 'admin' && (
-                    <Button icon="pi pi-trash" className="p-button-danger p-button-sm" label="Eliminar" onClick={() => handleDelete(pedido)} />
+                    <Button 
+                      icon="pi pi-trash" 
+                      className="p-button-rounded p-button-danger p-button-sm"
+                      style={{ minWidth: 40, padding: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}
+                      label="Eliminar"
+                      onClick={() => handleDelete(pedido)} 
+                    />
                   )}
                   {user.role === 'admin' && pedido.estadoRecepcion !== 'recibido' && (
-                    <Button icon="pi pi-check" className="p-button-success p-button-sm" label="Marcar recibido" onClick={() => updateEstadoRecepcion(pedido.id, 'recibido')} />
+                    <Button 
+                      icon="pi pi-check" 
+                      className="p-button-rounded p-button-success p-button-sm"
+                      style={{ minWidth: 40, padding: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}
+                      label="Marcar recibido"
+                      onClick={() => updateEstadoRecepcion(pedido.id, 'recibido')} 
+                    />
                   )}
                 </div>
+                {/* Acordeón de detalle de productos */}
+                {expandedCardId === pedido.id && (
+                  <div style={{
+                    background: '#f1f5f9',
+                    borderRadius: 8,
+                    marginTop: 10,
+                    padding: '0.7rem 0.8rem',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                    fontSize: '0.95rem',
+                    color: '#374151'
+                  }}>
+                    <b>Productos:</b>
+                    <ul style={{ margin: '0.5rem 0 0 0.5rem', padding: 0 }}>
+                      {pedido.items && Array.isArray(pedido.items) && pedido.items.length > 0 ? (
+                        pedido.items.map((item, idx) => (
+                          <li key={idx} style={{ marginBottom: 4 }}>
+                            {item.producto ? <b>{item.producto}</b> : null} {item.cantidad ? `x${item.cantidad}` : ''} {item.observaciones ? `- ${item.observaciones}` : ''}
+                          </li>
+                        ))
+                      ) : (
+                        <li>No hay productos cargados.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
               </div>
             ))}
           </div>
