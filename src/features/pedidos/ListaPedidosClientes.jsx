@@ -206,31 +206,7 @@ function ListaPedidosClientes({ user }) {
             fontWeight: "600"
           }}
         />
-        {user?.role === "admin" && (
-          <Button
-            icon="pi pi-refresh"
-            className="p-button-text p-button-sm"
-            size="small"
-            loading={updatingId === rowData.id}
-            onClick={() => {
-              const newEstado =
-                rowData.estadoRecepcion === "pendiente"
-                  ? "recibido"
-                  : rowData.estadoRecepcion === "recibido"
-                    ? "enviado"
-                    : "pendiente";
-              updateEstadoRecepcion(rowData.id, newEstado);
-            }}
-            tooltip="Cambiar estado"
-            tooltipOptions={{ position: "top" }}
-            style={{
-              color: "#6366f1",
-              borderRadius: "50%",
-              width: "2rem",
-              height: "2rem"
-            }}
-          />
-        )}
+        {/* Eliminar el botón guía de cambiar estado (pi pi-refresh) */}
       </div>
     );
   };
@@ -279,20 +255,61 @@ function ListaPedidosClientes({ user }) {
   const accionesTemplate = (rowData) => (
     <div className="flex gap-1 justify-content-center">
       {user?.role === "admin" && (
-        <Button
-          icon="pi pi-trash"
-          className="p-button-text p-button-sm"
-          size="small"
-          onClick={() => handleDelete(rowData)}
-          tooltip="Eliminar pedido"
-          tooltipOptions={{ position: "top" }}
-          style={{
-            color: "#ef4444",
-            borderRadius: "50%",
-            width: "2rem",
-            height: "2rem"
-          }}
-        />
+        <>
+          <Button
+            icon="pi pi-trash"
+            className="p-button-text p-button-sm"
+            size="small"
+            onClick={() => handleDelete(rowData)}
+            tooltip="Eliminar pedido"
+            tooltipOptions={{ position: "top" }}
+            style={{
+              color: "#ef4444",
+              borderRadius: "50%",
+              width: "2rem",
+              height: "2rem"
+            }}
+          />
+          {/* Solo dejar el botón secuencial de cambio de estado, eliminar cualquier otro botón de cursar o cambio de estado anterior */}
+          <Button
+            label={
+              rowData.estadoRecepcion === 'pendiente'
+                ? 'Marcar recibido'
+                : rowData.estadoRecepcion === 'recibido'
+                ? 'Marcar enviado'
+                : 'Volver a pendiente'
+            }
+            icon={
+              rowData.estadoRecepcion === 'pendiente'
+                ? 'pi pi-check'
+                : rowData.estadoRecepcion === 'recibido'
+                ? 'pi pi-send'
+                : 'pi pi-undo'
+            }
+            className={
+              rowData.estadoRecepcion === 'pendiente'
+                ? 'p-button-success p-button-sm'
+                : rowData.estadoRecepcion === 'recibido'
+                ? 'p-button-info p-button-sm'
+                : 'p-button-warning p-button-sm'
+            }
+            style={{ minWidth: 40, padding: '0.4rem 0.7rem', fontWeight: 600, fontSize: '0.85rem', borderRadius: 8 }}
+            onClick={() => {
+              if (rowData.estadoRecepcion === 'pendiente') {
+                updateEstadoRecepcion(rowData.id, 'recibido');
+              } else if (rowData.estadoRecepcion === 'recibido') {
+                updateEstadoRecepcion(rowData.id, 'enviado');
+              } else if (rowData.estadoRecepcion === 'enviado') {
+                confirmDialog({
+                  message: '¿Seguro que deseas volver el estado a pendiente?',
+                  header: 'Confirmar cambio de estado',
+                  icon: 'pi pi-exclamation-triangle',
+                  accept: () => updateEstadoRecepcion(rowData.id, 'pendiente')
+                });
+              }
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -653,13 +670,45 @@ function ListaPedidosClientes({ user }) {
                       onClick={() => handleDelete(pedido)} 
                     />
                   )}
-                  {user.role === 'admin' && pedido.estadoRecepcion !== 'recibido' && (
-                    <Button 
-                      icon="pi pi-check" 
-                      className="p-button-rounded p-button-success p-button-sm"
-                      style={{ minWidth: 40, padding: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}
-                      label="Marcar recibido"
-                      onClick={() => updateEstadoRecepcion(pedido.id, 'recibido')} 
+                  {/* Botón único para cambiar estado en mobile */}
+                  {user.role === 'admin' && (
+                    <Button
+                      label={
+                        pedido.estadoRecepcion === 'pendiente'
+                          ? 'Marcar recibido'
+                          : pedido.estadoRecepcion === 'recibido'
+                          ? 'Marcar enviado'
+                          : 'Volver a pendiente'
+                      }
+                      icon={
+                        pedido.estadoRecepcion === 'pendiente'
+                          ? 'pi pi-check'
+                          : pedido.estadoRecepcion === 'recibido'
+                          ? 'pi pi-send'
+                          : 'pi pi-undo'
+                      }
+                      className={
+                        pedido.estadoRecepcion === 'pendiente'
+                          ? 'p-button-success p-button-sm'
+                          : pedido.estadoRecepcion === 'recibido'
+                          ? 'p-button-info p-button-sm'
+                          : 'p-button-warning p-button-sm'
+                      }
+                      style={{ minWidth: 40, padding: '0.4rem 0.7rem', fontWeight: 600, fontSize: '0.85rem', borderRadius: 8 }}
+                      onClick={() => {
+                        if (pedido.estadoRecepcion === 'pendiente') {
+                          updateEstadoRecepcion(pedido.id, 'recibido');
+                        } else if (pedido.estadoRecepcion === 'recibido') {
+                          updateEstadoRecepcion(pedido.id, 'enviado');
+                        } else if (pedido.estadoRecepcion === 'enviado') {
+                          confirmDialog({
+                            message: '¿Seguro que deseas volver el estado a pendiente?',
+                            header: 'Confirmar cambio de estado',
+                            icon: 'pi pi-exclamation-triangle',
+                            accept: () => updateEstadoRecepcion(pedido.id, 'pendiente')
+                          });
+                        }
+                      }}
                     />
                   )}
                 </div>
