@@ -19,6 +19,11 @@ function Navbar({ user, onLogout, menuItems }) {
       disabled: true
     },
     {
+      label: "Mi Perfil",
+      icon: "pi pi-id-card",
+      command: () => navigate('/profile')
+    },
+    {
       separator: true
     },
     {
@@ -79,7 +84,7 @@ function Navbar({ user, onLogout, menuItems }) {
               borderRadius: "16px"
             }}
           >
-            {menuItems.map((item) => (
+            {menuItems.filter(item => item.label !== 'Mi Perfil').map((item) => (
               <Button
                 key={item.path}
                 label={item.label === "Dashboard" ? "Resumen" : item.label}
@@ -182,7 +187,7 @@ function Navbar({ user, onLogout, menuItems }) {
 
           <h3 style={{ marginBottom: "1rem", color: "#374151" }}>Navegación</h3>
 
-          {menuItems.map((item) => (
+          {menuItems.filter(item => item.label !== 'Mi Perfil').map((item) => (
             <Button
               key={item.path}
               label={item.label}
@@ -205,6 +210,25 @@ function Navbar({ user, onLogout, menuItems }) {
           ))}
 
           <div style={{ margin: "1.5rem 0", height: "1px", background: "#e5e7eb" }}></div>
+
+          <Button
+            label="Mi Perfil"
+            icon="pi pi-id-card"
+            className="p-button-text"
+            style={{
+              width: "100%",
+              justifyContent: "flex-start",
+              backgroundColor: "rgba(59, 130, 246, 0.08)",
+              color: "#2563eb",
+              borderRadius: "12px",
+              padding: "0.875rem 1rem",
+              marginBottom: 8
+            }}
+            onClick={() => {
+              navigate('/profile');
+              setSidebarVisible(false);
+            }}
+          />
 
           <Button
             label="Cerrar Sesión"
