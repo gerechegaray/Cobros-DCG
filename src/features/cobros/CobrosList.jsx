@@ -276,30 +276,85 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     <div className="p-2 px-3 md:p-3 lg:p-4" style={{ width: "100%", margin: "0 auto", boxSizing: "border-box", overflowX: "auto" }}>
       <Toast ref={toast} />
       <Card className="p-fluid" style={{ overflowX: "auto", width: "100%" }}>
-        <DataTable 
-          value={cobros} 
-          paginator 
-          rows={10} 
-          emptyMessage="No hay cobranzas cargadas."
-          loading={loading}
-          header={headerTemplate()}
-          className="p-fluid"
-          stripedRows
-          showGridlines
-          filters={filters}
-          filterDisplay="menu"
-          globalFilterFields={['cliente', 'cobrador', 'forma']}
-          responsiveLayout="stack"
-          style={{ width: "100%" }}
-        >
-          <Column field="fecha" header="Fecha" body={formatFecha} />
-          <Column field="cliente" header="Cliente" />
-          <Column field="monto" header="Monto" body={formatMonto} />
-          <Column field="cobrador" header="Quién cobró" />
-          <Column field="forma" header="Forma de cobro" />
-          <Column field="cargado" header="¿Cargado en el sistema?" body={cargadoTemplate} />
-        </DataTable>
+        {/* Vista tipo cards para mobile */}
+        <div className="cobros-cards-mobile" style={{ display: 'none' }}>
+          {cobros.length === 0 && !loading && (
+            <div style={{ textAlign: 'center', color: '#6b7280', padding: '1rem' }}>No hay cobranzas cargadas.</div>
+          )}
+          {cobros.map((cobro) => (
+            <div key={cobro.id} className="cobro-card-mobile" style={{
+              background: '#fff',
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+              marginBottom: 16,
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              fontSize: '0.98rem',
+              wordBreak: 'break-word'
+            }}>
+              <div><b>Fecha:</b> {formatFecha(cobro)}</div>
+              <div><b>Cliente:</b> {cobro.cliente}</div>
+              <div><b>Monto:</b> {formatMonto(cobro)}</div>
+              <div><b>Quién cobró:</b> {cobro.cobrador}</div>
+              <div><b>Forma de cobro:</b> {cobro.forma}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <b>¿Cargado en el sistema?</b>
+                <Tag value={cobro.cargado ? "Sí" : "No"} severity={cobro.cargado ? "success" : "danger"} />
+                {user?.role === "admin" && (
+                  <Button
+                    icon={cobro.cargado ? "pi pi-times" : "pi pi-check"}
+                    className={cobro.cargado ? "p-button-danger p-button-sm" : "p-button-success p-button-sm"}
+                    size="small"
+                    loading={updatingId === cobro.id}
+                    onClick={() => updateCargadoStatus(cobro.id, !cobro.cargado)}
+                    tooltip={cobro.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
+                    tooltipOptions={{ position: "top" }}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Tabla tradicional para desktop */}
+        <div className="cobros-table-desktop">
+          <DataTable 
+            value={cobros} 
+            paginator 
+            rows={10} 
+            emptyMessage="No hay cobranzas cargadas."
+            loading={loading}
+            header={headerTemplate()}
+            className="p-fluid"
+            stripedRows
+            showGridlines
+            filters={filters}
+            filterDisplay="menu"
+            globalFilterFields={['cliente', 'cobrador', 'forma']}
+            responsiveLayout="stack"
+            style={{ width: "100%" }}
+          >
+            <Column field="fecha" header="Fecha" body={formatFecha} />
+            <Column field="cliente" header="Cliente" />
+            <Column field="monto" header="Monto" body={formatMonto} />
+            <Column field="cobrador" header="Quién cobró" />
+            <Column field="forma" header="Forma de cobro" />
+            <Column field="cargado" header="¿Cargado en el sistema?" body={cargadoTemplate} />
+          </DataTable>
+        </div>
       </Card>
+      {/* Estilos para alternar entre tabla y cards según el tamaño de pantalla */}
+      <style>{`
+        @media (max-width: 768px) {
+          .cobros-table-desktop { display: none !important; }
+          .cobros-cards-mobile { display: block !important; }
+        }
+        @media (min-width: 769px) {
+          .cobros-table-desktop { display: block !important; }
+          .cobros-cards-mobile { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
