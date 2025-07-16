@@ -146,26 +146,26 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   };
 
   return (
-    <div className="p-p-1 p-p-md-2 p-p-lg-3" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
+    <div className="p-p-1 p-p-md-2 p-p-lg-3 dashboard-main-container" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <h2 className="p-text-center p-mb-2 p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word" }}>
         {getDashboardTitle()}
       </h2>
 
       {/* Alertas de cobros pendientes */}
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+      <div className="dashboard-alerts-container" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
         <Alerts user={user} onNavigateToMyCobros={onNavigateToMyCobros} />
         {/* Alerta de pedidos pendientes, justo debajo de la de cobros */}
         {pedidosStats.pendientes > 0 && (
           <div style={{ marginTop: 10 }}>
-            <div style={{ backgroundColor: '#fef9c3', border: '1px solid #f59e0b', borderRadius: 10, padding: '0.7rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            <div style={{ backgroundColor: '#fef9c3', border: '1px solid #f59e0b', borderRadius: 10, padding: '0.7rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap' }}>
               <i className="pi pi-exclamation-triangle" style={{ fontSize: '1.3rem', color: '#f59e0b' }}></i>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ margin: 0, color: '#b45309', fontWeight: 600, fontSize: '1rem' }}>Pedidos Pendientes de Recepción</h4>
-                <p style={{ margin: 0, color: '#b45309', fontSize: '0.88rem' }}>Tienes <b>{pedidosStats.pendientes}</b> pedidos de clientes marcados como "pendiente".</p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h4 style={{ margin: 0, color: '#b45309', fontWeight: 600, fontSize: '1rem', wordBreak: 'break-word' }}>Pedidos Pendientes de Recepción</h4>
+                <p style={{ margin: 0, color: '#b45309', fontSize: '0.88rem', wordBreak: 'break-word' }}>Tienes <b>{pedidosStats.pendientes}</b> pedidos de clientes marcados como "pendiente".</p>
               </div>
               <button
                 className="p-button p-button-warning p-button-sm"
-                style={{ marginLeft: 'auto', fontWeight: 600, background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', borderRadius: 5, padding: '0.35rem 0.8rem', fontSize: '0.92rem', cursor: 'pointer' }}
+                style={{ marginLeft: 'auto', fontWeight: 600, background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', borderRadius: 5, padding: '0.35rem 0.8rem', fontSize: '0.92rem', cursor: 'pointer', minWidth: 120 }}
                 onClick={handleNavigateToPedidos}
               >
                 Ir a lista de pedidos
@@ -176,9 +176,9 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       </div>
 
       {/* Grupo de Cobranzas */}
-      <div style={{ maxWidth: 480, margin: '0 auto', marginTop: 24 }}>
+      <div className="dashboard-cobros-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
         <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Cobranzas</h3>
-        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12 }}>
+        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
               <span className="p-d-flex p-ai-center"><i className="pi pi-dollar p-mr-2" style={{ color: '#059669', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Monto Total</span></span>
@@ -203,9 +203,9 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       </div>
 
       {/* Grupo de Pedidos */}
-      <div style={{ maxWidth: 480, margin: '0 auto', marginTop: 24 }}>
+      <div className="dashboard-pedidos-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
         <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Pedidos</h3>
-        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12 }}>
+        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
               <span className="p-d-flex p-ai-center"><i className="pi pi-shopping-cart p-mr-2" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos de Clientes</span></span>
@@ -225,7 +225,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
 
       {/* Progreso de carga en sistema */}
       {user.role === "cobrador" && (
-        <Card className="p-mt-3">
+        <Card className="p-mt-3" style={{ width: '100%', boxSizing: 'border-box' }}>
           <h3 className="p-mb-2 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
             {user.role === "admin" ? "Progreso de Carga en Sistema" : "Mi Progreso de Carga"}
           </h3>
@@ -245,6 +245,41 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
           </p>
         </Card>
       )}
+
+      {/* Estilos responsive específicos para el dashboard */}
+      <style>{`
+        @media (max-width: 768px) {
+          .dashboard-main-container {
+            padding: 0.5rem !important;
+          }
+          .dashboard-alerts-container,
+          .dashboard-cobros-container,
+          .dashboard-pedidos-container {
+            max-width: 100% !important;
+            padding: 0.25rem !important;
+          }
+          .p-card {
+            padding: 0.5rem !important;
+          }
+          h2, h3 {
+            font-size: 1.1rem !important;
+            word-break: break-word !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .dashboard-main-container {
+            padding: 0.25rem !important;
+          }
+          .dashboard-alerts-container,
+          .dashboard-cobros-container,
+          .dashboard-pedidos-container {
+            padding: 0.1rem !important;
+          }
+          h2, h3 {
+            font-size: 1rem !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
