@@ -121,50 +121,40 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
     <Router>
       <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
-        <Navbar user={user} onLogout={handleLogout} menuItems={getMenuItems()} />
+        {user && <Navbar user={user} onLogout={handleLogout} menuItems={getMenuItems()} />}
         <main style={{ paddingTop: "1rem" }}>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
-            <Route path="/dashboard" element={<Dashboard user={user} />} />
-            <Route path="/form" element={<CobroForm user={user} />} />
-            <Route
-              path="/cargar-pedido"
-              element={user?.role ? <CargarPedido user={user} /> : <Navigate to="/dashboard" />}
-            />
-
-            <Route path="/lista-pedidos" element={<ListaPedidosClientes user={user} />} />
-            <Route
-              path="/list"
-              element={
-                user.role === "admin" || user.role === "Santi" || user.role === "Guille"
-                  ? <CobrosList user={user} showOnlyMyCobros={user.role === "Santi" || user.role === "Guille"} />
-                  : <Navigate to="/dashboard" />
-              }
-            />
-            <Route
-              path="/my-cobros"
-              element={
-                isCobrador ? (
-                  <CobrosList user={user} showOnlyMyCobros />
-                ) : (
-                  <Navigate to="/dashboard" />
-                )
-              }
-            />
-            <Route path="/pedidos" element={<PedidosEnviados user={user} />} />
-            <Route path="/reports" element={<Reports user={user} />} />
-            <Route
-              path="/profile"
-              element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />}
-            />
-            <Route path="*" element={<Navigate to="/dashboard" />} />
+            <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            {/* Rutas protegidas */}
+            {user && (
+              <>
+                <Route path="/dashboard" element={<Dashboard user={user} />} />
+                <Route path="/form" element={<CobroForm user={user} />} />
+                <Route path="/cargar-pedido" element={<CargarPedido user={user} />} />
+                <Route path="/lista-pedidos" element={<ListaPedidosClientes user={user} />} />
+                <Route path="/list" element={
+                  user.role === "admin" || user.role === "Santi" || user.role === "Guille"
+                    ? <CobrosList user={user} showOnlyMyCobros={user.role === "Santi" || user.role === "Guille"} />
+                    : <Navigate to="/dashboard" />
+                } />
+                <Route path="/my-cobros" element={
+                  isCobrador ? (
+                    <CobrosList user={user} showOnlyMyCobros />
+                  ) : (
+                    <Navigate to="/dashboard" />
+                  )
+                } />
+                <Route path="/pedidos" element={<PedidosEnviados user={user} />} />
+                <Route path="/reports" element={<Reports user={user} />} />
+                <Route path="/profile" element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />} />
+              </>
+            )}
+            {/* Redirigir cualquier otra ruta al login si no está autenticado, o al dashboard si lo está */}
+            <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
           </Routes>
         </main>
       </div>
