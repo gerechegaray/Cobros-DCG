@@ -608,139 +608,190 @@ function ListaPedidosClientes({ user }) {
             </span>
           </div>
 
-          <DataTable
-            value={pedidosFiltrados}
-            paginator
-            rows={10}
-            responsiveLayout="stack"
-            emptyMessage="No hay pedidos de clientes registrados."
-            className="p-datatable-sm"
-            loading={loading}
-            rowExpansionTemplate={itemsTemplate}
-            expandedRows={expandedRows}
-            onRowToggle={(e) => setExpandedRows(e.data)}
-            style={{
-              borderRadius: "12px",
-              overflow: "hidden",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-            }}
-          >
-            <Column
-              expander
-              style={{
-                width: "3rem",
-                background: "#f8fafc"
-              }}
-            />
-            <Column
-              field="fecha"
-              header="Fecha"
-              body={(row) => (
-                <span
-                  style={{
-                    fontWeight: "500",
-                    color: "#374151"
-                  }}
-                >
-                  {formatFecha(row.fecha)}
-                </span>
-              )}
-              style={{
-                minWidth: "120px",
-                background: "#f8fafc"
-              }}
-            />
-            <Column
-              field="cliente"
-              header="Cliente"
-              body={(row) => (
-                <span
-                  style={{
-                    fontWeight: "600",
-                    color: "#1f2937"
-                  }}
-                >
-                  {row.cliente}
-                </span>
-              )}
-              style={{
-                minWidth: "150px"
-              }}
-            />
-            <Column
-              field="items"
-              header="Productos"
-              body={() => (
-                <div className="flex align-items-center gap-2">
-                  <i className="pi pi-eye" style={{ color: "#6366f1" }}></i>
-                  <span
-                    style={{
-                      color: "#6366f1",
-                      fontWeight: "500",
-                      fontSize: "0.875rem"
-                    }}
-                  >
-                    Ver detalle
-                  </span>
+          {/* Vista tipo cards para mobile */}
+          <div className="pedidos-cards-mobile" style={{ display: 'none' }}>
+            {pedidosFiltrados.length === 0 && !loading && (
+              <div style={{ textAlign: 'center', color: '#6b7280', padding: '1rem' }}>No hay pedidos de clientes registrados.</div>
+            )}
+            {pedidosFiltrados.map((pedido) => (
+              <div key={pedido.id} className="pedido-card-mobile" style={{
+                background: '#fff',
+                borderRadius: 12,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                marginBottom: 16,
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                fontSize: '0.98rem',
+                wordBreak: 'break-word'
+              }}>
+                <div><b>Fecha:</b> {formatFecha(pedido.fecha)}</div>
+                <div><b>Cliente:</b> {pedido.cliente}</div>
+                <div><b>Condición:</b> {pedido.condicion === 'contado' ? 'Contado' : pedido.condicion === 'cuenta_corriente' ? 'Cuenta Corriente' : '-'}</div>
+                <div><b>Estado:</b> <Tag value={pedido.estadoRecepcion} severity={pedido.estadoRecepcion === 'recibido' ? 'success' : pedido.estadoRecepcion === 'enviado' ? 'info' : 'warning'} /></div>
+                <div><b>Observaciones:</b> {pedido.observaciones || '-'}</div>
+                <div><b>Registrado por:</b> {pedido.cobrador}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <Button icon="pi pi-eye" className="p-button-info p-button-sm" label="Ver detalle" onClick={() => setExpandedRows({ [pedido.id]: true })} />
+                  {user.role === 'admin' && (
+                    <Button icon="pi pi-trash" className="p-button-danger p-button-sm" label="Eliminar" onClick={() => handleDelete(pedido)} />
+                  )}
+                  {user.role === 'admin' && pedido.estadoRecepcion !== 'recibido' && (
+                    <Button icon="pi pi-check" className="p-button-success p-button-sm" label="Marcar recibido" onClick={() => updateEstadoRecepcion(pedido.id, 'recibido')} />
+                  )}
                 </div>
-              )}
+              </div>
+            ))}
+          </div>
+
+          {/* Tabla tradicional para desktop */}
+          <div className="pedidos-table-desktop">
+            <DataTable
+              value={pedidosFiltrados}
+              paginator
+              rows={10}
+              responsiveLayout="stack"
+              emptyMessage="No hay pedidos de clientes registrados."
+              className="p-datatable-sm"
+              loading={loading}
+              rowExpansionTemplate={itemsTemplate}
+              expandedRows={expandedRows}
+              onRowToggle={(e) => setExpandedRows(e.data)}
               style={{
-                minWidth: "120px"
+                borderRadius: "12px",
+                overflow: "hidden",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
               }}
-            />
-            <Column
-              field="condicion"
-              header="Condición"
-              body={condicionTemplate}
-              style={{
-                minWidth: "130px"
-              }}
-            />
-            <Column
-              field="estadoRecepcion"
-              header="Estado"
-              body={estadoRecepcionTemplate}
-              style={{
-                minWidth: "150px"
-              }}
-            />
-            <Column
-              field="observaciones"
-              header="Observaciones"
-              body={observacionesTemplate}
-              style={{
-                minWidth: "200px"
-              }}
-            />
-            <Column
-              field="cobrador"
-              header="Registrado por"
-              body={(row) => (
-                <div className="flex align-items-center gap-2">
-                  <i className="pi pi-user" style={{ color: "#6b7280" }}></i>
+            >
+              <Column
+                expander
+                style={{
+                  width: "3rem",
+                  background: "#f8fafc"
+                }}
+              />
+              <Column
+                field="fecha"
+                header="Fecha"
+                body={(row) => (
                   <span
                     style={{
                       fontWeight: "500",
                       color: "#374151"
                     }}
                   >
-                    {row.cobrador}
+                    {formatFecha(row.fecha)}
                   </span>
-                </div>
-              )}
-              style={{
-                minWidth: "140px"
-              }}
-            />
-            <Column
-              header="Acciones"
-              body={accionesTemplate}
-              style={{
-                width: "80px",
-                textAlign: "center"
-              }}
-            />
-          </DataTable>
+                )}
+                style={{
+                  minWidth: "120px",
+                  background: "#f8fafc"
+                }}
+              />
+              <Column
+                field="cliente"
+                header="Cliente"
+                body={(row) => (
+                  <span
+                    style={{
+                      fontWeight: "600",
+                      color: "#1f2937"
+                    }}
+                  >
+                    {row.cliente}
+                  </span>
+                )}
+                style={{
+                  minWidth: "150px"
+                }}
+              />
+              <Column
+                field="items"
+                header="Productos"
+                body={() => (
+                  <div className="flex align-items-center gap-2">
+                    <i className="pi pi-eye" style={{ color: "#6366f1" }}></i>
+                    <span
+                      style={{
+                        color: "#6366f1",
+                        fontWeight: "500",
+                        fontSize: "0.875rem"
+                      }}
+                    >
+                      Ver detalle
+                    </span>
+                  </div>
+                )}
+                style={{
+                  minWidth: "120px"
+                }}
+              />
+              <Column
+                field="condicion"
+                header="Condición"
+                body={condicionTemplate}
+                style={{
+                  minWidth: "130px"
+                }}
+              />
+              <Column
+                field="estadoRecepcion"
+                header="Estado"
+                body={estadoRecepcionTemplate}
+                style={{
+                  minWidth: "150px"
+                }}
+              />
+              <Column
+                field="observaciones"
+                header="Observaciones"
+                body={observacionesTemplate}
+                style={{
+                  minWidth: "200px"
+                }}
+              />
+              <Column
+                field="cobrador"
+                header="Registrado por"
+                body={(row) => (
+                  <div className="flex align-items-center gap-2">
+                    <i className="pi pi-user" style={{ color: "#6b7280" }}></i>
+                    <span
+                      style={{
+                        fontWeight: "500",
+                        color: "#374151"
+                      }}
+                    >
+                      {row.cobrador}
+                    </span>
+                  </div>
+                )}
+                style={{
+                  minWidth: "140px"
+                }}
+              />
+              <Column
+                header="Acciones"
+                body={accionesTemplate}
+                style={{
+                  width: "80px",
+                  textAlign: "center"
+                }}
+              />
+            </DataTable>
+          </div>
+          {/* Estilos para alternar entre tabla y cards según el tamaño de pantalla */}
+          <style>{`
+            @media (max-width: 768px) {
+              .pedidos-table-desktop { display: none !important; }
+              .pedidos-cards-mobile { display: block !important; }
+            }
+            @media (min-width: 769px) {
+              .pedidos-table-desktop { display: block !important; }
+              .pedidos-cards-mobile { display: none !important; }
+            }
+          `}</style>
         </div>
       </div>
     </div>
