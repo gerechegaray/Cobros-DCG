@@ -5,7 +5,6 @@ import Navbar from "./components/layout/Navbar";
 import Dashboard from "./features/dashboard/Dashboard";
 import CobroForm from "./features/cobros/CobroForm";
 import CobrosList from "./features/cobros/CobrosList";
-import Reports from "./features/dashboard/Reports";
 import UserProfile from "./features/auth/UserProfile";
 import CargarPedido from "./features/pedidos/CargarPedido";
 import ListaPedidosClientes from "./features/pedidos/ListaPedidosClientes";
@@ -84,7 +83,6 @@ function App() {
         { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
         { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
         { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
-        { label: "Reportes", icon: "pi pi-file-pdf", path: "/reports" },
         { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
       ];
     } else if (isCobrador) {
@@ -95,7 +93,6 @@ function App() {
         { label: "Mis Cobranzas", icon: "pi pi-list", path: "/my-cobros" },
         { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
         { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
-        { label: "Reportes", icon: "pi pi-file-pdf", path: "/reports" },
         { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
       ];
     }
@@ -149,7 +146,6 @@ function App() {
                   )
                 } />
                 <Route path="/pedidos" element={<PedidosEnviados user={user} />} />
-                <Route path="/reports" element={<Reports user={user} />} />
                 <Route path="/profile" element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />} />
               </>
             )}
