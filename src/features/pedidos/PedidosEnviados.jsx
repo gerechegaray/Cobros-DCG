@@ -56,6 +56,7 @@ function PedidosEnviados({ user }) {
   const [hojaAEliminar, setHojaAEliminar] = useState(null);
   const [detallesPedidosHoja, setDetallesPedidosHoja] = useState({}); // { hojaId: [pedidos] }
   const [activeTab, setActiveTab] = useState('pendientes'); // 'pendientes' o 'completas'
+  const [expandedPedidos, setExpandedPedidos] = useState(null);
 
   // Cargar pedidos con estado 'recibido' y filtrar en frontend los que no tengan hoja de ruta asignada
   useEffect(() => {
@@ -340,6 +341,47 @@ function PedidosEnviados({ user }) {
     );
   };
 
+  // Template para mostrar el detalle de productos de cada pedido
+  const detallePedidoTemplate = (pedido) => {
+    return (
+      <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8, margin: 8 }}>
+        <div className="p-d-flex p-jc-between p-ai-center p-mb-2">
+          <div>
+            <strong>Cliente:</strong> {pedido.cliente}
+          </div>
+          <div className="p-d-flex p-gap-2">
+            <Tag 
+              value={pedido.condicion === 'cuenta_corriente' ? 'Cuenta Corriente' : pedido.condicion === 'contado' ? 'Contado' : '-'} 
+              severity={pedido.condicion === 'cuenta_corriente' ? 'info' : 'success'} 
+              style={{ fontSize: 12 }}
+            />
+            <Tag 
+              value={pedido.estadoRecepcion === 'recibido' ? 'Recibido' : pedido.estadoRecepcion === 'enviado' ? 'Enviado' : '-'} 
+              severity={pedido.estadoRecepcion === 'recibido' ? 'success' : 'info'} 
+              style={{ fontSize: 12 }}
+            />
+          </div>
+        </div>
+        <div>
+          <strong>Productos:</strong>
+          <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
+            {Array.isArray(pedido.items) && pedido.items.length > 0 ? pedido.items.map((item, idx) => (
+              <li key={idx} style={{ marginBottom: 4, lineHeight: 1.4 }}>
+                <span style={{ fontWeight: 500, color: '#1f2937' }}>{item.producto}</span>
+                <span style={{ color: '#6366f1', fontWeight: 600, marginLeft: 6 }}>×{item.cantidad}</span>
+              </li>
+            )) : <li>Sin productos especificados</li>}
+          </ul>
+        </div>
+        {pedido.observaciones && (
+          <div style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
+            <strong>Observaciones:</strong> {pedido.observaciones}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const validar = () => {
     if (!form.nombre.trim()) return "El nombre es obligatorio";
     if (!form.fecha) return "La fecha es obligatoria";
@@ -425,11 +467,14 @@ function PedidosEnviados({ user }) {
           emptyMessage="No hay pedidos recibidos disponibles."
           className="p-datatable-sm p-fluid p-mt-3"
           style={{ width: '100%' }}
+          expandedRows={expandedPedidos}
+          onRowToggle={e => setExpandedPedidos(e.data)}
+          rowExpansionTemplate={detallePedidoTemplate}
         >
           <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
+          <Column expander style={{ width: '3em' }} />
           <Column field="fecha" header="Fecha" body={row => formatFecha(row.fecha)} />
           <Column field="cliente" header="Cliente" />
-          <Column field="condicion" header="Condición" body={row => row.condicion === 'cuenta_corriente' ? 'Cuenta Corriente' : row.condicion === 'contado' ? 'Contado' : '-'} />
           <Column field="cobrador" header="Cargado por" />
         </DataTable>
       </Card>

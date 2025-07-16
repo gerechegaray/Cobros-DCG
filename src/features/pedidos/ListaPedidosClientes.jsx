@@ -57,6 +57,8 @@ function ListaPedidosClientes({ user }) {
   const [expandedRows, setExpandedRows] = useState(null);
   // Estado para controlar qué card está expandida en mobile
   const [expandedCardId, setExpandedCardId] = useState(null);
+  // Estado para controlar la visibilidad de los filtros
+  const [filtersVisible, setFiltersVisible] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -451,6 +453,172 @@ function ListaPedidosClientes({ user }) {
       <Toast ref={toast} />
       <ConfirmDialog />
 
+      {/* Header con título y botones para móvil */}
+      <div className="pedidos-header-mobile" style={{ display: 'none' }}>
+        <div
+          style={{
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            padding: "1.5rem",
+            color: "white",
+            borderRadius: "16px 16px 0 0"
+          }}
+        >
+          <div className="flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+              <h1
+                style={{
+                  margin: "0 0 0.5rem 0",
+                  fontSize: "1.5rem",
+                  fontWeight: "700",
+                  letterSpacing: "-0.025em"
+                }}
+              >
+                Pedidos de Clientes
+              </h1>
+              <p
+                style={{
+                  margin: "0",
+                  fontSize: "0.9rem",
+                  opacity: "0.9",
+                  fontWeight: "400"
+                }}
+              >
+                Gestiona y supervisa todos los pedidos de clientes
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap justify-content-center">
+              {user.role === "admin" && (
+                <Button
+                  label="Exportar CSV"
+                  icon="pi pi-download"
+                  className="p-button-outlined"
+                  onClick={exportarCSV}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.1)",
+                    border: "2px solid rgba(255, 255, 255, 0.3)",
+                    color: "white",
+                    borderRadius: "12px",
+                    padding: "0.5rem 1rem",
+                    fontWeight: "600",
+                    backdropFilter: "blur(10px)",
+                    fontSize: "0.8rem"
+                  }}
+                />
+              )}
+              <Button
+                label="Filtros"
+                icon={filtersVisible ? "pi pi-chevron-up" : "pi pi-filter"}
+                className="p-button-outlined"
+                onClick={() => setFiltersVisible(!filtersVisible)}
+                style={{
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "2px solid rgba(255, 255, 255, 0.3)",
+                  color: "white",
+                  borderRadius: "12px",
+                  padding: "0.5rem 1rem",
+                  fontWeight: "600",
+                  backdropFilter: "blur(10px)",
+                  fontSize: "0.8rem"
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Filtros desplegables para móvil */}
+        {filtersVisible && (
+          <div
+            style={{
+              padding: "1.5rem",
+              background: "#f8fafc",
+              borderBottom: "1px solid #e2e8f0"
+            }}
+          >
+            <div className="grid">
+              <div className="col-12">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-calendar mr-2"></i>Fecha
+                </label>
+                <Calendar
+                  value={filters.fecha}
+                  onChange={(e) => setFilters({ ...filters, fecha: e.value })}
+                  dateFormat="dd/mm/yy"
+                  showIcon
+                  placeholder="Selecciona fecha"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-12">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-user mr-2"></i>Cliente
+                </label>
+                <InputText
+                  value={filters.cliente}
+                  onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
+                  placeholder="Buscar por cliente"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-12">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-flag mr-2"></i>Estado
+                </label>
+                <Dropdown
+                  value={filters.estado}
+                  options={estados}
+                  onChange={(e) => setFilters({ ...filters, estado: e.value })}
+                  placeholder="Selecciona estado"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-12">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-credit-card mr-2"></i>Condición
+                </label>
+                <Dropdown
+                  value={filters.condicion}
+                  options={condiciones}
+                  onChange={(e) => setFilters({ ...filters, condicion: e.value })}
+                  placeholder="Selecciona condición"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              {user.role === "admin" && (
+                <div className="col-12">
+                  <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                    <i className="pi pi-users mr-2"></i>Registrado por
+                  </label>
+                  <Dropdown
+                    value={filters.cobrador}
+                    options={cobradores}
+                    onChange={(e) => setFilters({ ...filters, cobrador: e.value })}
+                    placeholder="Selecciona cobrador"
+                    className="w-full"
+                    style={{ borderRadius: "8px" }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex justify-content-end mt-3">
+              <Button
+                label="Limpiar filtros"
+                icon="pi pi-times"
+                className="p-button-outlined p-button-sm"
+                onClick={clearFilters}
+                style={{
+                  borderRadius: "8px",
+                  fontWeight: "500"
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div
         style={{
           background: "white",
@@ -459,8 +627,8 @@ function ListaPedidosClientes({ user }) {
           overflow: "hidden"
         }}
       >
-        {/* Header */}
-        <div
+        {/* Header para desktop */}
+        <div className="pedidos-header-desktop"
           style={{
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             padding: "2rem",
@@ -510,15 +678,15 @@ function ListaPedidosClientes({ user }) {
           </div>
         </div>
 
-        {/* Filtros */}
-        <div
+        {/* Botón para mostrar/ocultar filtros - Solo desktop */}
+        <div className="pedidos-filters-desktop"
           style={{
-            padding: "2rem",
+            padding: "1.5rem 2rem",
             background: "#f8fafc",
             borderBottom: "1px solid #e2e8f0"
           }}
         >
-          <div className="flex justify-content-between align-items-center mb-3">
+          <div className="flex justify-content-between align-items-center">
             <h3
               style={{
                 margin: "0",
@@ -530,87 +698,110 @@ function ListaPedidosClientes({ user }) {
               Filtros
             </h3>
             <Button
-              label="Limpiar"
-              icon="pi pi-times"
-              className="p-button-text p-button-sm"
-              onClick={clearFilters}
+              label="Filtros"
+              icon={filtersVisible ? "pi pi-chevron-up" : "pi pi-filter"}
+              className="p-button-outlined p-button-sm"
+              onClick={() => setFiltersVisible(!filtersVisible)}
               style={{
-                color: "#6366f1",
+                borderRadius: "8px",
                 fontWeight: "500"
               }}
             />
           </div>
+        </div>
 
-          <div className="grid">
-            <div className="col-12 md:col-6 lg:col-2">
-              <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
-                <i className="pi pi-calendar mr-2"></i>Fecha
-              </label>
-              <Calendar
-                value={filters.fecha}
-                onChange={(e) => setFilters({ ...filters, fecha: e.value })}
-                dateFormat="dd/mm/yy"
-                showIcon
-                placeholder="Selecciona fecha"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-2">
-              <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
-                <i className="pi pi-user mr-2"></i>Cliente
-              </label>
-              <InputText
-                value={filters.cliente}
-                onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
-                placeholder="Buscar por cliente"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-2">
-              <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
-                <i className="pi pi-flag mr-2"></i>Estado
-              </label>
-              <Dropdown
-                value={filters.estado}
-                options={estados}
-                onChange={(e) => setFilters({ ...filters, estado: e.value })}
-                placeholder="Selecciona estado"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-2">
-              <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
-                <i className="pi pi-credit-card mr-2"></i>Condición
-              </label>
-              <Dropdown
-                value={filters.condicion}
-                options={condiciones}
-                onChange={(e) => setFilters({ ...filters, condicion: e.value })}
-                placeholder="Selecciona condición"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            {user.role === "admin" && (
+        {/* Filtros desplegables - Solo desktop */}
+        {filtersVisible && (
+          <div className="pedidos-filters-desktop"
+            style={{
+              padding: "2rem",
+              background: "#f8fafc",
+              borderBottom: "1px solid #e2e8f0"
+            }}
+          >
+            <div className="grid">
               <div className="col-12 md:col-6 lg:col-2">
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
-                  <i className="pi pi-users mr-2"></i>Registrado por
+                  <i className="pi pi-calendar mr-2"></i>Fecha
                 </label>
-                <Dropdown
-                  value={filters.cobrador}
-                  options={cobradores}
-                  onChange={(e) => setFilters({ ...filters, cobrador: e.value })}
-                  placeholder="Selecciona cobrador"
+                <Calendar
+                  value={filters.fecha}
+                  onChange={(e) => setFilters({ ...filters, fecha: e.value })}
+                  dateFormat="dd/mm/yy"
+                  showIcon
+                  placeholder="Selecciona fecha"
                   className="w-full"
                   style={{ borderRadius: "8px" }}
                 />
               </div>
-            )}
+              <div className="col-12 md:col-6 lg:col-2">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-user mr-2"></i>Cliente
+                </label>
+                <InputText
+                  value={filters.cliente}
+                  onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
+                  placeholder="Buscar por cliente"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-12 md:col-6 lg:col-2">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-flag mr-2"></i>Estado
+                </label>
+                <Dropdown
+                  value={filters.estado}
+                  options={estados}
+                  onChange={(e) => setFilters({ ...filters, estado: e.value })}
+                  placeholder="Selecciona estado"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-12 md:col-6 lg:col-2">
+                <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                  <i className="pi pi-credit-card mr-2"></i>Condición
+                </label>
+                <Dropdown
+                  value={filters.condicion}
+                  options={condiciones}
+                  onChange={(e) => setFilters({ ...filters, condicion: e.value })}
+                  placeholder="Selecciona condición"
+                  className="w-full"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              {user.role === "admin" && (
+                <div className="col-12 md:col-6 lg:col-2">
+                  <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
+                    <i className="pi pi-users mr-2"></i>Registrado por
+                  </label>
+                  <Dropdown
+                    value={filters.cobrador}
+                    options={cobradores}
+                    onChange={(e) => setFilters({ ...filters, cobrador: e.value })}
+                    placeholder="Selecciona cobrador"
+                    className="w-full"
+                    style={{ borderRadius: "8px" }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex justify-content-end mt-3">
+              <Button
+                label="Limpiar filtros"
+                icon="pi pi-times"
+                className="p-button-outlined p-button-sm"
+                onClick={clearFilters}
+                style={{
+                  borderRadius: "8px",
+                  fontWeight: "500"
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tabla */}
         <div style={{ padding: "2rem" }}>
@@ -882,10 +1073,16 @@ function ListaPedidosClientes({ user }) {
             @media (max-width: 768px) {
               .pedidos-table-desktop { display: none !important; }
               .pedidos-cards-mobile { display: block !important; }
+              .pedidos-header-mobile { display: block !important; }
+              .pedidos-header-desktop { display: none !important; }
+              .pedidos-filters-desktop { display: none !important; }
             }
             @media (min-width: 769px) {
               .pedidos-table-desktop { display: block !important; }
               .pedidos-cards-mobile { display: none !important; }
+              .pedidos-header-mobile { display: none !important; }
+              .pedidos-header-desktop { display: block !important; }
+              .pedidos-filters-desktop { display: block !important; }
             }
           `}</style>
         </div>
