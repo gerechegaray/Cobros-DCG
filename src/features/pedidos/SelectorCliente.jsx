@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { getAlegraContacts } from "../../services/alegra";
+// import { getAlegraContacts } from "../../services/alegra";
 import { useNavigate } from "react-router-dom";
 
 export default function SelectorCliente() {
@@ -14,11 +14,12 @@ export default function SelectorCliente() {
   useEffect(() => {
     async function fetchClientes() {
       try {
-        const data = await getAlegraContacts();
-        const options = data.map((c) => ({ label: c.name || '(Sin nombre)', value: c })); // value es el objeto completo
+        const response = await fetch('/api/sheets/clientes');
+        const data = await response.json();
+        const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c }));
         setClientes(options);
       } catch (error) {
-        console.error('Error al obtener clientes de Alegra:', error);
+        console.error('Error al obtener clientes de Sheets:', error);
       } finally {
         setLoadingClientes(false);
       }

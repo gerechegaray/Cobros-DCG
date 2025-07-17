@@ -59,6 +59,8 @@ function ListaPedidosClientes({ user }) {
   const [expandedCardId, setExpandedCardId] = useState(null);
   // Estado para controlar la visibilidad de los filtros
   const [filtersVisible, setFiltersVisible] = useState(false);
+  const [productosCatalogo, setProductosCatalogo] = useState([]);
+  const [clientesCatalogo, setClientesCatalogo] = useState([]);
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -91,6 +93,36 @@ function ListaPedidosClientes({ user }) {
     });
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    // Cargar productos del catálogo para mostrar nombres
+    async function fetchProductosCatalogo() {
+      try {
+        const response = await fetch('http://localhost:3001/api/sheets/productos');
+        if (!response.ok) throw new Error('Error al obtener productos de Sheets');
+        const data = await response.json();
+        setProductosCatalogo(data);
+      } catch (error) {
+        console.error('Error al obtener productos de Sheets:', error);
+      }
+    }
+    fetchProductosCatalogo();
+  }, []);
+
+  useEffect(() => {
+    // Cargar clientes del catálogo para mostrar razón social
+    async function fetchClientesCatalogo() {
+      try {
+        const response = await fetch('http://localhost:3001/api/sheets/clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+        const data = await response.json();
+        setClientesCatalogo(data);
+      } catch (error) {
+        console.error('Error al obtener clientes de Sheets:', error);
+      }
+    }
+    fetchClientesCatalogo();
+  }, []);
 
   const updateEstadoRecepcion = async (pedidoId, newEstado) => {
     setUpdatingId(pedidoId);
@@ -195,6 +227,13 @@ function ListaPedidosClientes({ user }) {
       }
     };
 
+    // Lógica para determinar el siguiente estado
+    const getNextEstado = (estado) => {
+      if (estado === "pendiente") return "recibido";
+      if (estado === "recibido") return "enviado";
+      return "pendiente";
+    };
+
     return (
       <div className="flex align-items-center gap-2">
         <Tag
@@ -208,7 +247,6 @@ function ListaPedidosClientes({ user }) {
             fontWeight: "600"
           }}
         />
-        {/* Eliminar el botón guía de cambiar estado (pi pi-refresh) */}
       </div>
     );
   };
@@ -319,6 +357,11 @@ function ListaPedidosClientes({ user }) {
   // Renderiza la tabla interna de ítems
   const itemsTemplate = (rowData) => {
     if (Array.isArray(rowData.items) && rowData.items.length > 0) {
+      // Log de catálogo y productos de pedido para depuración
+      console.log('Catálogo de productos:', productosCatalogo);
+      rowData.items.forEach((item, idx) => {
+        console.log(`Producto en pedido [${idx}]:`, item.producto, 'nombreProducto:', item.nombreProducto);
+      });
       return (
         <div style={{ padding: "1rem" }}>
           <h4
@@ -339,45 +382,52 @@ function ListaPedidosClientes({ user }) {
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
             }}
           >
-            {rowData.items.map((item, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "0.75rem 1rem",
-                  background: "rgba(255, 255, 255, 0.95)",
-                  borderRadius: "8px",
-                  marginBottom: idx < rowData.items.length - 1 ? "0.5rem" : "0",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)"
-                }}
-              >
-                <span
+            {rowData.items.map((item, idx) => {
+              let nombre = item.nombreProducto;
+              if (!nombre && productosCatalogo.length > 0) {
+                const prod = productosCatalogo.find(p => p.id === item.producto);
+                nombre = prod ? prod.producto : item.producto;
+              }
+              return (
+                <div
+                  key={idx}
                   style={{
-                    fontSize: "0.9rem",
-                    color: "#374151",
-                    fontWeight: "500"
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.75rem 1rem",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    borderRadius: "8px",
+                    marginBottom: idx < rowData.items.length - 1 ? "0.5rem" : "0",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)"
                   }}
                 >
-                  {item.producto}
-                </span>
-                <span
-                  style={{
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    color: "white",
-                    padding: "0.25rem 0.75rem",
-                    borderRadius: "20px",
-                    fontSize: "0.8rem",
-                    fontWeight: "600",
-                    minWidth: "3rem",
-                    textAlign: "center"
-                  }}
-                >
-                  {item.cantidad}
-                </span>
-              </div>
-            ))}
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      color: "#374151",
+                      fontWeight: "500"
+                    }}
+                  >
+                    {nombre}
+                  </span>
+                  <span
+                    style={{
+                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      color: "white",
+                      padding: "0.25rem 0.75rem",
+                      borderRadius: "20px",
+                      fontSize: "0.8rem",
+                      fontWeight: "600",
+                      minWidth: "3rem",
+                      textAlign: "center"
+                    }}
+                  >
+                    {item.cantidad}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       );
@@ -408,6 +458,12 @@ function ListaPedidosClientes({ user }) {
         </div>
       );
     }
+  };
+
+  // Función para obtener la razón social del cliente
+  const getRazonSocial = (clienteId) => {
+    const cliente = clientesCatalogo.find(c => c.id === clienteId);
+    return cliente ? cliente.razonSocial : clienteId;
   };
 
   // Filtrado local
@@ -838,7 +894,7 @@ function ListaPedidosClientes({ user }) {
                 position: 'relative'
               }}>
                 <div><b>Fecha:</b> {formatFecha(pedido.fecha)}</div>
-                <div><b>Cliente:</b> {pedido.cliente}</div>
+                <div><b>Cliente:</b> {getRazonSocial(pedido.cliente)}</div>
                 <div><b>Condición:</b> {pedido.condicion === 'contado' ? 'Contado' : pedido.condicion === 'cuenta_corriente' ? 'Cuenta Corriente' : '-'}</div>
                 <div><b>Estado:</b> <Tag value={pedido.estadoRecepcion} severity={pedido.estadoRecepcion === 'recibido' ? 'success' : pedido.estadoRecepcion === 'enviado' ? 'info' : 'warning'} /></div>
                 <div><b>Observaciones:</b> {pedido.observaciones || '-'}</div>
@@ -919,7 +975,7 @@ function ListaPedidosClientes({ user }) {
                       {pedido.items && Array.isArray(pedido.items) && pedido.items.length > 0 ? (
                         pedido.items.map((item, idx) => (
                           <li key={idx} style={{ marginBottom: 4 }}>
-                            {item.producto ? <b>{item.producto}</b> : null} {item.cantidad ? `x${item.cantidad}` : ''} {item.observaciones ? `- ${item.observaciones}` : ''}
+                            {item.nombreProducto ? <b>{item.nombreProducto}</b> : null} {item.producto ? `(${item.producto})` : ''} {item.cantidad ? `x${item.cantidad}` : ''} {item.observaciones ? `- ${item.observaciones}` : ''}
                           </li>
                         ))
                       ) : (
@@ -986,7 +1042,7 @@ function ListaPedidosClientes({ user }) {
                       color: "#1f2937"
                     }}
                   >
-                    {row.cliente}
+                    {getRazonSocial(row.cliente)}
                   </span>
                 )}
                 style={{

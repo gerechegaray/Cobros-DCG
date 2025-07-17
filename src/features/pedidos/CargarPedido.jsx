@@ -22,6 +22,15 @@ async function getAlegraItems() {
   return response.json();
 }
 
+// Servicio para traer productos desde Google Sheets
+async function getSheetProductos() {
+  const response = await fetch('/api/sheets/productos');
+  if (!response.ok) {
+    throw new Error('Error al obtener los productos de Sheets');
+  }
+  return response.json();
+}
+
 const ESTADO_RECEPCION = [
   { label: "Pendiente", value: "pendiente" },
   { label: "Recibido", value: "recibido" },
@@ -86,12 +95,14 @@ function CargarPedido({ user }) {
 
     async function fetchClientes() {
       try {
-        const data = await getAlegraContacts();
-        console.log('Clientes recibidos en CargarPedido:', data);
-        const options = data.map((c) => ({ label: c.name || '(Sin nombre)', value: c.id }));
+        const response = await fetch('/api/sheets/clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+        const data = await response.json();
+        // Usar razonSocial como label
+        const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c.id }));
         setClientes(options);
       } catch (error) {
-        console.error('Error al obtener clientes de Alegra:', error);
+        console.error('Error al obtener clientes de Sheets:', error);
       } finally {
         setLoadingClientes(false);
       }
@@ -99,15 +110,16 @@ function CargarPedido({ user }) {
 
     async function fetchProductosAlegra() {
       try {
-        const data = await getAlegraItems();
-        // Mapeo: label = nombre, value = id (sin stock ni disabled)
+        const data = await getSheetProductos();
+        console.log('Productos recibidos de Sheets:', data); // <-- Log para depuración
+        // Usar producto como label, fallback '(Sin nombre)'
         const options = data.map((item) => ({
-          label: item.name,
+          label: item.producto || '(Sin nombre)',
           value: item.id
         }));
         setProductosAlegra(options);
       } catch (error) {
-        console.error('Error al obtener productos de Alegra:', error);
+        console.error('Error al obtener productos de Sheets:', error);
       } finally {
         setLoadingProductosAlegra(false);
       }
@@ -145,10 +157,20 @@ function CargarPedido({ user }) {
     setLoading(true);
     try {
       // Guardar en Firebase
+      // Mapear los productos seleccionados para guardar id y nombre
+      const itemsConNombre = form.items.map((item) => {
+        const productoObj = productosAlegra.find((p) => p.value === item.producto);
+        return {
+          producto: item.producto, // id
+          nombreProducto: productoObj ? productoObj.label : '',
+          cantidad: item.cantidad,
+          descuento: item.descuento
+        };
+      });
       await addDoc(collection(db, "pedidosClientes"), {
         fecha: form.fecha,
         cliente: form.cliente,
-        items: form.items,
+        items: itemsConNombre,
         condicion: form.condicion,
         observaciones: form.observaciones.trim(),
         vendedor: form.vendedor.trim(),
@@ -156,28 +178,10 @@ function CargarPedido({ user }) {
         fechaCreacion: new Date()
       });
 
-      // Crear cotización en Alegra
-      const res = await fetch('/api/alegra/quotation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cliente: form.cliente,
-          items: form.items,
-          fecha: form.fecha,
-          condicion: form.condicion,
-          observaciones: form.observaciones,
-          vendedor: form.vendedor
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al crear cotización en Alegra');
-      }
-
       toast.current.show({
         severity: "success",
         summary: "Guardado",
-        detail: "Pedido registrado y cotización creada en Alegra"
+        detail: "Pedido registrado correctamente"
       });
 
       setForm({
@@ -189,15 +193,25 @@ function CargarPedido({ user }) {
         vendedor: ""
       });
     } catch (err) {
-      console.error("Error al guardar pedido o crear cotización:", err);
+      console.error("Error al guardar pedido:", err);
       toast.current.show({
         severity: "error",
         summary: "Error",
-        detail: err.message || "No se pudo guardar el pedido o crear la cotización"
+        detail: err.message || "No se pudo guardar el pedido"
       });
     }
     setLoading(false);
   };
+
+  // Lista de cobradores/vendedores
+  const COBRADORES = [
+    { label: "Mariano", value: "Mariano" },
+    { label: "Ruben", value: "Ruben" },
+    { label: "Diego", value: "Diego" },
+    { label: "Guille", value: "Guille" },
+    { label: "Santi", value: "Santi" },
+    { label: "German", value: "German" }
+  ];
 
   return (
     <div
@@ -406,11 +420,23 @@ function CargarPedido({ user }) {
                   <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                     Cliente *
                   </label>
-                  <InputText
-                    value={clienteNavegacion ? clienteNavegacion.name : ''}
-                    disabled
-                    className="p-fluid"
-                  />
+                  {clienteNavegacion ? (
+                    <InputText
+                      value={clienteNavegacion.razonSocial || clienteNavegacion.nombre || ''}
+                      disabled
+                      className="p-fluid"
+                    />
+                  ) : (
+                    <Dropdown
+                      value={form.cliente}
+                      options={clientes}
+                      onChange={(e) => setForm({ ...form, cliente: e.value })}
+                      placeholder="Selecciona un cliente"
+                      className="p-fluid"
+                      filter
+                      disabled={loadingClientes}
+                    />
+                  )}
                 </div>
 
                 <div
@@ -564,7 +590,7 @@ function CargarPedido({ user }) {
                           options={productosAlegra}
                           onChange={(e) => {
                             const items = [...form.items];
-                            items[idx].producto = e.value;
+                            items[idx].producto = e.value; // Solo id
                             setForm({ ...form, items });
                           }}
                           placeholder={
@@ -863,22 +889,59 @@ function CargarPedido({ user }) {
                   >
                     Vendedor (opcional)
                   </label>
-                  <InputText
-                    value={form.vendedor}
-                    onChange={(e) => setForm({ ...form, vendedor: e.target.value })}
-                    placeholder="Nombre del vendedor"
-                    style={{
-                      height: "3rem",
-                      borderRadius: "8px",
-                      border: "2px solid #e5e7eb",
-                      fontSize: "0.95rem",
-                      "@media (min-width: 768px)": {
-                        borderRadius: "12px",
-                        fontSize: "1rem"
-                      }
-                    }}
-                    className="p-inputtext-lg"
-                  />
+                  {user.role === "admin" ? (
+                    <Dropdown
+                      value={form.vendedor}
+                      options={COBRADORES}
+                      onChange={(e) => setForm({ ...form, vendedor: e.value })}
+                      placeholder="Selecciona el vendedor"
+                      style={{
+                        height: "3rem",
+                        borderRadius: "8px",
+                        border: "2px solid #e5e7eb",
+                        fontSize: "0.95rem",
+                        "@media (min-width: 768px)": {
+                          borderRadius: "12px",
+                          fontSize: "1rem"
+                        }
+                      }}
+                      className="p-inputtext-lg"
+                    />
+                  ) : (["Guille", "Santi"].includes(user.role) ? (
+                    <Dropdown
+                      value={user.role}
+                      options={COBRADORES.filter(c => c.value === user.role)}
+                      disabled
+                      style={{
+                        height: "3rem",
+                        borderRadius: "8px",
+                        border: "2px solid #e5e7eb",
+                        fontSize: "0.95rem",
+                        "@media (min-width: 768px)": {
+                          borderRadius: "12px",
+                          fontSize: "1rem"
+                        }
+                      }}
+                      className="p-inputtext-lg"
+                    />
+                  ) : (
+                    <InputText
+                      value={form.vendedor}
+                      onChange={(e) => setForm({ ...form, vendedor: e.target.value })}
+                      placeholder="Nombre del vendedor"
+                      style={{
+                        height: "3rem",
+                        borderRadius: "8px",
+                        border: "2px solid #e5e7eb",
+                        fontSize: "0.95rem",
+                        "@media (min-width: 768px)": {
+                          borderRadius: "12px",
+                          fontSize: "1rem"
+                        }
+                      }}
+                      className="p-inputtext-lg"
+                    />
+                  ))}
                 </div>
               </div>
             </div>

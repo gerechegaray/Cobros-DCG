@@ -33,6 +33,17 @@ function Navbar({ user, onLogout, menuItems }) {
     }
   ];
 
+  // Antes de renderizar los botones del menú, reordenar el array menuItems para que 'Clientes' esté entre 'Dashboard' y 'Lista de Cobranzas'
+  const getOrderedMenuItems = () => {
+    const dashboard = menuItems.find(item => item.label === 'Dashboard');
+    const clientes = menuItems.find(item => item.label === 'Clientes');
+    const cobranzas = menuItems.find(item => item.label === 'Lista de Cobranzas');
+    const otros = menuItems.filter(item => !['Dashboard', 'Clientes', 'Lista de Cobranzas', 'Mi Perfil'].includes(item.label));
+    // Si alguno no existe, fallback al orden original
+    if (!dashboard || !clientes || !cobranzas) return menuItems.filter(item => item.label !== 'Mi Perfil');
+    return [dashboard, clientes, cobranzas, ...otros];
+  };
+
   return (
     <>
       {/* Navbar */}
@@ -84,7 +95,7 @@ function Navbar({ user, onLogout, menuItems }) {
               borderRadius: "16px"
             }}
           >
-            {menuItems.filter(item => item.label !== 'Mi Perfil').map((item) => (
+            {getOrderedMenuItems().map((item) => (
               <Button
                 key={item.path}
                 label={item.label === "Dashboard" ? "Resumen" : item.label}
@@ -187,7 +198,7 @@ function Navbar({ user, onLogout, menuItems }) {
 
           <h3 style={{ marginBottom: "1rem", color: "#374151" }}>Navegación</h3>
 
-          {menuItems.filter(item => item.label !== 'Mi Perfil').map((item) => (
+          {getOrderedMenuItems().map((item) => (
             <Button
               key={item.path}
               label={item.label}
@@ -198,13 +209,14 @@ function Navbar({ user, onLogout, menuItems }) {
                 justifyContent: "flex-start",
                 backgroundColor:
                   currentPath === item.path.replace("/", "") ? "#dbeafe" : "transparent",
-                color: currentPath === item.path.replace("/", "") ? "#1e40af" : "#4b5563",
-                borderRadius: "12px",
-                padding: "0.875rem 1rem"
+                color: currentPath === item.path.replace("/", "") ? "#1e40af" : "#374151",
+                fontWeight: 600,
+                borderRadius: "10px",
+                marginBottom: "0.5rem"
               }}
               onClick={() => {
-                navigate(item.path);
                 setSidebarVisible(false);
+                navigate(item.path);
               }}
             />
           ))}
