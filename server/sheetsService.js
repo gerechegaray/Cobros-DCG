@@ -66,3 +66,66 @@ export async function getFilteredItems(userRole) {
       return true;
     });
 }
+
+// Devuelve el nombre de la hoja más reciente que empieza con el prefijo dado
+async function getLatestSheetName(prefix) {
+  const client = await auth.getClient();
+  const res = await sheets.spreadsheets.get({
+    auth: client,
+    spreadsheetId
+  });
+  const sheetsList = res.data.sheets.map(s => s.properties.title);
+  // Filtrar por prefijo y extraer fecha
+  const filtered = sheetsList
+    .filter(name => name.startsWith(prefix))
+    .map(name => ({
+      name,
+      date: (name.match(/(\d{2}-\d{2}-\d{2})/) || [])[1] || "00-00-00"
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return filtered.length > 0 ? filtered[0].name : null;
+}
+
+export async function getLatestClientes() {
+  const sheetName = await getLatestSheetName("Clientes");
+  if (!sheetName) return [];
+  const client = await auth.getClient();
+  const res = await sheets.spreadsheets.values.get({
+    auth: client,
+    spreadsheetId,
+    range: `'${sheetName}'!A2:Z`
+  });
+  const rows = res.data.values;
+  if (!rows?.length) return [];
+  // Mapear: id = primera columna, razonSocial = segunda columna
+  return rows.map(([id, razonSocial, ...rest]) => ({
+    id,
+    razonSocial,
+    extra: rest
+  }));
+}
+
+export async function getLatestProductos() {
+  // Usar hoja fija y rango fijo para evitar errores de nombre
+  const sheetName = 'Lista al 03-07-25';
+  const client = await auth.getClient();
+  const range = `'${sheetName}'!A2:J`;
+  console.log('Leyendo hoja:', sheetName, 'con rango:', range);
+  const res = await sheets.spreadsheets.values.get({
+    auth: client,
+    spreadsheetId,
+    range
+  });
+  const rows = res.data.values;
+  console.log('Cantidad de filas leídas:', rows?.length);
+  if (rows?.length) console.log('Primera fila:', rows[0]);
+  if (!rows?.length) return [];
+  // Filtrar filas vacías o sin código/producto
+  return rows
+    .filter(cols => cols && cols[0] && cols[1])
+    .map((cols) => ({
+      id: cols[0],
+      producto: cols[1],
+      extra: cols.slice(2)
+    }));
+}

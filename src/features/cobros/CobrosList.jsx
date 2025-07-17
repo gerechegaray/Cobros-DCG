@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db } from "../../services/firebase";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
@@ -147,6 +147,37 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
       setUpdatingId(null);
     }
   };
+
+  // Función para eliminar cobro
+  const eliminarCobro = async (cobroId) => {
+    try {
+      await deleteDoc(doc(db, "cobranzas", cobroId));
+      toast.current.show({ severity: 'success', summary: 'Eliminado', detail: 'Cobro eliminado correctamente' });
+    } catch (error) {
+      console.error("Error al eliminar cobro:", error);
+      toast.current.show({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el cobro' });
+    }
+  };
+
+  // Template para el botón de eliminar
+  const eliminarTemplate = (rowData) => (
+    user?.role === "admin" && (
+      <Button
+        icon="pi pi-trash"
+        className="p-button-danger p-button-text p-button-sm"
+        onClick={() => {
+          confirmDialog({
+            message: `¿Seguro que deseas eliminar el cobro de ${rowData.cliente}?`,
+            header: "Confirmar eliminación",
+            icon: "pi pi-exclamation-triangle",
+            accept: () => eliminarCobro(rowData.id)
+          });
+        }}
+        tooltip="Eliminar cobro"
+        tooltipOptions={{ position: "top" }}
+      />
+    )
+  );
 
   const cargadoTemplate = (rowData) => (
     <div className="flex align-items-center gap-3" style={{ minWidth: 120 }}>
@@ -799,6 +830,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
             <Column field="cobrador" header="Quién cobró" />
             <Column field="forma" header="Forma de cobro" />
             <Column field="cargado" header="¿Cargado en el sistema?" body={cargadoTemplate} />
+            <Column body={eliminarTemplate} header="Eliminar" style={{ width: 80, textAlign: 'center' }} />
           </DataTable>
         </div>
       </Card>

@@ -58,6 +58,10 @@ function PedidosEnviados({ user }) {
   const [activeTab, setActiveTab] = useState('pendientes'); // 'pendientes' o 'completas'
   const [expandedPedidos, setExpandedPedidos] = useState(null);
 
+  // 1. Estados para catálogos
+  const [clientesCatalogo, setClientesCatalogo] = useState([]);
+  const [productosCatalogo, setProductosCatalogo] = useState([]);
+
   // Cargar pedidos con estado 'recibido' y filtrar en frontend los que no tengan hoja de ruta asignada
   useEffect(() => {
     const q = query(
@@ -119,6 +123,32 @@ function PedidosEnviados({ user }) {
       return () => unsubscribe();
     }
   }, [showAgregarPedido]);
+
+  // 2. useEffect para cargar catálogos
+  useEffect(() => {
+    async function fetchClientesCatalogo() {
+      try {
+        const response = await fetch('http://localhost:3001/api/sheets/clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+        const data = await response.json();
+        setClientesCatalogo(data);
+      } catch (error) {
+        console.error('Error al obtener clientes de Sheets:', error);
+      }
+    }
+    async function fetchProductosCatalogo() {
+      try {
+        const response = await fetch('http://localhost:3001/api/sheets/productos');
+        if (!response.ok) throw new Error('Error al obtener productos de Sheets');
+        const data = await response.json();
+        setProductosCatalogo(data);
+      } catch (error) {
+        console.error('Error al obtener productos de Sheets:', error);
+      }
+    }
+    fetchClientesCatalogo();
+    fetchProductosCatalogo();
+  }, []);
 
   // Cambiar orden de pedidos en hoja de ruta
   const moverPedido = async (hoja, idx, direccion) => {
@@ -231,9 +261,18 @@ function PedidosEnviados({ user }) {
 
   // Eliminar hoja de ruta y desasociar pedidos
   const eliminarHojaDeRuta = async (hoja) => {
-    // Desasociar pedidos
+    // Desasociar pedidos (ignorar los que no existen)
     await Promise.all(
-      hoja.pedidos.map(pid => updateDoc(doc(db, "pedidosClientes", pid), { hojaDeRutaId: null }))
+      hoja.pedidos.map(async pid => {
+        try {
+          await updateDoc(doc(db, "pedidosClientes", pid), { hojaDeRutaId: null });
+        } catch (err) {
+          // Si el documento no existe, ignorar el error
+          if (err.code !== 'not-found') {
+            console.error('Error al desasociar pedido:', pid, err);
+          }
+        }
+      })
     );
     // Eliminar hoja
     await deleteDoc(doc(db, "hojasDeRuta", hoja.id));
@@ -257,6 +296,17 @@ function PedidosEnviados({ user }) {
   const esHojaCompleta = (hoja) => {
     const pedidosHoja = detallesPedidosHoja[hoja.id] || [];
     return pedidosHoja.length > 0 && pedidosHoja.every(p => p.estadoRecepcion === 'enviado');
+  };
+
+  // 3. Función para obtener razón social
+  const getRazonSocial = (clienteId) => {
+    const cliente = clientesCatalogo.find(c => c.id === clienteId);
+    return cliente ? cliente.razonSocial : clienteId;
+  };
+  // 4. Función para obtener nombre de producto
+  const getNombreProducto = (productoId) => {
+    const prod = productosCatalogo.find(p => p.id === productoId);
+    return prod ? prod.producto : productoId;
   };
 
   // Render detalle expandido de hoja de ruta
@@ -315,7 +365,7 @@ function PedidosEnviados({ user }) {
                       <ul style={{ margin: '1px 0 0 12px', padding: 0 }}>
                         {Array.isArray(row.items) && row.items.length > 0 ? row.items.map((item, i) => (
                           <li key={i} style={{ marginBottom: 1, lineHeight: 1.3 }}>
-                            <span style={{ fontWeight: 500, color: '#1f2937' }}>{item.producto}</span>
+                            <span style={{ fontWeight: 500, color: '#1f2937' }}>{getNombreProducto(item.producto)}</span>
                             <span style={{ color: '#6366f1', fontWeight: 600, marginLeft: 4 }}>×{item.cantidad}</span>
                           </li>
                         )) : <li>-</li>}
@@ -347,7 +397,7 @@ function PedidosEnviados({ user }) {
       <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8, margin: 8 }}>
         <div className="p-d-flex p-jc-between p-ai-center p-mb-2">
           <div>
-            <strong>Cliente:</strong> {pedido.cliente}
+            <strong>Cliente:</strong> {getRazonSocial(pedido.cliente)}
           </div>
           <div className="p-d-flex p-gap-2">
             <Tag 
@@ -367,7 +417,7 @@ function PedidosEnviados({ user }) {
           <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
             {Array.isArray(pedido.items) && pedido.items.length > 0 ? pedido.items.map((item, idx) => (
               <li key={idx} style={{ marginBottom: 4, lineHeight: 1.4 }}>
-                <span style={{ fontWeight: 500, color: '#1f2937' }}>{item.producto}</span>
+                <span style={{ fontWeight: 500, color: '#1f2937' }}>{getNombreProducto(item.producto)}</span>
                 <span style={{ color: '#6366f1', fontWeight: 600, marginLeft: 6 }}>×{item.cantidad}</span>
               </li>
             )) : <li>Sin productos especificados</li>}
@@ -474,7 +524,7 @@ function PedidosEnviados({ user }) {
           <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
           <Column expander style={{ width: '3em' }} />
           <Column field="fecha" header="Fecha" body={row => formatFecha(row.fecha)} />
-          <Column field="cliente" header="Cliente" />
+          <Column field="cliente" header="Cliente" body={row => getRazonSocial(row.cliente)} />
           <Column field="cobrador" header="Cargado por" />
         </DataTable>
       </Card>
@@ -564,7 +614,7 @@ function PedidosEnviados({ user }) {
             <ul style={{ paddingLeft: 18 }}>
               {pedidosDisponibles.map(p => (
                 <li key={p.id} style={{ marginBottom: 8 }}>
-                  {p.cliente} ({formatFecha(p.fecha)})
+                  {getRazonSocial(p.cliente)} ({formatFecha(p.fecha)})
                   <Button label="Agregar" className="p-button-text p-button-success p-ml-2" onClick={() => agregarPedidoAHoja(expandedHoja, p.id)} />
                 </li>
               ))}
@@ -619,7 +669,7 @@ function PedidosEnviados({ user }) {
                       <li key={pedido.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 4, background: '#f3f4f6', borderRadius: 6, padding: '4px 8px' }}>
                         <span style={{ flex: 1 }}>
                           <b>{pedido.cliente}</b> {pedido.items && Array.isArray(pedido.items) && pedido.items.length > 0 && (
-                            <span style={{ color: '#6366f1', fontSize: 13 }}>({pedido.items.map(i => `${i.producto} x${i.cantidad}`).join(', ')})</span>
+                            <span style={{ color: '#6366f1', fontSize: 13 }}>({pedido.items.map(i => `${getNombreProducto(i.producto)} x${i.cantidad}`).join(', ')})</span>
                           )}
                         </span>
                         <Button icon="pi pi-arrow-up" className="p-button-rounded p-button-text" style={{ fontSize: 13, width: 28, height: 28 }} onClick={e => { e.preventDefault(); if (idx > 0) { const arr = [...editForm.pedidosOrder]; [arr[idx], arr[idx-1]] = [arr[idx-1], arr[idx]]; setEditForm(f => ({ ...f, pedidosOrder: arr })); } }} disabled={idx === 0} tooltip="Subir" />
