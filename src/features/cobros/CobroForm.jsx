@@ -10,6 +10,7 @@ import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { getAlegraContacts } from "../../services/alegra";
+import { ProgressSpinner } from "primereact/progressspinner";
 
 function CobroForm({ user }) {
   const [fecha, setFecha] = useState(null);
@@ -53,7 +54,8 @@ function CobroForm({ user }) {
     async function fetchClientes() {
       try {
         const data = await getAlegraContacts();
-        const options = data.map((c) => ({ label: c.name, value: c.name }));
+        console.log('Clientes recibidos en CobroForm:', data);
+        const options = data.map((c) => ({ label: c.name || '(Sin nombre)', value: c.id }));
         setClientes(options);
       } catch (error) {
         console.error('Error al obtener clientes de Alegra:', error);
@@ -137,15 +139,21 @@ function CobroForm({ user }) {
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Cliente *
               </label>
-              <Dropdown
-                value={cliente}
-                options={clientes}
-                onChange={(e) => setCliente(e.value)}
-                className="p-fluid"
-                placeholder={loadingClientes ? "Cargando clientes..." : "Selecciona un cliente"}
-                filter
-                disabled={loadingClientes}
-              />
+              {loadingClientes ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ProgressSpinner style={{ width: '1.5rem', height: '1.5rem' }} strokeWidth="4" />
+                  <span>Cargando clientes...</span>
+                </div>
+              ) : (
+                <Dropdown
+                  value={cliente}
+                  options={clientes}
+                  onChange={(e) => setCliente(e.value)}
+                  className="p-fluid"
+                  placeholder="Selecciona un cliente"
+                  filter
+                />
+              )}
             </div>
 
             {/* Monto */}
