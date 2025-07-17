@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { db } from "../../services/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { InputText } from "primereact/inputtext";
@@ -9,6 +9,7 @@ import { Card } from "primereact/card";
 import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
+import { getAlegraContacts } from "../../services/alegra";
 
 function CobroForm({ user }) {
   const [fecha, setFecha] = useState(null);
@@ -19,6 +20,8 @@ function CobroForm({ user }) {
   const [cargado, setCargado] = useState(false);
   const [loading, setLoading] = useState(false);
   const toast = useRef(null);
+  const [clientes, setClientes] = useState([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
 
   const formasDeCobro = [
     { label: "Efectivo", value: "Efectivo" },
@@ -45,6 +48,21 @@ function CobroForm({ user }) {
   const showToast = (severity, summary, detail) => {
     toast.current.show({ severity, summary, detail });
   };
+
+  useEffect(() => {
+    async function fetchClientes() {
+      try {
+        const data = await getAlegraContacts();
+        const options = data.map((c) => ({ label: c.name, value: c.name }));
+        setClientes(options);
+      } catch (error) {
+        console.error('Error al obtener clientes de Alegra:', error);
+      } finally {
+        setLoadingClientes(false);
+      }
+    }
+    fetchClientes();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,11 +137,14 @@ function CobroForm({ user }) {
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Cliente *
               </label>
-              <InputText 
-                value={cliente} 
-                onChange={(e) => setCliente(e.target.value)} 
+              <Dropdown
+                value={cliente}
+                options={clientes}
+                onChange={(e) => setCliente(e.value)}
                 className="p-fluid"
-                placeholder="Nombre del cliente"
+                placeholder={loadingClientes ? "Cargando clientes..." : "Selecciona un cliente"}
+                filter
+                disabled={loadingClientes}
               />
             </div>
 

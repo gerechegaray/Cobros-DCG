@@ -9,6 +9,7 @@ import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Divider } from "primereact/divider";
+import { getAlegraContacts } from "../../services/alegra";
 
 const ESTADO_RECEPCION = [
   { label: "Pendiente", value: "pendiente" },
@@ -33,6 +34,8 @@ function CargarPedido({ user }) {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingProductos, setLoadingProductos] = useState(true);
+  const [clientes, setClientes] = useState([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
   const toast = useRef(null);
 
   useEffect(() => {
@@ -58,8 +61,21 @@ function CargarPedido({ user }) {
       }
     };
 
+    async function fetchClientes() {
+      try {
+        const data = await getAlegraContacts();
+        const options = data.map((c) => ({ label: c.name, value: c.name }));
+        setClientes(options);
+      } catch (error) {
+        console.error('Error al obtener clientes de Alegra:', error);
+      } finally {
+        setLoadingClientes(false);
+      }
+    }
+
     if (user) {
       fetchProductos();
+      fetchClientes();
     }
   }, [user]);
 
@@ -325,46 +341,19 @@ function CargarPedido({ user }) {
                   }
                 }}
               >
-                <div
-                  style={{
-                    flex: 1,
-                    "@media (min-width: 768px)": {
-                      marginRight: "0.5rem"
-                    }
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "0.9rem",
-                      "@media (min-width: 768px)": {
-                        fontSize: "0.95rem"
-                      }
-                    }}
-                  >
-                    Nombre del Cliente *
+                {/* Cliente */}
+                <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
+                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                    Cliente *
                   </label>
-                  <InputText
+                  <Dropdown
                     value={form.cliente}
-                    onChange={(e) => setForm({ ...form, cliente: e.target.value })}
-                    placeholder="Ingresa el nombre del cliente"
-                    style={{
-                      height: "3rem",
-                      borderRadius: "8px",
-                      border: "2px solid #e5e7eb",
-                      fontSize: "0.95rem",
-                      transition: "all 0.3s ease",
-                      "@media (min-width: 768px)": {
-                        height: "3.5rem",
-                        borderRadius: "12px",
-                        fontSize: "1rem"
-                      }
-                    }}
-                    className="p-inputtext-lg"
-                    required
+                    options={clientes}
+                    onChange={(e) => setForm((prev) => ({ ...prev, cliente: e.value }))}
+                    className="p-fluid"
+                    placeholder={loadingClientes ? "Cargando clientes..." : "Selecciona un cliente"}
+                    filter
+                    disabled={loadingClientes}
                   />
                 </div>
 
