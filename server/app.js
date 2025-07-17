@@ -22,7 +22,21 @@ app.get("/api/items", async (req, res) => {
   }
 });
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Cache en memoria para clientes de Alegra
+let alegraContactsCache = null;
+let alegraContactsCacheTimestamp = 0;
+const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutos
+
 app.get("/api/alegra/contacts", async (req, res) => {
+  const now = Date.now();
+  if (alegraContactsCache && (now - alegraContactsCacheTimestamp) < CACHE_DURATION_MS) {
+    console.log('Sirviendo clientes de Alegra desde cache');
+    return res.json(alegraContactsCache);
+  }
   const email = process.env.VITE_ALEGRA_API_EMAIL;
   const apiKey = process.env.VITE_ALEGRA_API_KEY;
   console.log("EMAIL:", email);
@@ -45,21 +59,34 @@ app.get("/api/alegra/contacts", async (req, res) => {
         },
       });
       const text = await response.text();
-      console.log(`Respuesta cruda de Alegra (start=${start}):`, text);
       let data;
       try {
         data = JSON.parse(text);
       } catch (e) {
         return res.status(500).send("Respuesta no es JSON: " + text);
       }
+      // Manejo de rate limit
+      if (data && data.code === 429) {
+        const waitSeconds = data.headers && data.headers['x-rate-limit-reset'] ? parseInt(data.headers['x-rate-limit-reset'], 10) : 60;
+        console.log(`Rate limit alcanzado. Esperando ${waitSeconds} segundos antes de continuar...`);
+        await sleep(waitSeconds * 1000);
+        continue; // Reintenta la misma página
+      }
+      console.log(`Iteración start=${start}: recibidos ${Array.isArray(data) ? data.length : 0} clientes`);
       if (Array.isArray(data) && data.length > 0) {
         allContacts = allContacts.concat(data);
+        console.log(`Total acumulado: ${allContacts.length}`);
         start += data.length;
-        hasMore = data.length === limit;
+        hasMore = data.length > 0;
+        await sleep(1000); // Espera 1 segundo entre peticiones
       } else {
+        console.log(`Respuesta de Alegra cuando start=${start}:`, text);
         hasMore = false;
       }
     }
+    console.log(`Total final de clientes enviados al frontend: ${allContacts.length}`);
+    alegraContactsCache = allContacts;
+    alegraContactsCacheTimestamp = Date.now();
     res.json(allContacts);
   } catch (err) {
     console.error("Error al consultar Alegra:", err);
