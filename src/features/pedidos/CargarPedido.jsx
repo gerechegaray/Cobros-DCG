@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../services/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { Card } from "primereact/card";
@@ -12,6 +13,15 @@ import { Divider } from "primereact/divider";
 import { getAlegraContacts } from "../../services/alegra";
 import { ProgressSpinner } from "primereact/progressspinner";
 
+// Servicio para traer productos de Alegra
+async function getAlegraItems() {
+  const response = await fetch('/api/alegra/items');
+  if (!response.ok) {
+    throw new Error('Error al obtener los productos de Alegra');
+  }
+  return response.json();
+}
+
 const ESTADO_RECEPCION = [
   { label: "Pendiente", value: "pendiente" },
   { label: "Recibido", value: "recibido" },
@@ -24,13 +34,23 @@ const CONDICIONES = [
 ];
 
 function CargarPedido({ user }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const clienteNavegacion = location.state?.cliente;
+
+  useEffect(() => {
+    if (!clienteNavegacion) {
+      navigate('/clientes');
+    }
+  }, [clienteNavegacion, navigate]);
+
   const [form, setForm] = useState({
     fecha: null,
-    cliente: "",
-    items: [{ producto: null, cantidad: 1 }],
-    estadoRecepcion: "pendiente",
+    cliente: clienteNavegacion ? clienteNavegacion.id : "",
+    items: [{ producto: null, cantidad: 1, descuento: 0 }],
     condicion: "contado",
-    observaciones: ""
+    observaciones: "",
+    vendedor: ""
   });
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +58,8 @@ function CargarPedido({ user }) {
   const [clientes, setClientes] = useState([]);
   const [loadingClientes, setLoadingClientes] = useState(true);
   const toast = useRef(null);
+  const [productosAlegra, setProductosAlegra] = useState([]);
+  const [loadingProductosAlegra, setLoadingProductosAlegra] = useState(true);
 
   useEffect(() => {
     const fetchProductos = async () => {
@@ -75,9 +97,26 @@ function CargarPedido({ user }) {
       }
     }
 
+    async function fetchProductosAlegra() {
+      try {
+        const data = await getAlegraItems();
+        // Mapeo: label = nombre, value = id (sin stock ni disabled)
+        const options = data.map((item) => ({
+          label: item.name,
+          value: item.id
+        }));
+        setProductosAlegra(options);
+      } catch (error) {
+        console.error('Error al obtener productos de Alegra:', error);
+      } finally {
+        setLoadingProductosAlegra(false);
+      }
+    }
+
     if (user) {
       fetchProductos();
       fetchClientes();
+      fetchProductosAlegra();
     }
   }, [user]);
 
@@ -88,7 +127,7 @@ function CargarPedido({ user }) {
 
   const validar = () => {
     if (!form.fecha) return "La fecha es obligatoria";
-    if (!form.cliente.trim()) return "El nombre del cliente es obligatorio";
+    if (!form.cliente) return "El cliente es obligatorio";
     if (!form.items.length || form.items.some((i) => !i.producto || !i.cantidad || i.cantidad < 1))
       return "Debes agregar al menos un producto y cantidad válida";
     if (!form.condicion) return "La condición es obligatoria";
@@ -105,37 +144,56 @@ function CargarPedido({ user }) {
 
     setLoading(true);
     try {
+      // Guardar en Firebase
       await addDoc(collection(db, "pedidosClientes"), {
         fecha: form.fecha,
-        cliente: form.cliente.trim(),
+        cliente: form.cliente,
         items: form.items,
-        estadoRecepcion: user.role === "admin" ? form.estadoRecepcion : "pendiente",
         condicion: form.condicion,
         observaciones: form.observaciones.trim(),
+        vendedor: form.vendedor.trim(),
         cobrador: user.role === "admin" ? "admin" : user.role,
         fechaCreacion: new Date()
       });
 
+      // Crear cotización en Alegra
+      const res = await fetch('/api/alegra/quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente: form.cliente,
+          items: form.items,
+          fecha: form.fecha,
+          condicion: form.condicion,
+          observaciones: form.observaciones,
+          vendedor: form.vendedor
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al crear cotización en Alegra');
+      }
+
       toast.current.show({
         severity: "success",
         summary: "Guardado",
-        detail: "Pedido del cliente registrado exitosamente"
+        detail: "Pedido registrado y cotización creada en Alegra"
       });
 
       setForm({
         fecha: null,
-        cliente: "",
-        items: [{ producto: null, cantidad: 1 }],
-        estadoRecepcion: "pendiente",
+        cliente: clienteNavegacion ? clienteNavegacion.id : "",
+        items: [{ producto: null, cantidad: 1, descuento: 0 }],
         condicion: "contado",
-        observaciones: ""
+        observaciones: "",
+        vendedor: ""
       });
     } catch (err) {
-      console.error("Error al guardar pedido:", err);
+      console.error("Error al guardar pedido o crear cotización:", err);
       toast.current.show({
         severity: "error",
         summary: "Error",
-        detail: "No se pudo guardar el pedido"
+        detail: err.message || "No se pudo guardar el pedido o crear la cotización"
       });
     }
     setLoading(false);
@@ -348,21 +406,11 @@ function CargarPedido({ user }) {
                   <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                     Cliente *
                   </label>
-                  {loadingClientes ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <ProgressSpinner style={{ width: '1.5rem', height: '1.5rem' }} strokeWidth="4" />
-                      <span>Cargando clientes...</span>
-                    </div>
-                  ) : (
-                    <Dropdown
-                      value={form.cliente}
-                      options={clientes}
-                      onChange={(e) => setForm((prev) => ({ ...prev, cliente: e.value }))}
-                      className="p-fluid"
-                      placeholder="Selecciona un cliente"
-                      filter
-                    />
-                  )}
+                  <InputText
+                    value={clienteNavegacion ? clienteNavegacion.name : ''}
+                    disabled
+                    className="p-fluid"
+                  />
                 </div>
 
                 <div
@@ -513,14 +561,14 @@ function CargarPedido({ user }) {
                         </label>
                         <Dropdown
                           value={item.producto}
-                          options={productos}
+                          options={productosAlegra}
                           onChange={(e) => {
                             const items = [...form.items];
                             items[idx].producto = e.value;
                             setForm({ ...form, items });
                           }}
                           placeholder={
-                            loadingProductos ? "Cargando productos..." : "Seleccionar producto"
+                            loadingProductosAlegra ? "Cargando productos..." : "Seleccionar producto"
                           }
                           style={{
                             height: "3rem",
@@ -530,7 +578,7 @@ function CargarPedido({ user }) {
                               borderRadius: "12px"
                             }
                           }}
-                          disabled={loadingProductos}
+                          disabled={loadingProductosAlegra}
                           filter
                           className="p-dropdown-lg"
                         />
@@ -568,6 +616,54 @@ function CargarPedido({ user }) {
                             setForm({ ...form, items });
                           }}
                           placeholder="Cantidad"
+                          style={{
+                            height: "3rem",
+                            borderRadius: "8px",
+                            border: "2px solid rgba(139, 90, 60, 0.2)",
+                            fontSize: "0.95rem",
+                            "@media (min-width: 768px)": {
+                              height: "3.5rem",
+                              borderRadius: "12px",
+                              fontSize: "1rem"
+                            }
+                          }}
+                          className="p-inputtext-lg"
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          flex: 1,
+                          "@media (min-width: 768px)": {
+                            marginRight: "0.5rem"
+                          }
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "600",
+                            color: "#8b5a3c",
+                            fontSize: "0.9rem",
+                            "@media (min-width: 768px)": {
+                              fontSize: "0.95rem"
+                            }
+                          }}
+                        >
+                          % Bonificación
+                        </label>
+                        <InputText
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={item.descuento || 0}
+                          onChange={(e) => {
+                            const items = [...form.items];
+                            items[idx].descuento = Number.parseFloat(e.target.value) || 0;
+                            setForm({ ...form, items });
+                          }}
+                          placeholder="%"
                           style={{
                             height: "3rem",
                             borderRadius: "8px",
@@ -627,7 +723,7 @@ function CargarPedido({ user }) {
                     type="button"
                     className="p-button-outlined"
                     onClick={() =>
-                      setForm({ ...form, items: [...form.items, { producto: null, cantidad: 1 }] })
+                      setForm({ ...form, items: [...form.items, { producto: null, cantidad: 1, descuento: 0 }] })
                     }
                     style={{
                       height: "3rem",
@@ -690,7 +786,7 @@ function CargarPedido({ user }) {
                     }
                   }}
                 >
-                  Condiciones y Estado
+                  Condiciones
                 </h3>
               </div>
 
@@ -744,47 +840,46 @@ function CargarPedido({ user }) {
                     required
                   />
                 </div>
-
-                {user.role === "admin" && (
-                  <div
+                {/* Vendedor */}
+                <div
+                  style={{
+                    flex: 1,
+                    "@media (min-width: 768px)": {
+                      marginLeft: "0.5rem"
+                    }
+                  }}
+                >
+                  <label
                     style={{
-                      flex: 1,
+                      display: "block",
+                      marginBottom: "0.5rem",
+                      fontWeight: "600",
+                      color: "#374151",
+                      fontSize: "0.9rem",
                       "@media (min-width: 768px)": {
-                        marginLeft: "0.5rem"
+                        fontSize: "0.95rem"
                       }
                     }}
                   >
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "0.5rem",
-                        fontWeight: "600",
-                        color: "#374151",
-                        fontSize: "0.9rem",
-                        "@media (min-width: 768px)": {
-                          fontSize: "0.95rem"
-                        }
-                      }}
-                    >
-                      Estado de Recepción
-                    </label>
-                    <Dropdown
-                      value={form.estadoRecepcion}
-                      options={ESTADO_RECEPCION}
-                      onChange={(e) => setForm({ ...form, estadoRecepcion: e.value })}
-                      placeholder="Selecciona el estado"
-                      style={{
-                        height: "3rem",
-                        borderRadius: "8px",
-                        "@media (min-width: 768px)": {
-                          height: "3.5rem",
-                          borderRadius: "12px"
-                        }
-                      }}
-                      className="p-dropdown-lg"
-                    />
-                  </div>
-                )}
+                    Vendedor (opcional)
+                  </label>
+                  <InputText
+                    value={form.vendedor}
+                    onChange={(e) => setForm({ ...form, vendedor: e.target.value })}
+                    placeholder="Nombre del vendedor"
+                    style={{
+                      height: "3rem",
+                      borderRadius: "8px",
+                      border: "2px solid #e5e7eb",
+                      fontSize: "0.95rem",
+                      "@media (min-width: 768px)": {
+                        borderRadius: "12px",
+                        fontSize: "1rem"
+                      }
+                    }}
+                    className="p-inputtext-lg"
+                  />
+                </div>
               </div>
             </div>
 
