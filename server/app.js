@@ -31,21 +31,36 @@ app.get("/api/alegra/contacts", async (req, res) => {
     return res.status(500).json({ error: "Faltan credenciales de Alegra en el backend" });
   }
   const auth = Buffer.from(`${email}:${apiKey}`).toString("base64");
+  let allContacts = [];
+  let start = 0;
+  const limit = 100; // máximo permitido por Alegra
+  let hasMore = true;
   try {
-    const response = await fetch("https://api.alegra.com/api/v1/contacts", {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        Accept: "application/json",
-      },
-    });
-    const text = await response.text();
-    console.log("Respuesta cruda de Alegra:", text);
-    try {
-      const data = JSON.parse(text);
-      res.json(data);
-    } catch (e) {
-      res.status(500).send("Respuesta no es JSON: " + text);
+    while (hasMore) {
+      const url = `https://api.alegra.com/api/v1/contacts?start=${start}&limit=${limit}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          Accept: "application/json",
+        },
+      });
+      const text = await response.text();
+      console.log(`Respuesta cruda de Alegra (start=${start}):`, text);
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        return res.status(500).send("Respuesta no es JSON: " + text);
+      }
+      if (Array.isArray(data) && data.length > 0) {
+        allContacts = allContacts.concat(data);
+        start += data.length;
+        hasMore = data.length === limit;
+      } else {
+        hasMore = false;
+      }
     }
+    res.json(allContacts);
   } catch (err) {
     console.error("Error al consultar Alegra:", err);
     res.status(500).json({ error: "Error interno al consultar Alegra" });
