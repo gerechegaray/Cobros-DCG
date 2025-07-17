@@ -9,6 +9,7 @@ import UserProfile from "./features/auth/UserProfile";
 import CargarPedido from "./features/pedidos/CargarPedido";
 import ListaPedidosClientes from "./features/pedidos/ListaPedidosClientes";
 import PedidosEnviados from "./features/pedidos/PedidosEnviados";
+import SelectorCliente from "./features/pedidos/SelectorCliente";
 import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -78,22 +79,20 @@ function App() {
     if (user?.role === "admin") {
       return [
         ...baseItems,
-        { label: "Cargar Cobro", icon: "pi pi-plus", path: "/form" },
-        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", path: "/cargar-pedido" },
         { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
         { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
         { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
-        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
+        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
+        { label: "Clientes", icon: "pi pi-users", path: "/clientes" }
       ];
     } else if (isCobrador) {
       return [
         ...baseItems,
-        { label: "Cargar Cobro", icon: "pi pi-plus", path: "/form" },
-        { label: "Cargar Pedido", icon: "pi pi-shopping-cart", path: "/cargar-pedido" },
         { label: "Mis Cobranzas", icon: "pi pi-list", path: "/my-cobros" },
         { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
         { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
-        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
+        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
+        { label: "Clientes", icon: "pi pi-users", path: "/clientes" }
       ];
     }
     return baseItems;
@@ -130,7 +129,6 @@ function App() {
             {user && (
               <>
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
-                <Route path="/form" element={<CobroForm user={user} />} />
                 <Route path="/cargar-pedido" element={<CargarPedido user={user} />} />
                 <Route path="/lista-pedidos" element={<ListaPedidosClientes user={user} />} />
                 <Route path="/list" element={
@@ -147,6 +145,7 @@ function App() {
                 } />
                 <Route path="/pedidos" element={<PedidosEnviados user={user} />} />
                 <Route path="/profile" element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />} />
+                <Route path="/clientes" element={<SelectorCliente />} />
               </>
             )}
             {/* Redirigir cualquier otra ruta al login si no está autenticado, o al dashboard si lo está */}
