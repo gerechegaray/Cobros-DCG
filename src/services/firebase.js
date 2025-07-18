@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
@@ -16,3 +16,14 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Funciones para obtener catálogos desde Firestore
+export async function getProductosCatalogo() {
+  const querySnapshot = await getDocs(collection(db, 'productos'));
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function getClientesCatalogo() {
+  const querySnapshot = await getDocs(collection(db, 'clientes'));
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}

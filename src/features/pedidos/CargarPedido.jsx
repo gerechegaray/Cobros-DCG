@@ -12,21 +12,13 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { Divider } from "primereact/divider";
 import { getAlegraContacts } from "../../services/alegra";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { getClientesCatalogo, getProductosCatalogo } from '../../services/firebase';
 
 // Servicio para traer productos de Alegra
 async function getAlegraItems() {
   const response = await fetch('/api/alegra/items');
   if (!response.ok) {
     throw new Error('Error al obtener los productos de Alegra');
-  }
-  return response.json();
-}
-
-// Servicio para traer productos desde Google Sheets
-async function getSheetProductos() {
-  const response = await fetch('/api/sheets/productos');
-  if (!response.ok) {
-    throw new Error('Error al obtener los productos de Sheets');
   }
   return response.json();
 }
@@ -283,62 +275,35 @@ function CargarPedido({ user }) {
   const [loadingProductosAlegra, setLoadingProductosAlegra] = useState(true);
 
   useEffect(() => {
-    const fetchProductos = async () => {
-      try {
-        const response = await fetch(`https://cobros-dcg.onrender.com/api/items?role=${user.role}`);
-        if (!response.ok) throw new Error("Error al obtener productos");
-        const data = await response.json();
-        const options = data.map((item) => ({
-          label: item.nombre,
-          value: item.nombre
-        }));
-        setProductos(options);
-      } catch (error) {
-        console.error("Error al cargar productos:", error);
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudieron cargar los productos"
-        });
-      } finally {
-        setLoadingProductos(false);
-      }
-    };
-
     async function fetchClientes() {
       try {
-        const response = await fetch('/api/sheets/clientes');
-        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-        const data = await response.json();
-        // Usar razonSocial como label
-        const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c.id }));
+        const data = await getClientesCatalogo();
+        const options = data
+          .slice()
+          .sort((a, b) => (a['Razón Social'] || '').localeCompare(b['Razón Social'] || ''))
+          .map((c) => ({ label: c['Razón Social'] || '(Sin nombre)', value: c.id }));
         setClientes(options);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       } finally {
         setLoadingClientes(false);
       }
     }
-
     async function fetchProductosAlegra() {
       try {
-        const data = await getSheetProductos();
-        console.log('Productos recibidos de Sheets:', data); // <-- Log para depuración
-        // Usar producto como label, fallback '(Sin nombre)'
-        const options = data.map((item) => ({
-          label: item.producto || '(Sin nombre)',
-          value: item.id
-        }));
+        const data = await getProductosCatalogo();
+        const options = data
+          .slice()
+          .sort((a, b) => (a.Producto || '').localeCompare(b.Producto || ''))
+          .map((item) => ({ label: item.Producto || '(Sin nombre)', value: item.id }));
         setProductosAlegra(options);
       } catch (error) {
-        console.error('Error al obtener productos de Sheets:', error);
+        console.error('Error al obtener productos de Firestore:', error);
       } finally {
         setLoadingProductosAlegra(false);
       }
     }
-
     if (user) {
-      fetchProductos();
       fetchClientes();
       fetchProductosAlegra();
     }

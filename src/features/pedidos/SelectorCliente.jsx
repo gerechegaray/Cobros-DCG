@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
-// import { getAlegraContacts } from "../../services/alegra";
+import { getClientesCatalogo } from '../../services/firebase';
 import { useNavigate } from "react-router-dom";
 
 export default function SelectorCliente() {
@@ -14,12 +14,14 @@ export default function SelectorCliente() {
   useEffect(() => {
     async function fetchClientes() {
       try {
-        const response = await fetch('/api/sheets/clientes');
-        const data = await response.json();
-        const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c }));
+        const data = await getClientesCatalogo();
+        const options = data
+          .slice()
+          .sort((a, b) => (a['Razón Social'] || '').localeCompare(b['Razón Social'] || ''))
+          .map((c) => ({ label: c['Razón Social'] || '(Sin nombre)', value: c }));
         setClientes(options);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       } finally {
         setLoadingClientes(false);
       }
@@ -51,20 +53,6 @@ export default function SelectorCliente() {
     }
   };
 
-  const handleRefrescarClientes = async () => {
-    setLoadingClientes(true);
-    try {
-      const response = await fetch('/api/sheets/clientes?refresh=true');
-      const data = await response.json();
-      const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c }));
-      setClientes(options);
-    } catch (error) {
-      console.error('Error al refrescar clientes de Sheets:', error);
-    } finally {
-      setLoadingClientes(false);
-    }
-  };
-
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: 24 }}>
       <h2>Selecciona un cliente</h2>
@@ -83,9 +71,6 @@ export default function SelectorCliente() {
           filter
         />
       )}
-      <div style={{ marginTop: 16, marginBottom: 16 }}>
-        <Button label="Refrescar datos" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" />
-      </div>
       <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Button label="Cargar pedido" icon="pi pi-shopping-cart" disabled={!clienteSeleccionado} onClick={handleCargarPedido} />
         <Button label="Cargar cobro" icon="pi pi-dollar" disabled={!clienteSeleccionado} severity="success" outlined onClick={handleCargarCobro} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { db, auth } from "../../services/firebase";
+import { db, auth, getClientesCatalogo } from "../../services/firebase";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
@@ -16,13 +16,11 @@ function Alerts({ user, onNavigateToMyCobros }) {
   useEffect(() => {
     async function fetchClientesCatalogo() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/clientes');
-        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-        const data = await response.json();
+        const data = await getClientesCatalogo();
         setClientesCatalogo(data);
         setCatalogoCargado(true);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       }
     }
     fetchClientesCatalogo();
@@ -74,7 +72,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
   const getRazonSocial = (clienteId) => {
     if (catalogoCargado && clientesCatalogo.length > 0) {
       const cliente = clientesCatalogo.find(c => c.id === clienteId);
-      return cliente ? cliente.razonSocial : clienteId;
+      return cliente ? cliente['Razón Social'] : clienteId;
     }
     return clienteId;
   };
