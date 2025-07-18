@@ -86,7 +86,18 @@ async function getLatestSheetName(prefix) {
   return filtered.length > 0 ? filtered[0].name : null;
 }
 
-export async function getLatestClientes() {
+// Variables de caché en memoria
+let clientesCache = null;
+let clientesCacheTimestamp = 0;
+let productosCache = null;
+let productosCacheTimestamp = 0;
+const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hora
+
+async function getClientes(refresh = false) {
+  const now = Date.now();
+  if (!refresh && clientesCache && (now - clientesCacheTimestamp < CACHE_DURATION_MS)) {
+    return clientesCache;
+  }
   const sheetName = await getLatestSheetName("Clientes");
   if (!sheetName) return [];
   const client = await auth.getClient();
@@ -98,14 +109,21 @@ export async function getLatestClientes() {
   const rows = res.data.values;
   if (!rows?.length) return [];
   // Mapear: id = primera columna, razonSocial = segunda columna
-  return rows.map(([id, razonSocial, ...rest]) => ({
+  const clientes = rows.map(([id, razonSocial, ...rest]) => ({
     id,
     razonSocial,
     extra: rest
   }));
+  clientesCache = clientes;
+  clientesCacheTimestamp = now;
+  return clientes;
 }
 
-export async function getLatestProductos() {
+async function getProductos(refresh = false) {
+  const now = Date.now();
+  if (!refresh && productosCache && (now - productosCacheTimestamp < CACHE_DURATION_MS)) {
+    return productosCache;
+  }
   // Usar hoja fija y rango fijo para evitar errores de nombre
   const sheetName = 'Lista al 03-07-25';
   const client = await auth.getClient();
@@ -121,11 +139,14 @@ export async function getLatestProductos() {
   if (rows?.length) console.log('Primera fila:', rows[0]);
   if (!rows?.length) return [];
   // Filtrar filas vacías o sin código/producto
-  return rows
+  const productos = rows
     .filter(cols => cols && cols[0] && cols[1])
     .map((cols) => ({
       id: cols[0],
       producto: cols[1],
       extra: cols.slice(2)
     }));
+  productosCache = productos;
+  productosCacheTimestamp = now;
+  return productos;
 }

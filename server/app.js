@@ -81,7 +81,8 @@ function sleep(ms) {
 
 app.get("/api/sheets/clientes", async (req, res) => {
   try {
-    const clientes = await getLatestClientes();
+    const refresh = req.query.refresh === 'true';
+    const clientes = await getLatestClientes(refresh);
     res.json(clientes);
   } catch (err) {
     console.error("Error al obtener clientes de Google Sheets:", err);
@@ -91,7 +92,8 @@ app.get("/api/sheets/clientes", async (req, res) => {
 
 app.get("/api/sheets/productos", async (req, res) => {
   try {
-    const productos = await getLatestProductos();
+    const refresh = req.query.refresh === 'true';
+    const productos = await getLatestProductos(refresh);
     res.json(productos);
   } catch (err) {
     console.error("Error al obtener productos de Google Sheets:", err);

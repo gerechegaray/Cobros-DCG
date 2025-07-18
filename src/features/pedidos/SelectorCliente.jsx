@@ -45,6 +45,26 @@ export default function SelectorCliente() {
     }
   };
 
+  const handleRegistroPedidos = () => {
+    if (clienteSeleccionado) {
+      navigate('/lista-pedidos', { state: { cliente: clienteSeleccionado } });
+    }
+  };
+
+  const handleRefrescarClientes = async () => {
+    setLoadingClientes(true);
+    try {
+      const response = await fetch('/api/sheets/clientes?refresh=true');
+      const data = await response.json();
+      const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c }));
+      setClientes(options);
+    } catch (error) {
+      console.error('Error al refrescar clientes de Sheets:', error);
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: 24 }}>
       <h2>Selecciona un cliente</h2>
@@ -63,12 +83,14 @@ export default function SelectorCliente() {
           filter
         />
       )}
+      <div style={{ marginTop: 16, marginBottom: 16 }}>
+        <Button label="Refrescar datos" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" />
+      </div>
       <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Button label="Cargar pedido" icon="pi pi-shopping-cart" disabled={!clienteSeleccionado} onClick={handleCargarPedido} />
         <Button label="Cargar cobro" icon="pi pi-dollar" disabled={!clienteSeleccionado} severity="success" outlined onClick={handleCargarCobro} />
         <Button label="Estado de cuenta" icon="pi pi-file" disabled={!clienteSeleccionado} severity="info" outlined onClick={handleEstadoCuenta} />
-        <Button label="Ver estado de cuenta" icon="pi pi-list" disabled={!clienteSeleccionado} severity="info" outlined />
-        <Button label="Registro de pedidos" icon="pi pi-book" disabled={!clienteSeleccionado} severity="help" outlined />
+        <Button label="Registro de pedidos" icon="pi pi-book" disabled={!clienteSeleccionado} severity="help" outlined onClick={handleRegistroPedidos} />
       </div>
     </div>
   );

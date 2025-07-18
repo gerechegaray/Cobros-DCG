@@ -21,6 +21,9 @@ import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { ConfirmDialog } from "primereact/confirmdialog";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Dialog } from "primereact/dialog";
+import { PedidoForm } from "./CargarPedido";
 
 function ListaPedidosClientes({ user }) {
   const estados = [
@@ -63,6 +66,16 @@ function ListaPedidosClientes({ user }) {
   const [clientesCatalogo, setClientesCatalogo] = useState([]);
   const [loadingClientesCatalogo, setLoadingClientesCatalogo] = useState(true);
   const [catalogoCargado, setCatalogoCargado] = useState(false);
+  // Nuevo: estado para el filtro de cliente por id
+  const [clienteFiltro, setClienteFiltro] = useState(null);
+  const navigate = useNavigate();
+  // Estado para el modal de edición
+  const [pedidoEditando, setPedidoEditando] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  // Estado para el form del modal de edición
+  const [formEdicion, setFormEdicion] = useState(null);
+
+  const location = useLocation();
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -95,6 +108,13 @@ function ListaPedidosClientes({ user }) {
     });
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    // Si se navega desde SelectorCliente, fijar el cliente seleccionado
+    if (location.state && location.state.cliente) {
+      setClienteFiltro(location.state.cliente.id);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     // Cargar productos del catálogo para mostrar nombres
@@ -302,20 +322,27 @@ function ListaPedidosClientes({ user }) {
       {user?.role === "admin" && (
         <>
           <Button
+            icon="pi pi-pencil"
+            className="p-button-text p-button-sm"
+            size="small"
+            onClick={() => {
+              setPedidoEditando(rowData);
+              setFormEdicion(transformarPedidoAForm(rowData));
+              setModalVisible(true);
+            }}
+            tooltip="Editar pedido"
+            tooltipOptions={{ position: "top" }}
+            style={{ color: "#6366f1", borderRadius: "50%", width: "2rem", height: "2rem" }}
+          />
+          <Button
             icon="pi pi-trash"
             className="p-button-text p-button-sm"
             size="small"
             onClick={() => handleDelete(rowData)}
             tooltip="Eliminar pedido"
             tooltipOptions={{ position: "top" }}
-            style={{
-              color: "#ef4444",
-              borderRadius: "50%",
-              width: "2rem",
-              height: "2rem"
-            }}
+            style={{ color: "#ef4444", borderRadius: "50%", width: "2rem", height: "2rem" }}
           />
-          {/* Solo dejar el botón secuencial de cambio de estado, eliminar cualquier otro botón de cursar o cambio de estado anterior */}
           <Button
             label={
               !rowData.estadoRecepcion || rowData.estadoRecepcion === 'pendiente'
@@ -340,18 +367,11 @@ function ListaPedidosClientes({ user }) {
             }
             style={{ minWidth: 40, padding: '0.4rem 0.7rem', fontWeight: 600, fontSize: '0.85rem', borderRadius: 8 }}
             onClick={() => {
-              console.log('Estado actual del pedido:', rowData.estadoRecepcion);
-              console.log('ID del pedido:', rowData.id);
-              console.log('Cliente:', rowData.cliente);
-              
               if (rowData.estadoRecepcion === 'pendiente') {
-                console.log('Cambiando de pendiente a recibido');
                 updateEstadoRecepcion(rowData.id, 'recibido');
               } else if (rowData.estadoRecepcion === 'recibido') {
-                console.log('Cambiando de recibido a enviado');
                 updateEstadoRecepcion(rowData.id, 'enviado');
               } else if (rowData.estadoRecepcion === 'enviado') {
-                console.log('Confirmando cambio de enviado a pendiente');
                 confirmDialog({
                   message: '¿Seguro que deseas volver el estado a pendiente?',
                   header: 'Confirmar cambio de estado',
@@ -359,8 +379,6 @@ function ListaPedidosClientes({ user }) {
                   accept: () => updateEstadoRecepcion(rowData.id, 'pendiente')
                 });
               } else {
-                console.log('Estado no reconocido:', rowData.estadoRecepcion);
-                // Si el estado no está definido, establecerlo como pendiente
                 updateEstadoRecepcion(rowData.id, 'pendiente');
               }
             }}
@@ -532,6 +550,9 @@ function ListaPedidosClientes({ user }) {
     return clienteId;
   };
 
+  // Opciones para el Dropdown de clientes
+  const clienteOptions = clientesCatalogo.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c.id }));
+
   // Filtrado local
   const pedidosFiltrados = pedidos.filter((p) => {
     // Fecha
@@ -540,9 +561,8 @@ function ListaPedidosClientes({ user }) {
       if (fechaPedido.toLocaleDateString("es-AR") !== filters.fecha.toLocaleDateString("es-AR"))
         return false;
     }
-    // Cliente
-    if (filters.cliente && !p.cliente.toLowerCase().includes(filters.cliente.toLowerCase()))
-      return false;
+    // Cliente (por id)
+    if (clienteFiltro && p.cliente !== clienteFiltro) return false;
     // Estado
     if (filters.estado && p.estadoRecepcion !== filters.estado) return false;
     // Condición
@@ -560,7 +580,54 @@ function ListaPedidosClientes({ user }) {
       condicion: null,
       cobrador: null
     });
+    setClienteFiltro(null); // Limpiar el filtro de cliente
   };
+
+  const handleRefrescarClientes = async () => {
+    setLoadingClientesCatalogo(true);
+    try {
+      const response = await fetch('http://localhost:3001/api/sheets/clientes?refresh=true');
+      if (!response.ok) throw new Error('Error al refrescar clientes de Sheets');
+      const data = await response.json();
+      setClientesCatalogo(data);
+      setCatalogoCargado(true);
+    } catch (error) {
+      console.error('Error al refrescar clientes de Sheets:', error);
+    } finally {
+      setLoadingClientesCatalogo(false);
+    }
+  };
+
+  const handleRefrescarProductos = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3001/api/sheets/productos?refresh=true');
+      if (!response.ok) throw new Error('Error al refrescar productos de Sheets');
+      const data = await response.json();
+      setProductosCatalogo(data);
+    } catch (error) {
+      console.error('Error al refrescar productos de Sheets:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para transformar el pedido al formato del formulario
+  function transformarPedidoAForm(pedido) {
+    return {
+      ...pedido,
+      fecha: pedido.fecha && pedido.fecha.toDate ? pedido.fecha.toDate() : (pedido.fecha instanceof Date ? pedido.fecha : new Date(pedido.fecha)),
+      cliente: pedido.cliente,
+      items: (pedido.items || []).map(item => ({
+        producto: item.producto,
+        cantidad: item.cantidad,
+        descuento: item.descuento || 0
+      })),
+      condicion: pedido.condicion || '',
+      observaciones: pedido.observaciones || '',
+      vendedor: pedido.vendedor || ''
+    };
+  }
 
   return (
     <div
@@ -675,13 +742,16 @@ function ListaPedidosClientes({ user }) {
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
                   <i className="pi pi-user mr-2"></i>Cliente
                 </label>
-                <InputText
-                  value={filters.cliente}
-                  onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
-                  placeholder="Buscar por cliente"
+                <Dropdown
+                  value={clienteFiltro}
+                  options={[{ label: 'Todos', value: null }, ...clienteOptions]}
+                  onChange={(e) => setClienteFiltro(e.value)}
+                  placeholder="Filtrar por cliente"
                   className="w-full"
                   style={{ borderRadius: "8px" }}
                 />
+                <Button label="Refrescar clientes" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
+                <Button label="Refrescar productos" icon="pi pi-refresh" onClick={handleRefrescarProductos} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
               </div>
               <div className="col-12">
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
@@ -860,13 +930,16 @@ function ListaPedidosClientes({ user }) {
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
                   <i className="pi pi-user mr-2"></i>Cliente
                 </label>
-                <InputText
-                  value={filters.cliente}
-                  onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
-                  placeholder="Buscar por cliente"
+                <Dropdown
+                  value={clienteFiltro}
+                  options={[{ label: 'Todos', value: null }, ...clienteOptions]}
+                  onChange={(e) => setClienteFiltro(e.value)}
+                  placeholder="Filtrar por cliente"
                   className="w-full"
                   style={{ borderRadius: "8px" }}
                 />
+                <Button label="Refrescar clientes" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
+                <Button label="Refrescar productos" icon="pi pi-refresh" onClick={handleRefrescarProductos} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
               </div>
               <div className="col-12 md:col-6 lg:col-2">
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
@@ -960,7 +1033,7 @@ function ListaPedidosClientes({ user }) {
                 position: 'relative'
               }}>
                 <div><b>Fecha:</b> {formatFecha(pedido.fecha)}</div>
-                <div><b>Cliente:</b> {getRazonSocial(pedido.cliente)}</div>
+                <div><b>Cliente:</b> <ClienteNombre clienteId={pedido.cliente} /></div>
                 <div><b>Condición:</b> {pedido.condicion === 'contado' ? 'Contado' : pedido.condicion === 'cuenta_corriente' ? 'Cuenta Corriente' : '-'}</div>
                 <div><b>Estado:</b> <Tag value={pedido.estadoRecepcion} severity={pedido.estadoRecepcion === 'recibido' ? 'success' : pedido.estadoRecepcion === 'enviado' ? 'info' : 'warning'} /></div>
                 <div><b>Observaciones:</b> {pedido.observaciones || '-'}</div>
@@ -974,6 +1047,15 @@ function ListaPedidosClientes({ user }) {
                     label={expandedCardId === pedido.id ? "Ocultar" : "Ver detalle"}
                     onClick={() => setExpandedCardId(expandedCardId === pedido.id ? null : pedido.id)}
                   />
+                  {user.role === 'admin' && (
+                    <Button 
+                      icon="pi pi-pencil" 
+                      className="p-button-rounded p-button-info p-button-sm"
+                      style={{ minWidth: 40, padding: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}
+                      label="Editar"
+                      onClick={() => navigate('/cargar-pedido', { state: { pedido: pedido, editar: true } })}
+                    />
+                  )}
                   {user.role === 'admin' && (
                     <Button 
                       icon="pi pi-trash" 
@@ -1202,6 +1284,23 @@ function ListaPedidosClientes({ user }) {
           `}</style>
         </div>
       </div>
+      <Dialog header="Editar Pedido" visible={modalVisible} style={{ width: '90vw', maxWidth: 600 }} onHide={() => setModalVisible(false)}>
+        {pedidoEditando && formEdicion && (
+          <PedidoForm
+            form={formEdicion}
+            setForm={setFormEdicion}
+            productosAlegra={productosCatalogo}
+            clientes={clientesCatalogo}
+            loading={loading}
+            loadingProductosAlegra={false}
+            loadingClientes={false}
+            onSubmit={() => setModalVisible(false)}
+            onCancel={() => setModalVisible(false)}
+            user={user}
+            modoEdicion={true}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }

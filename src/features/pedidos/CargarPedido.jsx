@@ -42,6 +42,218 @@ const CONDICIONES = [
   { label: "Cuenta Corriente", value: "cuenta_corriente" }
 ];
 
+// Definir PedidoForm fuera de cualquier función principal
+function PedidoForm({ form, setForm, productosAlegra, clientes, loading, loadingProductosAlegra, loadingClientes, onSubmit, onCancel, user, modoEdicion }) {
+  return (
+    <form onSubmit={onSubmit} style={{ padding: "0 0.5rem" }}>
+      {/* Información Básica */}
+      <div className="p-mb-5">
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem", padding: "0.8rem", background: "#fff", borderRadius: "8px", color: "#212121" }}>
+          <i className="pi pi-info-circle" style={{ fontSize: "1.2rem", marginRight: "0.5rem", flexShrink: 0 }}></i>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Información Básica</h3>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* Cliente */}
+          <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
+            <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+              Cliente *
+            </label>
+            <Dropdown
+              value={form.cliente}
+              options={clientes}
+              onChange={(e) => setForm({ ...form, cliente: e.value })}
+              placeholder="Selecciona un cliente"
+              className="p-fluid"
+              filter
+              disabled={loadingClientes}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#374151", fontSize: "0.9rem" }}>
+              Fecha del Pedido *
+            </label>
+            <Calendar
+              value={form.fecha}
+              onChange={(e) => setForm({ ...form, fecha: e.value })}
+              dateFormat="dd/mm/yy"
+              showIcon
+              placeholder="Selecciona la fecha"
+              style={{ height: "3rem", borderRadius: "8px" }}
+              inputStyle={{ borderRadius: "8px", border: "2px solid #e5e7eb", fontSize: "0.95rem" }}
+              required
+            />
+          </div>
+        </div>
+      </div>
+      {/* Productos del Pedido */}
+      <div className="p-mb-5">
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem", padding: "0.8rem", background: "#fff", borderRadius: "8px", color: "#212121" }}>
+          <i className="pi pi-shopping-bag" style={{ fontSize: "1.2rem", marginRight: "0.5rem", flexShrink: 0 }}></i>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Productos del Pedido *</h3>
+        </div>
+        <div className="p-mb-4">
+          {form.items.map((item, idx) => (
+            <div key={idx} style={{ marginBottom: "1.5rem", padding: "1rem", background: "#fff", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.3)", boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div style={{ flex: 2 }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#8b5a3c", fontSize: "0.9rem" }}>
+                    Producto
+                  </label>
+                  <Dropdown
+                    value={item.producto}
+                    options={productosAlegra}
+                    onChange={(e) => {
+                      const items = [...form.items];
+                      items[idx].producto = e.value;
+                      setForm({ ...form, items });
+                    }}
+                    placeholder={loadingProductosAlegra ? "Cargando productos..." : "Seleccionar producto"}
+                    style={{ height: "3rem", borderRadius: "8px" }}
+                    disabled={loadingProductosAlegra}
+                    filter
+                    className="p-dropdown-lg"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#8b5a3c", fontSize: "0.9rem" }}>
+                    Cantidad
+                  </label>
+                  <InputText
+                    type="number"
+                    min={1}
+                    value={item.cantidad}
+                    onChange={(e) => {
+                      const items = [...form.items];
+                      items[idx].cantidad = Number.parseInt(e.target.value) || 1;
+                      setForm({ ...form, items });
+                    }}
+                    placeholder="Cantidad"
+                    style={{ height: "3rem", borderRadius: "8px", border: "2px solid rgba(139, 90, 60, 0.2)", fontSize: "0.95rem" }}
+                    className="p-inputtext-lg"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#8b5a3c", fontSize: "0.9rem" }}>
+                    % Bonificación
+                  </label>
+                  <InputText
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={item.descuento || 0}
+                    onChange={(e) => {
+                      const items = [...form.items];
+                      items[idx].descuento = Number.parseFloat(e.target.value) || 0;
+                      setForm({ ...form, items });
+                    }}
+                    placeholder="%"
+                    style={{ height: "3rem", borderRadius: "8px", border: "2px solid rgba(139, 90, 60, 0.2)", fontSize: "0.95rem" }}
+                    className="p-inputtext-lg"
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                  {form.items.length > 1 && (
+                    <Button
+                      icon="pi pi-trash"
+                      className="p-button-danger p-button-outlined"
+                      type="button"
+                      onClick={() => {
+                        const items = form.items.filter((_, i) => i !== idx);
+                        setForm({ ...form, items });
+                      }}
+                      style={{ height: "3rem", width: "3rem", borderRadius: "8px" }}
+                      tooltip="Eliminar producto"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ textAlign: "center", marginTop: "1rem" }}>
+            <Button
+              icon="pi pi-plus"
+              label="Agregar Producto"
+              type="button"
+              className="p-button-outlined"
+              onClick={() => setForm({ ...form, items: [...form.items, { producto: null, cantidad: 1, descuento: 0 }] })}
+              style={{ height: "3rem", borderRadius: "20px", fontSize: "0.95rem", fontWeight: "600", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none", color: "white", boxShadow: "0 4px 15px rgba(102, 126, 234, 0.3)", padding: "0 1.5rem" }}
+            />
+          </div>
+        </div>
+      </div>
+      {/* Condiciones y Estado */}
+      <div className="p-mb-5">
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem", padding: "0.8rem", background: "#fff", borderRadius: "8px", color: "#212121" }}>
+          <i className="pi pi-cog" style={{ fontSize: "1.2rem", marginRight: "0.5rem", flexShrink: 0 }}></i>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Condiciones</h3>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#374151", fontSize: "0.9rem" }}>
+              Condición de Pago *
+            </label>
+            <Dropdown
+              value={form.condicion}
+              options={CONDICIONES}
+              onChange={(e) => setForm({ ...form, condicion: e.value })}
+              placeholder="Selecciona la condición"
+              style={{ height: "3rem", borderRadius: "8px" }}
+              className="p-dropdown-lg"
+              required
+            />
+          </div>
+          {/* Vendedor */}
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#374151", fontSize: "0.9rem" }}>
+              Vendedor (opcional)
+            </label>
+            <InputText
+              value={form.vendedor}
+              onChange={(e) => setForm({ ...form, vendedor: e.target.value })}
+              placeholder="Nombre del vendedor"
+              style={{ height: "3rem", borderRadius: "8px", border: "2px solid #e5e7eb", fontSize: "0.95rem" }}
+              className="p-inputtext-lg"
+            />
+          </div>
+        </div>
+      </div>
+      {/* Observaciones */}
+      <div className="p-mb-5">
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem", padding: "0.8rem", background: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)", borderRadius: "8px", color: "#8b5a3c" }}>
+          <i className="pi pi-comment" style={{ fontSize: "1.2rem", marginRight: "0.5rem", flexShrink: 0 }}></i>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600" }}>Observaciones Adicionales</h3>
+        </div>
+        <InputTextarea
+          value={form.observaciones}
+          onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
+          placeholder="Agrega observaciones adicionales sobre el pedido..."
+          rows={4}
+          style={{ borderRadius: "8px", border: "2px solid #e5e7eb", fontSize: "0.95rem", resize: "vertical" }}
+          className="p-inputtextarea-lg"
+        />
+      </div>
+      {/* Botones */}
+      <div style={{ textAlign: "center", marginTop: "2rem", paddingBottom: "1rem" }}>
+        <Button
+          type="submit"
+          label={loading ? "Guardando Pedido..." : "Guardar Pedido"}
+          icon={loading ? "pi pi-spin pi-spinner" : "pi pi-save"}
+          style={{ height: "3.5rem", minWidth: "200px", fontSize: "1rem", fontWeight: "700", borderRadius: "20px", background: loading ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", border: "none", color: "white", boxShadow: "0 8px 25px rgba(17, 153, 142, 0.3)", transition: "all 0.3s ease", textTransform: "uppercase", letterSpacing: "0.5px" }}
+          disabled={loading}
+        />
+        <Button
+          type="button"
+          label="Cancelar"
+          icon="pi pi-times"
+          className="p-button-secondary"
+          style={{ marginLeft: 16, height: "3.5rem", minWidth: "120px", fontSize: "1rem", fontWeight: "700", borderRadius: "20px" }}
+          onClick={onCancel}
+        />
+      </div>
+    </form>
+  );
+}
+
 function CargarPedido({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -360,698 +572,19 @@ function CargarPedido({ user }) {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} style={{ padding: "0 0.5rem" }}>
-            {/* Información Básica */}
-            <div className="p-mb-5">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1.5rem",
-                  padding: "0.8rem",
-                  background: "#fff",
-                  borderRadius: "8px",
-                  color: "#212121",
-                  "@media (min-width: 768px)": {
-                    padding: "1rem",
-                    borderRadius: "12px"
-                  }
-                }}
-              >
-                <i
-                  className="pi pi-info-circle"
-                  style={{
-                    fontSize: "1.2rem",
-                    marginRight: "0.5rem",
-                    flexShrink: 0,
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.5rem",
-                      marginRight: "0.75rem"
-                    }
-                  }}
-                ></i>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.1rem",
-                    fontWeight: "600",
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.3rem"
-                    }
-                  }}
-                >
-                  Información Básica
-                </h3>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1.5rem",
-                  "@media (min-width: 768px)": {
-                    flexDirection: "row",
-                    gap: "1rem"
-                  }
-                }}
-              >
-                {/* Cliente */}
-                <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
-                  <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
-                    Cliente *
-                  </label>
-                  {clienteNavegacion ? (
-                    <InputText
-                      value={clienteNavegacion.razonSocial || clienteNavegacion.nombre || ''}
-                      disabled
-                      className="p-fluid"
-                    />
-                  ) : (
-                    <Dropdown
-                      value={form.cliente}
-                      options={clientes}
-                      onChange={(e) => setForm({ ...form, cliente: e.value })}
-                      placeholder="Selecciona un cliente"
-                      className="p-fluid"
-                      filter
-                      disabled={loadingClientes}
-                    />
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    flex: 1,
-                    "@media (min-width: 768px)": {
-                      marginLeft: "0.5rem"
-                    }
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "0.9rem",
-                      "@media (min-width: 768px)": {
-                        fontSize: "0.95rem"
-                      }
-                    }}
-                  >
-                    Fecha del Pedido *
-                  </label>
-                  <Calendar
-                    value={form.fecha}
-                    onChange={(e) => setForm({ ...form, fecha: e.value })}
-                    dateFormat="dd/mm/yy"
-                    showIcon
-                    placeholder="Selecciona la fecha"
-                    style={{
-                      height: "3rem",
-                      borderRadius: "8px",
-                      "@media (min-width: 768px)": {
-                        height: "3.5rem",
-                        borderRadius: "12px"
-                      }
-                    }}
-                    inputStyle={{
-                      borderRadius: "8px",
-                      border: "2px solid #e5e7eb",
-                      fontSize: "0.95rem",
-                      "@media (min-width: 768px)": {
-                        borderRadius: "12px",
-                        fontSize: "1rem"
-                      }
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Productos del Pedido */}
-            <div className="p-mb-5">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1.5rem",
-                  padding: "0.8rem",
-                  background: "#fff",
-                  borderRadius: "8px",
-                  color: "#212121",
-                  "@media (min-width: 768px)": {
-                    padding: "1rem",
-                    borderRadius: "12px"
-                  }
-                }}
-              >
-                <i
-                  className="pi pi-shopping-bag"
-                  style={{
-                    fontSize: "1.2rem",
-                    marginRight: "0.5rem",
-                    flexShrink: 0,
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.5rem",
-                      marginRight: "0.75rem"
-                    }
-                  }}
-                ></i>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.1rem",
-                    fontWeight: "600",
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.3rem"
-                    }
-                  }}
-                >
-                  Productos del Pedido *
-                </h3>
-              </div>
-
-              <div className="p-mb-4">
-                {form.items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      marginBottom: "1.5rem",
-                      padding: "1rem",
-                      background: "#fff",
-                      borderRadius: "12px",
-                      border: "1px solid rgba(255, 255, 255, 0.3)",
-                      boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                      "@media (min-width: 768px)": {
-                        padding: "1.5rem",
-                        borderRadius: "16px",
-                        boxShadow: "0 8px 25px rgba(0, 0, 0, 0.1)"
-                      }
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "1rem",
-                        "@media (min-width: 768px)": {
-                          flexDirection: "row",
-                          alignItems: "end",
-                          gap: "1rem"
-                        }
-                      }}
-                    >
-                      <div
-                        style={{
-                          flex: 2,
-                          "@media (min-width: 768px)": {
-                            marginRight: "0.5rem"
-                          }
-                        }}
-                      >
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "600",
-                            color: "#8b5a3c",
-                            fontSize: "0.9rem",
-                            "@media (min-width: 768px)": {
-                              fontSize: "0.95rem"
-                            }
-                          }}
-                        >
-                          Producto
-                        </label>
-                        <Dropdown
-                          value={item.producto}
-                          options={productosAlegra}
-                          onChange={(e) => {
-                            const items = [...form.items];
-                            items[idx].producto = e.value; // Solo id
-                            setForm({ ...form, items });
-                          }}
-                          placeholder={
-                            loadingProductosAlegra ? "Cargando productos..." : "Seleccionar producto"
-                          }
-                          style={{
-                            height: "3rem",
-                            borderRadius: "8px",
-                            "@media (min-width: 768px)": {
-                              height: "3.5rem",
-                              borderRadius: "12px"
-                            }
-                          }}
-                          disabled={loadingProductosAlegra}
-                          filter
-                          className="p-dropdown-lg"
-                        />
-                      </div>
-
-                      <div
-                        style={{
-                          flex: 1,
-                          "@media (min-width: 768px)": {
-                            marginRight: "0.5rem"
-                          }
-                        }}
-                      >
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "600",
-                            color: "#8b5a3c",
-                            fontSize: "0.9rem",
-                            "@media (min-width: 768px)": {
-                              fontSize: "0.95rem"
-                            }
-                          }}
-                        >
-                          Cantidad
-                        </label>
-                        <InputText
-                          type="number"
-                          min={1}
-                          value={item.cantidad}
-                          onChange={(e) => {
-                            const items = [...form.items];
-                            items[idx].cantidad = Number.parseInt(e.target.value) || 1;
-                            setForm({ ...form, items });
-                          }}
-                          placeholder="Cantidad"
-                          style={{
-                            height: "3rem",
-                            borderRadius: "8px",
-                            border: "2px solid rgba(139, 90, 60, 0.2)",
-                            fontSize: "0.95rem",
-                            "@media (min-width: 768px)": {
-                              height: "3.5rem",
-                              borderRadius: "12px",
-                              fontSize: "1rem"
-                            }
-                          }}
-                          className="p-inputtext-lg"
-                        />
-                      </div>
-
-                      <div
-                        style={{
-                          flex: 1,
-                          "@media (min-width: 768px)": {
-                            marginRight: "0.5rem"
-                          }
-                        }}
-                      >
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "600",
-                            color: "#8b5a3c",
-                            fontSize: "0.9rem",
-                            "@media (min-width: 768px)": {
-                              fontSize: "0.95rem"
-                            }
-                          }}
-                        >
-                          % Bonificación
-                        </label>
-                        <InputText
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={item.descuento || 0}
-                          onChange={(e) => {
-                            const items = [...form.items];
-                            items[idx].descuento = Number.parseFloat(e.target.value) || 0;
-                            setForm({ ...form, items });
-                          }}
-                          placeholder="%"
-                          style={{
-                            height: "3rem",
-                            borderRadius: "8px",
-                            border: "2px solid rgba(139, 90, 60, 0.2)",
-                            fontSize: "0.95rem",
-                            "@media (min-width: 768px)": {
-                              height: "3.5rem",
-                              borderRadius: "12px",
-                              fontSize: "1rem"
-                            }
-                          }}
-                          className="p-inputtext-lg"
-                        />
-                      </div>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          "@media (min-width: 768px)": {
-                            justifyContent: "flex-end"
-                          }
-                        }}
-                      >
-                        {form.items.length > 1 && (
-                          <Button
-                            icon="pi pi-trash"
-                            className="p-button-danger p-button-outlined"
-                            type="button"
-                            onClick={() => {
-                              const items = form.items.filter((_, i) => i !== idx);
-                              setForm({ ...form, items });
-                            }}
-                            style={{
-                              height: "3rem",
-                              width: "3rem",
-                              borderRadius: "8px",
-                              "@media (min-width: 768px)": {
-                                height: "3.5rem",
-                                width: "3.5rem",
-                                borderRadius: "12px"
-                              }
-                            }}
-                            tooltip="Eliminar producto"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <div style={{ textAlign: "center", marginTop: "1rem" }}>
-                  <Button
-                    icon="pi pi-plus"
-                    label="Agregar Producto"
-                    type="button"
-                    className="p-button-outlined"
-                    onClick={() =>
-                      setForm({ ...form, items: [...form.items, { producto: null, cantidad: 1, descuento: 0 }] })
-                    }
-                    style={{
-                      height: "3rem",
-                      borderRadius: "20px",
-                      fontSize: "0.95rem",
-                      fontWeight: "600",
-                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                      border: "none",
-                      color: "white",
-                      boxShadow: "0 4px 15px rgba(102, 126, 234, 0.3)",
-                      padding: "0 1.5rem",
-                      "@media (min-width: 768px)": {
-                        height: "3.5rem",
-                        borderRadius: "25px",
-                        fontSize: "1rem",
-                        boxShadow: "0 8px 25px rgba(102, 126, 234, 0.3)"
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Condiciones y Estado */}
-            <div className="p-mb-5">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1.5rem",
-                  padding: "0.8rem",
-                  background: "#fff",
-                  borderRadius: "8px",
-                  color: "#212121",
-                  "@media (min-width: 768px)": {
-                    padding: "1rem",
-                    borderRadius: "12px"
-                  }
-                }}
-              >
-                <i
-                  className="pi pi-cog"
-                  style={{
-                    fontSize: "1.2rem",
-                    marginRight: "0.5rem",
-                    flexShrink: 0,
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.5rem",
-                      marginRight: "0.75rem"
-                    }
-                  }}
-                ></i>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.1rem",
-                    fontWeight: "600",
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.3rem"
-                    }
-                  }}
-                >
-                  Condiciones
-                </h3>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1.5rem",
-                  "@media (min-width: 768px)": {
-                    flexDirection: "row",
-                    gap: "1rem"
-                  }
-                }}
-              >
-                <div
-                  style={{
-                    flex: 1,
-                    "@media (min-width: 768px)": {
-                      marginRight: "0.5rem"
-                    }
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "0.9rem",
-                      "@media (min-width: 768px)": {
-                        fontSize: "0.95rem"
-                      }
-                    }}
-                  >
-                    Condición de Pago *
-                  </label>
-                  <Dropdown
-                    value={form.condicion}
-                    options={CONDICIONES}
-                    onChange={(e) => setForm({ ...form, condicion: e.value })}
-                    placeholder="Selecciona la condición"
-                    style={{
-                      height: "3rem",
-                      borderRadius: "8px",
-                      "@media (min-width: 768px)": {
-                        height: "3.5rem",
-                        borderRadius: "12px"
-                      }
-                    }}
-                    className="p-dropdown-lg"
-                    required
-                  />
-                </div>
-                {/* Vendedor */}
-                <div
-                  style={{
-                    flex: 1,
-                    "@media (min-width: 768px)": {
-                      marginLeft: "0.5rem"
-                    }
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "0.9rem",
-                      "@media (min-width: 768px)": {
-                        fontSize: "0.95rem"
-                      }
-                    }}
-                  >
-                    Vendedor (opcional)
-                  </label>
-                  {user.role === "admin" ? (
-                    <Dropdown
-                      value={form.vendedor}
-                      options={COBRADORES}
-                      onChange={(e) => setForm({ ...form, vendedor: e.value })}
-                      placeholder="Selecciona el vendedor"
-                      style={{
-                        height: "3rem",
-                        borderRadius: "8px",
-                        border: "2px solid #e5e7eb",
-                        fontSize: "0.95rem",
-                        "@media (min-width: 768px)": {
-                          borderRadius: "12px",
-                          fontSize: "1rem"
-                        }
-                      }}
-                      className="p-inputtext-lg"
-                    />
-                  ) : (["Guille", "Santi"].includes(user.role) ? (
-                    <Dropdown
-                      value={user.role}
-                      options={COBRADORES.filter(c => c.value === user.role)}
-                      disabled
-                      style={{
-                        height: "3rem",
-                        borderRadius: "8px",
-                        border: "2px solid #e5e7eb",
-                        fontSize: "0.95rem",
-                        "@media (min-width: 768px)": {
-                          borderRadius: "12px",
-                          fontSize: "1rem"
-                        }
-                      }}
-                      className="p-inputtext-lg"
-                    />
-                  ) : (
-                    <InputText
-                      value={form.vendedor}
-                      onChange={(e) => setForm({ ...form, vendedor: e.target.value })}
-                      placeholder="Nombre del vendedor"
-                      style={{
-                        height: "3rem",
-                        borderRadius: "8px",
-                        border: "2px solid #e5e7eb",
-                        fontSize: "0.95rem",
-                        "@media (min-width: 768px)": {
-                          borderRadius: "12px",
-                          fontSize: "1rem"
-                        }
-                      }}
-                      className="p-inputtext-lg"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Observaciones */}
-            <div className="p-mb-5">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "1.5rem",
-                  padding: "0.8rem",
-                  background: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
-                  borderRadius: "8px",
-                  color: "#8b5a3c",
-                  "@media (min-width: 768px)": {
-                    padding: "1rem",
-                    borderRadius: "12px"
-                  }
-                }}
-              >
-                <i
-                  className="pi pi-comment"
-                  style={{
-                    fontSize: "1.2rem",
-                    marginRight: "0.5rem",
-                    flexShrink: 0,
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.5rem",
-                      marginRight: "0.75rem"
-                    }
-                  }}
-                ></i>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.1rem",
-                    fontWeight: "600",
-                    "@media (min-width: 768px)": {
-                      fontSize: "1.3rem"
-                    }
-                  }}
-                >
-                  Observaciones Adicionales
-                </h3>
-              </div>
-
-              <InputTextarea
-                value={form.observaciones}
-                onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-                placeholder="Agrega observaciones adicionales sobre el pedido..."
-                rows={4}
-                style={{
-                  borderRadius: "8px",
-                  border: "2px solid #e5e7eb",
-                  fontSize: "0.95rem",
-                  resize: "vertical",
-                  "@media (min-width: 768px)": {
-                    borderRadius: "12px",
-                    fontSize: "1rem"
-                  }
-                }}
-                className="p-inputtextarea-lg"
-              />
-            </div>
-
-            {/* Botón de Envío */}
-            <div
-              style={{
-                textAlign: "center",
-                marginTop: "2rem",
-                paddingBottom: "1rem",
-                "@media (min-width: 768px)": {
-                  marginTop: "2.5rem",
-                  paddingBottom: "2rem"
-                }
-              }}
-            >
-              <Button
-                type="submit"
-                label={loading ? "Guardando Pedido..." : "Guardar Pedido"}
-                icon={loading ? "pi pi-spin pi-spinner" : "pi pi-save"}
-                style={{
-                  height: "3.5rem",
-                  minWidth: "200px",
-                  fontSize: "1rem",
-                  fontWeight: "700",
-                  borderRadius: "20px",
-                  background: loading
-                    ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-                    : "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                  border: "none",
-                  color: "white",
-                  boxShadow: "0 8px 25px rgba(17, 153, 142, 0.3)",
-                  transition: "all 0.3s ease",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  "@media (min-width: 768px)": {
-                    height: "4rem",
-                    minWidth: "250px",
-                    fontSize: "1.2rem",
-                    borderRadius: "25px",
-                    boxShadow: "0 15px 35px rgba(17, 153, 142, 0.4)",
-                    letterSpacing: "1px"
-                  }
-                }}
-                disabled={loading}
-              />
-            </div>
-          </form>
+          <PedidoForm
+            form={form}
+            setForm={setForm}
+            productosAlegra={productosAlegra}
+            clientes={clientes}
+            loading={loading}
+            loadingProductosAlegra={loadingProductosAlegra}
+            loadingClientes={loadingClientes}
+            onSubmit={handleSubmit}
+            onCancel={() => navigate('/clientes')}
+            user={user}
+            modoEdicion={false}
+          />
         </Card>
       </div>
     </div>
@@ -1059,3 +592,4 @@ function CargarPedido({ user }) {
 }
 
 export default CargarPedido;
+export { PedidoForm };
