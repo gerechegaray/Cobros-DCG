@@ -10,6 +10,23 @@ function Alerts({ user, onNavigateToMyCobros }) {
   const navigate = useNavigate();
   const [pendingCobros, setPendingCobros] = useState([]);
   const [totalPending, setTotalPending] = useState(0);
+  const [clientesCatalogo, setClientesCatalogo] = useState([]);
+  const [catalogoCargado, setCatalogoCargado] = useState(false);
+
+  useEffect(() => {
+    async function fetchClientesCatalogo() {
+      try {
+        const response = await fetch('http://localhost:3001/api/sheets/clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+        const data = await response.json();
+        setClientesCatalogo(data);
+        setCatalogoCargado(true);
+      } catch (error) {
+        console.error('Error al obtener clientes de Sheets:', error);
+      }
+    }
+    fetchClientesCatalogo();
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, "cobranzas"));
@@ -51,6 +68,15 @@ function Alerts({ user, onNavigateToMyCobros }) {
       month: '2-digit',
       year: 'numeric'
     });
+  };
+
+  // Función para obtener razón social
+  const getRazonSocial = (clienteId) => {
+    if (catalogoCargado && clientesCatalogo.length > 0) {
+      const cliente = clientesCatalogo.find(c => c.id === clienteId);
+      return cliente ? cliente.razonSocial : clienteId;
+    }
+    return clienteId;
   };
 
   if (totalPending === 0) {
@@ -122,7 +148,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: "500", marginBottom: "0.25rem" }}>
-                      {cobro.cliente}
+                      {getRazonSocial(cobro.cliente)}
                     </div>
                     <div style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                       {formatFecha(cobro.fecha)} • {cobro.cobrador} • {cobro.forma}

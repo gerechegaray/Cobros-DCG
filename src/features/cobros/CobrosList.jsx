@@ -128,13 +128,13 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     fetchClientesCatalogo();
   }, []);
 
-  // Función para obtener razón social del cliente
+  // Agregar función para obtener razón social
   const getRazonSocial = (clienteId) => {
-    if (!catalogoCargado || loadingClientesCatalogo) {
-      return `${clienteId} (cargando...)`;
+    if (catalogoCargado && clientesCatalogo.length > 0) {
+      const cliente = clientesCatalogo.find(c => c.id === clienteId);
+      return cliente ? cliente.razonSocial : clienteId;
     }
-    const cliente = clientesCatalogo.find(c => c.id === clienteId);
-    return cliente ? cliente.razonSocial : clienteId;
+    return clienteId;
   };
 
   const formatFecha = (rowData) => {
@@ -641,7 +641,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
                       }}>
                         <div className="flex-1" style={{ minWidth: '80px' }}>
                           <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px', fontSize: '0.85rem' }}>
-                            {cobro.cliente}
+                            {getRazonSocial(cobro.cliente)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
                             {cobro.cobrador} • {cobro.forma}
@@ -701,7 +701,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
               }}>
                 <div className="flex-1" style={{ minWidth: '80px' }}>
                   <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px', fontSize: '0.85rem' }}>
-                    {cobro.cliente}
+                    {getRazonSocial(cobro.cliente)}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
                     {formatFecha(cobro)} • {cobro.cobrador} • {cobro.forma}

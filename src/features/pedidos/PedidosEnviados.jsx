@@ -400,7 +400,7 @@ function PedidosEnviados({ user }) {
                 <div key={row.id} className="p-col-12 p-md-6 p-lg-4">
                   <Card className="p-mb-1 p-shadow-1" style={{ borderRadius: 6, background: '#fff', padding: 8, minHeight: 'unset', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                     <div className="p-d-flex p-ai-center p-jc-between" style={{ marginBottom: 1 }}>
-                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>{row.cliente}</div>
+                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}><ClienteNombre clienteId={row.cliente} /></div>
                       <div className="p-d-flex p-ai-center" style={{ gap: 3 }}>
                         <Tag value={row.condicion === 'cuenta_corriente' ? 'Cuenta Corriente' : row.condicion === 'contado' ? 'Contado' : '-'} severity={row.condicion === 'cuenta_corriente' ? 'info' : 'success'} style={{ borderRadius: 6, fontSize: 11, padding: '1px 6px' }} />
                         <Tag value={row.estadoRecepcion === 'recibido' ? 'Recibido' : row.estadoRecepcion === 'enviado' ? 'Enviado' : '-'} severity={row.estadoRecepcion === 'recibido' ? 'success' : row.estadoRecepcion === 'enviado' ? 'info' : 'warning'} style={{ borderRadius: 6, fontSize: 11, padding: '1px 6px' }} />
@@ -542,6 +542,35 @@ function PedidosEnviados({ user }) {
     // eslint-disable-next-line
   }, [editandoHoja, detallesPedidosHoja]);
 
+  const handleRefrescarClientes = async () => {
+    setLoadingClientesCatalogo(true);
+    try {
+      const response = await fetch('http://localhost:3001/api/sheets/clientes?refresh=true');
+      if (!response.ok) throw new Error('Error al refrescar clientes de Sheets');
+      const data = await response.json();
+      setClientesCatalogo(data);
+      setCatalogoCargado(true);
+    } catch (error) {
+      console.error('Error al refrescar clientes de Sheets:', error);
+    } finally {
+      setLoadingClientesCatalogo(false);
+    }
+  };
+
+  const handleRefrescarProductos = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3001/api/sheets/productos?refresh=true');
+      if (!response.ok) throw new Error('Error al refrescar productos de Sheets');
+      const data = await response.json();
+      setProductosCatalogo(data);
+    } catch (error) {
+      console.error('Error al refrescar productos de Sheets:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
@@ -635,6 +664,10 @@ function PedidosEnviados({ user }) {
               onClick={() => setActiveTab('completas')}
             />
           </div>
+        </div>
+        <div style={{ margin: '16px 0' }}>
+          <Button label="Refrescar clientes" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" />
+          <Button label="Refrescar productos" icon="pi pi-refresh" onClick={handleRefrescarProductos} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
         </div>
         <DataTable
           value={activeTab === 'pendientes' ? hojasDeRuta : hojasDeRutaCompletas}
