@@ -61,6 +61,8 @@ function PedidosEnviados({ user }) {
   // 1. Estados para catálogos
   const [clientesCatalogo, setClientesCatalogo] = useState([]);
   const [productosCatalogo, setProductosCatalogo] = useState([]);
+  const [loadingClientesCatalogo, setLoadingClientesCatalogo] = useState(true);
+  const [catalogoCargado, setCatalogoCargado] = useState(false);
 
   // Cargar pedidos con estado 'recibido' y filtrar en frontend los que no tengan hoja de ruta asignada
   useEffect(() => {
@@ -124,7 +126,7 @@ function PedidosEnviados({ user }) {
     }
   }, [showAgregarPedido]);
 
-  // 2. useEffect para cargar catálogos
+  // Cargar catálogos de forma independiente
   useEffect(() => {
     async function fetchClientesCatalogo() {
       try {
@@ -132,8 +134,11 @@ function PedidosEnviados({ user }) {
         if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
         const data = await response.json();
         setClientesCatalogo(data);
+        setCatalogoCargado(true);
       } catch (error) {
         console.error('Error al obtener clientes de Sheets:', error);
+      } finally {
+        setLoadingClientesCatalogo(false);
       }
     }
     async function fetchProductosCatalogo() {
@@ -298,10 +303,55 @@ function PedidosEnviados({ user }) {
     return pedidosHoja.length > 0 && pedidosHoja.every(p => p.estadoRecepcion === 'enviado');
   };
 
-  // 3. Función para obtener razón social
+  // Componente para mostrar el nombre del cliente con carga asíncrona
+  const ClienteNombre = ({ clienteId }) => {
+    const [nombre, setNombre] = useState(clienteId);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+      const cargarNombre = async () => {
+        // Si ya tenemos el catálogo cargado, buscar ahí
+        if (catalogoCargado && clientesCatalogo.length > 0) {
+          const cliente = clientesCatalogo.find(c => c.id === clienteId);
+          if (cliente) {
+            setNombre(cliente.razonSocial);
+            return;
+          }
+        }
+        
+        // Si no tenemos el catálogo o no encontramos el cliente, hacer fetch directo
+        setLoading(true);
+        try {
+          const response = await fetch('http://localhost:3001/api/sheets/clientes');
+          if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+          const data = await response.json();
+          const cliente = data.find(c => c.id === clienteId);
+          setNombre(cliente ? cliente.razonSocial : clienteId);
+        } catch (error) {
+          console.error('Error al obtener cliente:', error);
+          setNombre(clienteId);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      cargarNombre();
+    }, [clienteId, catalogoCargado, clientesCatalogo]);
+
+    return (
+      <span>
+        {loading ? `${clienteId} (cargando...)` : nombre}
+      </span>
+    );
+  };
+
+  // 3. Función para obtener razón social (mantener para compatibilidad)
   const getRazonSocial = (clienteId) => {
-    const cliente = clientesCatalogo.find(c => c.id === clienteId);
-    return cliente ? cliente.razonSocial : clienteId;
+    if (catalogoCargado && clientesCatalogo.length > 0) {
+      const cliente = clientesCatalogo.find(c => c.id === clienteId);
+      return cliente ? cliente.razonSocial : clienteId;
+    }
+    return clienteId;
   };
   // 4. Función para obtener nombre de producto
   const getNombreProducto = (productoId) => {
@@ -397,7 +447,7 @@ function PedidosEnviados({ user }) {
       <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8, margin: 8 }}>
         <div className="p-d-flex p-jc-between p-ai-center p-mb-2">
           <div>
-            <strong>Cliente:</strong> {getRazonSocial(pedido.cliente)}
+            <strong>Cliente:</strong> <ClienteNombre clienteId={pedido.cliente} />
           </div>
           <div className="p-d-flex p-gap-2">
             <Tag 
@@ -524,7 +574,12 @@ function PedidosEnviados({ user }) {
           <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
           <Column expander style={{ width: '3em' }} />
           <Column field="fecha" header="Fecha" body={row => formatFecha(row.fecha)} />
-          <Column field="cliente" header="Cliente" body={row => getRazonSocial(row.cliente)} />
+          <Column
+            field="cliente"
+            header="Cliente"
+            body={(row) => <ClienteNombre clienteId={row.cliente} />}
+            style={{ minWidth: "150px" }}
+          />
           <Column field="cobrador" header="Cargado por" />
         </DataTable>
       </Card>
@@ -614,7 +669,7 @@ function PedidosEnviados({ user }) {
             <ul style={{ paddingLeft: 18 }}>
               {pedidosDisponibles.map(p => (
                 <li key={p.id} style={{ marginBottom: 8 }}>
-                  {getRazonSocial(p.cliente)} ({formatFecha(p.fecha)})
+                  <ClienteNombre clienteId={p.cliente} /> ({formatFecha(p.fecha)})
                   <Button label="Agregar" className="p-button-text p-button-success p-ml-2" onClick={() => agregarPedidoAHoja(expandedHoja, p.id)} />
                 </li>
               ))}

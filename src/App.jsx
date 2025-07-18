@@ -9,6 +9,7 @@ import UserProfile from "./features/auth/UserProfile";
 import CargarPedido from "./features/pedidos/CargarPedido";
 import ListaPedidosClientes from "./features/pedidos/ListaPedidosClientes";
 import PedidosEnviados from "./features/pedidos/PedidosEnviados";
+import EstadoCuenta from "./features/clientes/EstadoCuenta";
 import SelectorCliente from "./features/pedidos/SelectorCliente";
 import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -130,6 +131,8 @@ function App() {
               <>
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
                 <Route path="/cargar-pedido" element={<CargarPedido user={user} />} />
+                <Route path="/cargar-cobro" element={<CobroForm user={user} />} />
+                <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
                 <Route path="/lista-pedidos" element={<ListaPedidosClientes user={user} />} />
                 <Route path="/list" element={
                   user.role === "admin" || user.role === "Santi" || user.role === "Guille"

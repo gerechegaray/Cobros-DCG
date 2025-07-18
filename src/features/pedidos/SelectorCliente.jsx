@@ -33,6 +33,18 @@ export default function SelectorCliente() {
     }
   };
 
+  const handleCargarCobro = () => {
+    if (clienteSeleccionado) {
+      navigate('/cargar-cobro', { state: { cliente: clienteSeleccionado } });
+    }
+  };
+
+  const handleEstadoCuenta = () => {
+    if (clienteSeleccionado) {
+      navigate('/estado-cuenta', { state: { cliente: clienteSeleccionado } });
+    }
+  };
+
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: 24 }}>
       <h2>Selecciona un cliente</h2>
@@ -53,7 +65,8 @@ export default function SelectorCliente() {
       )}
       <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Button label="Cargar pedido" icon="pi pi-shopping-cart" disabled={!clienteSeleccionado} onClick={handleCargarPedido} />
-        <Button label="Cargar cobro" icon="pi pi-dollar" disabled={!clienteSeleccionado} severity="success" outlined />
+        <Button label="Cargar cobro" icon="pi pi-dollar" disabled={!clienteSeleccionado} severity="success" outlined onClick={handleCargarCobro} />
+        <Button label="Estado de cuenta" icon="pi pi-file" disabled={!clienteSeleccionado} severity="info" outlined onClick={handleEstadoCuenta} />
         <Button label="Ver estado de cuenta" icon="pi pi-list" disabled={!clienteSeleccionado} severity="info" outlined />
         <Button label="Registro de pedidos" icon="pi pi-book" disabled={!clienteSeleccionado} severity="help" outlined />
       </div>
