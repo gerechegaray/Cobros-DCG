@@ -61,6 +61,8 @@ function ListaPedidosClientes({ user }) {
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [productosCatalogo, setProductosCatalogo] = useState([]);
   const [clientesCatalogo, setClientesCatalogo] = useState([]);
+  const [loadingClientesCatalogo, setLoadingClientesCatalogo] = useState(true);
+  const [catalogoCargado, setCatalogoCargado] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -109,16 +111,19 @@ function ListaPedidosClientes({ user }) {
     fetchProductosCatalogo();
   }, []);
 
+  // Cargar catálogo de clientes de forma independiente
   useEffect(() => {
-    // Cargar clientes del catálogo para mostrar razón social
     async function fetchClientesCatalogo() {
       try {
         const response = await fetch('http://localhost:3001/api/sheets/clientes');
         if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
         const data = await response.json();
         setClientesCatalogo(data);
+        setCatalogoCargado(true);
       } catch (error) {
         console.error('Error al obtener clientes de Sheets:', error);
+      } finally {
+        setLoadingClientesCatalogo(false);
       }
     }
     fetchClientesCatalogo();
@@ -313,21 +318,21 @@ function ListaPedidosClientes({ user }) {
           {/* Solo dejar el botón secuencial de cambio de estado, eliminar cualquier otro botón de cursar o cambio de estado anterior */}
           <Button
             label={
-              rowData.estadoRecepcion === 'pendiente'
+              !rowData.estadoRecepcion || rowData.estadoRecepcion === 'pendiente'
                 ? 'Marcar recibido'
                 : rowData.estadoRecepcion === 'recibido'
                 ? 'Marcar enviado'
                 : 'Volver a pendiente'
             }
             icon={
-              rowData.estadoRecepcion === 'pendiente'
+              !rowData.estadoRecepcion || rowData.estadoRecepcion === 'pendiente'
                 ? 'pi pi-check'
                 : rowData.estadoRecepcion === 'recibido'
                 ? 'pi pi-send'
                 : 'pi pi-undo'
             }
             className={
-              rowData.estadoRecepcion === 'pendiente'
+              !rowData.estadoRecepcion || rowData.estadoRecepcion === 'pendiente'
                 ? 'p-button-success p-button-sm'
                 : rowData.estadoRecepcion === 'recibido'
                 ? 'p-button-info p-button-sm'
@@ -335,17 +340,28 @@ function ListaPedidosClientes({ user }) {
             }
             style={{ minWidth: 40, padding: '0.4rem 0.7rem', fontWeight: 600, fontSize: '0.85rem', borderRadius: 8 }}
             onClick={() => {
+              console.log('Estado actual del pedido:', rowData.estadoRecepcion);
+              console.log('ID del pedido:', rowData.id);
+              console.log('Cliente:', rowData.cliente);
+              
               if (rowData.estadoRecepcion === 'pendiente') {
+                console.log('Cambiando de pendiente a recibido');
                 updateEstadoRecepcion(rowData.id, 'recibido');
               } else if (rowData.estadoRecepcion === 'recibido') {
+                console.log('Cambiando de recibido a enviado');
                 updateEstadoRecepcion(rowData.id, 'enviado');
               } else if (rowData.estadoRecepcion === 'enviado') {
+                console.log('Confirmando cambio de enviado a pendiente');
                 confirmDialog({
                   message: '¿Seguro que deseas volver el estado a pendiente?',
                   header: 'Confirmar cambio de estado',
                   icon: 'pi pi-exclamation-triangle',
                   accept: () => updateEstadoRecepcion(rowData.id, 'pendiente')
                 });
+              } else {
+                console.log('Estado no reconocido:', rowData.estadoRecepcion);
+                // Si el estado no está definido, establecerlo como pendiente
+                updateEstadoRecepcion(rowData.id, 'pendiente');
               }
             }}
           />
@@ -460,10 +476,60 @@ function ListaPedidosClientes({ user }) {
     }
   };
 
-  // Función para obtener la razón social del cliente
+  // Componente para mostrar el nombre del cliente con carga asíncrona
+  const ClienteNombre = ({ clienteId }) => {
+    const [nombre, setNombre] = useState(clienteId);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+      const cargarNombre = async () => {
+        // Si ya tenemos el catálogo cargado, buscar ahí
+        if (catalogoCargado && clientesCatalogo.length > 0) {
+          const cliente = clientesCatalogo.find(c => c.id === clienteId);
+          if (cliente) {
+            setNombre(cliente.razonSocial);
+            return;
+          }
+        }
+        
+        // Si no tenemos el catálogo o no encontramos el cliente, hacer fetch directo
+        setLoading(true);
+        try {
+          const response = await fetch('http://localhost:3001/api/sheets/clientes');
+          if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+          const data = await response.json();
+          const cliente = data.find(c => c.id === clienteId);
+          setNombre(cliente ? cliente.razonSocial : clienteId);
+        } catch (error) {
+          console.error('Error al obtener cliente:', error);
+          setNombre(clienteId);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      cargarNombre();
+    }, [clienteId, catalogoCargado, clientesCatalogo]);
+
+    return (
+      <span
+        style={{
+          fontWeight: "600",
+          color: "#1f2937"
+        }}
+      >
+        {loading ? `${clienteId} (cargando...)` : nombre}
+      </span>
+    );
+  };
+
+  // Función para obtener la razón social del cliente (mantener para compatibilidad)
   const getRazonSocial = (clienteId) => {
-    const cliente = clientesCatalogo.find(c => c.id === clienteId);
-    return cliente ? cliente.razonSocial : clienteId;
+    if (catalogoCargado && clientesCatalogo.length > 0) {
+      const cliente = clientesCatalogo.find(c => c.id === clienteId);
+      return cliente ? cliente.razonSocial : clienteId;
+    }
+    return clienteId;
   };
 
   // Filtrado local
@@ -1036,14 +1102,7 @@ function ListaPedidosClientes({ user }) {
                 field="cliente"
                 header="Cliente"
                 body={(row) => (
-                  <span
-                    style={{
-                      fontWeight: "600",
-                      color: "#1f2937"
-                    }}
-                  >
-                    {getRazonSocial(row.cliente)}
-                  </span>
+                  <ClienteNombre clienteId={row.cliente} />
                 )}
                 style={{
                   minWidth: "150px"

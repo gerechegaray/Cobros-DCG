@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../services/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { InputText } from "primereact/inputtext";
@@ -9,12 +10,21 @@ import { Card } from "primereact/card";
 import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
-import { getAlegraContacts } from "../../services/alegra";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 function CobroForm({ user }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const clienteNavegacion = location.state?.cliente;
+
+  useEffect(() => {
+    if (!clienteNavegacion) {
+      navigate('/clientes');
+    }
+  }, [clienteNavegacion, navigate]);
+
   const [fecha, setFecha] = useState(null);
-  const [cliente, setCliente] = useState("");
+  const [cliente, setCliente] = useState(clienteNavegacion ? clienteNavegacion.id : "");
   const [monto, setMonto] = useState("");
   const [cobrador, setCobrador] = useState(user.role === "cobrador" ? user.name : "");
   const [forma, setForma] = useState("");
@@ -53,12 +63,14 @@ function CobroForm({ user }) {
   useEffect(() => {
     async function fetchClientes() {
       try {
-        const data = await getAlegraContacts();
+        const response = await fetch('http://localhost:3001/api/sheets/clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+        const data = await response.json();
         console.log('Clientes recibidos en CobroForm:', data);
-        const options = data.map((c) => ({ label: c.name || '(Sin nombre)', value: c.id }));
+        const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c.id }));
         setClientes(options);
       } catch (error) {
-        console.error('Error al obtener clientes de Alegra:', error);
+        console.error('Error al obtener clientes de Sheets:', error);
       } finally {
         setLoadingClientes(false);
       }
@@ -139,20 +151,30 @@ function CobroForm({ user }) {
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Cliente *
               </label>
-              {loadingClientes ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <ProgressSpinner style={{ width: '1.5rem', height: '1.5rem' }} strokeWidth="4" />
-                  <span>Cargando clientes...</span>
-                </div>
-              ) : (
-                <Dropdown
-                  value={cliente}
-                  options={clientes}
-                  onChange={(e) => setCliente(e.value)}
+              {clienteNavegacion ? (
+                <InputText
+                  value={clienteNavegacion.razonSocial || clienteNavegacion.nombre || ''}
+                  disabled
                   className="p-fluid"
-                  placeholder="Selecciona un cliente"
-                  filter
                 />
+              ) : (
+                <>
+                  {loadingClientes ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <ProgressSpinner style={{ width: '1.5rem', height: '1.5rem' }} strokeWidth="4" />
+                      <span>Cargando clientes...</span>
+                    </div>
+                  ) : (
+                    <Dropdown
+                      value={cliente}
+                      options={clientes}
+                      onChange={(e) => setCliente(e.value)}
+                      className="p-fluid"
+                      placeholder="Selecciona un cliente"
+                      filter
+                    />
+                  )}
+                </>
               )}
             </div>
 

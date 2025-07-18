@@ -29,6 +29,9 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [viewMode, setViewMode] = useState('compact'); // 'compact' o 'detailed'
   const [groupByDate, setGroupByDate] = useState(true);
+  const [clientesCatalogo, setClientesCatalogo] = useState([]);
+  const [loadingClientesCatalogo, setLoadingClientesCatalogo] = useState(true);
+  const [catalogoCargado, setCatalogoCargado] = useState(false);
 
   const cobradores = [
     { label: "Todos", value: null },
@@ -105,6 +108,34 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     });
     return () => unsubscribe();
   }, [showOnlyMyCobros, user]);
+
+  // Cargar catálogo de clientes
+  useEffect(() => {
+    // Cargar catálogo de clientes para mostrar nombres
+    async function fetchClientesCatalogo() {
+      try {
+        const response = await fetch('http://localhost:3001/api/sheets/clientes');
+        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
+        const data = await response.json();
+        setClientesCatalogo(data);
+        setCatalogoCargado(true);
+      } catch (error) {
+        console.error('Error al obtener clientes de Sheets:', error);
+      } finally {
+        setLoadingClientesCatalogo(false);
+      }
+    }
+    fetchClientesCatalogo();
+  }, []);
+
+  // Función para obtener razón social del cliente
+  const getRazonSocial = (clienteId) => {
+    if (!catalogoCargado || loadingClientesCatalogo) {
+      return `${clienteId} (cargando...)`;
+    }
+    const cliente = clientesCatalogo.find(c => c.id === clienteId);
+    return cliente ? cliente.razonSocial : clienteId;
+  };
 
   const formatFecha = (rowData) => {
     if (!rowData.fecha) return "";
@@ -756,7 +787,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
                       }}>
                         <div className="flex-1" style={{ minWidth: '120px' }}>
                           <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px' }}>
-                            {cobro.cliente}
+                            {getRazonSocial(cobro.cliente)}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
                             {cobro.cobrador} • {cobro.forma}
@@ -825,7 +856,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
             style={{ width: "100%" }}
           >
             <Column field="fecha" header="Fecha" body={formatFecha} />
-            <Column field="cliente" header="Cliente" />
+            <Column field="cliente" header="Cliente" body={row => getRazonSocial(row.cliente)} />
             <Column field="monto" header="Monto" body={formatMonto} />
             <Column field="cobrador" header="Quién cobró" />
             <Column field="forma" header="Forma de cobro" />
