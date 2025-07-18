@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db } from "../../services/firebase";
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { getClientesCatalogo } from '../../services/firebase';
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
@@ -114,13 +115,11 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     // Cargar catálogo de clientes para mostrar nombres
     async function fetchClientesCatalogo() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/clientes');
-        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-        const data = await response.json();
+        const data = await getClientesCatalogo();
         setClientesCatalogo(data);
         setCatalogoCargado(true);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       } finally {
         setLoadingClientesCatalogo(false);
       }
@@ -132,7 +131,7 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const getRazonSocial = (clienteId) => {
     if (catalogoCargado && clientesCatalogo.length > 0) {
       const cliente = clientesCatalogo.find(c => c.id === clienteId);
-      return cliente ? cliente.razonSocial : clienteId;
+      return cliente ? cliente['Razón Social'] : clienteId;
     }
     return clienteId;
   };

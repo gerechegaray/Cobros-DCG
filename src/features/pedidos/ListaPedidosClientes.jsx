@@ -24,6 +24,7 @@ import { ConfirmDialog } from "primereact/confirmdialog";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog } from "primereact/dialog";
 import { PedidoForm } from "./CargarPedido";
+import { getClientesCatalogo, getProductosCatalogo } from '../../services/firebase';
 
 function ListaPedidosClientes({ user }) {
   const estados = [
@@ -117,15 +118,12 @@ function ListaPedidosClientes({ user }) {
   }, [location.state]);
 
   useEffect(() => {
-    // Cargar productos del catálogo para mostrar nombres
     async function fetchProductosCatalogo() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/productos');
-        if (!response.ok) throw new Error('Error al obtener productos de Sheets');
-        const data = await response.json();
+        const data = await getProductosCatalogo();
         setProductosCatalogo(data);
       } catch (error) {
-        console.error('Error al obtener productos de Sheets:', error);
+        console.error('Error al obtener productos de Firestore:', error);
       }
     }
     fetchProductosCatalogo();
@@ -135,13 +133,11 @@ function ListaPedidosClientes({ user }) {
   useEffect(() => {
     async function fetchClientesCatalogo() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/clientes');
-        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-        const data = await response.json();
+        const data = await getClientesCatalogo();
         setClientesCatalogo(data);
         setCatalogoCargado(true);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       } finally {
         setLoadingClientesCatalogo(false);
       }
@@ -420,7 +416,7 @@ function ListaPedidosClientes({ user }) {
               let nombre = item.nombreProducto;
               if (!nombre && productosCatalogo.length > 0) {
                 const prod = productosCatalogo.find(p => p.id === item.producto);
-                nombre = prod ? prod.producto : item.producto;
+                nombre = prod ? prod.Producto : item.producto;
               }
               return (
                 <div
@@ -497,46 +493,19 @@ function ListaPedidosClientes({ user }) {
   // Componente para mostrar el nombre del cliente con carga asíncrona
   const ClienteNombre = ({ clienteId }) => {
     const [nombre, setNombre] = useState(clienteId);
-    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-      const cargarNombre = async () => {
-        // Si ya tenemos el catálogo cargado, buscar ahí
-        if (catalogoCargado && clientesCatalogo.length > 0) {
-          const cliente = clientesCatalogo.find(c => c.id === clienteId);
-          if (cliente) {
-            setNombre(cliente.razonSocial);
-            return;
-          }
-        }
-        
-        // Si no tenemos el catálogo o no encontramos el cliente, hacer fetch directo
-        setLoading(true);
-        try {
-          const response = await fetch('http://localhost:3001/api/sheets/clientes');
-          if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-          const data = await response.json();
-          const cliente = data.find(c => c.id === clienteId);
-          setNombre(cliente ? cliente.razonSocial : clienteId);
-        } catch (error) {
-          console.error('Error al obtener cliente:', error);
-          setNombre(clienteId);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      cargarNombre();
+      if (catalogoCargado && clientesCatalogo.length > 0) {
+        const cliente = clientesCatalogo.find(c => c.id === clienteId);
+        setNombre(cliente ? cliente['Razón Social'] : clienteId);
+      } else {
+        setNombre(clienteId);
+      }
     }, [clienteId, catalogoCargado, clientesCatalogo]);
 
     return (
-      <span
-        style={{
-          fontWeight: "600",
-          color: "#1f2937"
-        }}
-      >
-        {loading ? `${clienteId} (cargando...)` : nombre}
+      <span style={{ fontWeight: "600", color: "#1f2937" }}>
+        {nombre}
       </span>
     );
   };
@@ -545,13 +514,16 @@ function ListaPedidosClientes({ user }) {
   const getRazonSocial = (clienteId) => {
     if (catalogoCargado && clientesCatalogo.length > 0) {
       const cliente = clientesCatalogo.find(c => c.id === clienteId);
-      return cliente ? cliente.razonSocial : clienteId;
+      return cliente ? cliente['Razón Social'] : clienteId;
     }
     return clienteId;
   };
 
   // Opciones para el Dropdown de clientes
-  const clienteOptions = clientesCatalogo.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c.id }));
+  const clienteOptions = clientesCatalogo
+    .slice()
+    .sort((a, b) => (a['Razón Social'] || '').localeCompare(b['Razón Social'] || ''))
+    .map((c) => ({ label: c['Razón Social'] || '(Sin nombre)', value: c.id }));
 
   // Filtrado local
   const pedidosFiltrados = pedidos.filter((p) => {
@@ -583,34 +555,7 @@ function ListaPedidosClientes({ user }) {
     setClienteFiltro(null); // Limpiar el filtro de cliente
   };
 
-  const handleRefrescarClientes = async () => {
-    setLoadingClientesCatalogo(true);
-    try {
-      const response = await fetch('http://localhost:3001/api/sheets/clientes?refresh=true');
-      if (!response.ok) throw new Error('Error al refrescar clientes de Sheets');
-      const data = await response.json();
-      setClientesCatalogo(data);
-      setCatalogoCargado(true);
-    } catch (error) {
-      console.error('Error al refrescar clientes de Sheets:', error);
-    } finally {
-      setLoadingClientesCatalogo(false);
-    }
-  };
-
-  const handleRefrescarProductos = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('http://localhost:3001/api/sheets/productos?refresh=true');
-      if (!response.ok) throw new Error('Error al refrescar productos de Sheets');
-      const data = await response.json();
-      setProductosCatalogo(data);
-    } catch (error) {
-      console.error('Error al refrescar productos de Sheets:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Eliminar botones y lógica de refresco manual de clientes y productos
 
   // Función para transformar el pedido al formato del formulario
   function transformarPedidoAForm(pedido) {
@@ -750,8 +695,6 @@ function ListaPedidosClientes({ user }) {
                   className="w-full"
                   style={{ borderRadius: "8px" }}
                 />
-                <Button label="Refrescar clientes" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
-                <Button label="Refrescar productos" icon="pi pi-refresh" onClick={handleRefrescarProductos} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
               </div>
               <div className="col-12">
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>
@@ -938,8 +881,6 @@ function ListaPedidosClientes({ user }) {
                   className="w-full"
                   style={{ borderRadius: "8px" }}
                 />
-                <Button label="Refrescar clientes" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
-                <Button label="Refrescar productos" icon="pi pi-refresh" onClick={handleRefrescarProductos} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
               </div>
               <div className="col-12 md:col-6 lg:col-2">
                 <label className="block mb-2 text-sm font-semibold" style={{ color: "#374151" }}>

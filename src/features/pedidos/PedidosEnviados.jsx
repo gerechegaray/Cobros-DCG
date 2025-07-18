@@ -24,6 +24,7 @@ import { Toast } from "primereact/toast";
 import { ConfirmDialog } from "primereact/confirmdialog";
 import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
+import { getClientesCatalogo, getProductosCatalogo } from '../../services/firebase';
 
 const COBRADORES = [
   { label: "Mariano", value: "Mariano" },
@@ -130,25 +131,21 @@ function PedidosEnviados({ user }) {
   useEffect(() => {
     async function fetchClientesCatalogo() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/clientes');
-        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-        const data = await response.json();
+        const data = await getClientesCatalogo();
         setClientesCatalogo(data);
         setCatalogoCargado(true);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       } finally {
         setLoadingClientesCatalogo(false);
       }
     }
     async function fetchProductosCatalogo() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/productos');
-        if (!response.ok) throw new Error('Error al obtener productos de Sheets');
-        const data = await response.json();
+        const data = await getProductosCatalogo();
         setProductosCatalogo(data);
       } catch (error) {
-        console.error('Error al obtener productos de Sheets:', error);
+        console.error('Error al obtener productos de Firestore:', error);
       }
     }
     fetchClientesCatalogo();
@@ -306,42 +303,16 @@ function PedidosEnviados({ user }) {
   // Componente para mostrar el nombre del cliente con carga asíncrona
   const ClienteNombre = ({ clienteId }) => {
     const [nombre, setNombre] = useState(clienteId);
-    const [loading, setLoading] = useState(false);
-
     useEffect(() => {
-      const cargarNombre = async () => {
-        // Si ya tenemos el catálogo cargado, buscar ahí
-        if (catalogoCargado && clientesCatalogo.length > 0) {
-          const cliente = clientesCatalogo.find(c => c.id === clienteId);
-          if (cliente) {
-            setNombre(cliente.razonSocial);
-            return;
-          }
-        }
-        
-        // Si no tenemos el catálogo o no encontramos el cliente, hacer fetch directo
-        setLoading(true);
-        try {
-          const response = await fetch('http://localhost:3001/api/sheets/clientes');
-          if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-          const data = await response.json();
-          const cliente = data.find(c => c.id === clienteId);
-          setNombre(cliente ? cliente.razonSocial : clienteId);
-        } catch (error) {
-          console.error('Error al obtener cliente:', error);
-          setNombre(clienteId);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      cargarNombre();
+      if (catalogoCargado && clientesCatalogo.length > 0) {
+        const cliente = clientesCatalogo.find(c => c.id === clienteId);
+        setNombre(cliente ? cliente['Razón Social'] : clienteId);
+      } else {
+        setNombre(clienteId);
+      }
     }, [clienteId, catalogoCargado, clientesCatalogo]);
-
     return (
-      <span>
-        {loading ? `${clienteId} (cargando...)` : nombre}
-      </span>
+      <span style={{ fontWeight: "600", color: "#1f2937" }}>{nombre}</span>
     );
   };
 
@@ -349,14 +320,14 @@ function PedidosEnviados({ user }) {
   const getRazonSocial = (clienteId) => {
     if (catalogoCargado && clientesCatalogo.length > 0) {
       const cliente = clientesCatalogo.find(c => c.id === clienteId);
-      return cliente ? cliente.razonSocial : clienteId;
+      return cliente ? cliente['Razón Social'] : clienteId;
     }
     return clienteId;
   };
   // 4. Función para obtener nombre de producto
   const getNombreProducto = (productoId) => {
     const prod = productosCatalogo.find(p => p.id === productoId);
-    return prod ? prod.producto : productoId;
+    return prod ? prod.Producto : productoId;
   };
 
   // Render detalle expandido de hoja de ruta
@@ -542,35 +513,6 @@ function PedidosEnviados({ user }) {
     // eslint-disable-next-line
   }, [editandoHoja, detallesPedidosHoja]);
 
-  const handleRefrescarClientes = async () => {
-    setLoadingClientesCatalogo(true);
-    try {
-      const response = await fetch('http://localhost:3001/api/sheets/clientes?refresh=true');
-      if (!response.ok) throw new Error('Error al refrescar clientes de Sheets');
-      const data = await response.json();
-      setClientesCatalogo(data);
-      setCatalogoCargado(true);
-    } catch (error) {
-      console.error('Error al refrescar clientes de Sheets:', error);
-    } finally {
-      setLoadingClientesCatalogo(false);
-    }
-  };
-
-  const handleRefrescarProductos = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('http://localhost:3001/api/sheets/productos?refresh=true');
-      if (!response.ok) throw new Error('Error al refrescar productos de Sheets');
-      const data = await response.json();
-      setProductosCatalogo(data);
-    } catch (error) {
-      console.error('Error al refrescar productos de Sheets:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
@@ -666,8 +608,7 @@ function PedidosEnviados({ user }) {
           </div>
         </div>
         <div style={{ margin: '16px 0' }}>
-          <Button label="Refrescar clientes" icon="pi pi-refresh" onClick={handleRefrescarClientes} severity="info" outlined size="small" />
-          <Button label="Refrescar productos" icon="pi pi-refresh" onClick={handleRefrescarProductos} severity="info" outlined size="small" style={{ marginLeft: 8, marginBottom: 8 }} />
+          {/* Eliminar botones y lógica de refresco manual de clientes y productos */}
         </div>
         <DataTable
           value={activeTab === 'pendientes' ? hojasDeRuta : hojasDeRutaCompletas}

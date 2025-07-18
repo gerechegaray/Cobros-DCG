@@ -11,6 +11,7 @@ import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { getClientesCatalogo } from '../../services/firebase';
 
 function CobroForm({ user }) {
   const location = useLocation();
@@ -63,14 +64,14 @@ function CobroForm({ user }) {
   useEffect(() => {
     async function fetchClientes() {
       try {
-        const response = await fetch('http://localhost:3001/api/sheets/clientes');
-        if (!response.ok) throw new Error('Error al obtener clientes de Sheets');
-        const data = await response.json();
-        console.log('Clientes recibidos en CobroForm:', data);
-        const options = data.map((c) => ({ label: c.razonSocial || '(Sin nombre)', value: c.id }));
+        const data = await getClientesCatalogo();
+        const options = data
+          .slice()
+          .sort((a, b) => (a['Razón Social'] || '').localeCompare(b['Razón Social'] || ''))
+          .map((c) => ({ label: c['Razón Social'] || '(Sin nombre)', value: c.id }));
         setClientes(options);
       } catch (error) {
-        console.error('Error al obtener clientes de Sheets:', error);
+        console.error('Error al obtener clientes de Firestore:', error);
       } finally {
         setLoadingClientes(false);
       }
