@@ -344,9 +344,13 @@ function CargarPedido({ user }) {
           descuento: item.descuento
         };
       });
+      // Buscar el nombre del cliente seleccionado
+      const clienteSeleccionado = clientes.find(c => c.value === form.cliente);
+      const nombreCliente = clienteSeleccionado ? clienteSeleccionado.label : '';
       await addDoc(collection(db, "pedidosClientes"), {
         fecha: form.fecha,
-        cliente: form.cliente,
+        cliente: nombreCliente, // Guardar el nombre
+        codigoCliente: form.cliente, // Guardar el id/código
         items: itemsConNombre,
         condicion: form.condicion,
         observaciones: form.observaciones.trim(),

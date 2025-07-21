@@ -490,22 +490,17 @@ function ListaPedidosClientes({ user }) {
     }
   };
 
-  // Componente para mostrar el nombre del cliente con carga asíncrona
+  // Componente para mostrar el nombre del cliente (simplificado, siempre existe)
   const ClienteNombre = ({ clienteId }) => {
-    const [nombre, setNombre] = useState(clienteId);
-
-    useEffect(() => {
-      if (catalogoCargado && clientesCatalogo.length > 0) {
-        const cliente = clientesCatalogo.find(c => c.id === clienteId);
-        setNombre(cliente ? cliente['Razón Social'] : clienteId);
-      } else {
-        setNombre(clienteId);
-      }
-    }, [clienteId, catalogoCargado, clientesCatalogo]);
-
+    // Si el campo ya es un nombre (no es numérico), mostrarlo directamente
+    if (typeof clienteId === 'string' && isNaN(Number(clienteId))) {
+      return <span style={{ fontWeight: "600", color: "#1f2937" }}>{clienteId}</span>;
+    }
+    // Si es un código/id, buscar en el catálogo
+    const cliente = clientesCatalogo.find(c => c.id === clienteId);
     return (
       <span style={{ fontWeight: "600", color: "#1f2937" }}>
-        {nombre}
+        {cliente ? cliente['Razón Social'] : ''}
       </span>
     );
   };

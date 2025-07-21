@@ -88,9 +88,13 @@ function CobroForm({ user }) {
     
     setLoading(true);
     try {
+      // Buscar el nombre del cliente seleccionado
+      const clienteSeleccionado = clientes.find(c => c.value === cliente);
+      const nombreCliente = clienteSeleccionado ? clienteSeleccionado.label : '';
       await addDoc(collection(db, "cobranzas"), {
         fecha: Timestamp.fromDate(fecha),
-        cliente,
+        cliente: nombreCliente, // Guardar el nombre
+        codigoCliente: cliente, // Guardar el id/código
         monto: parseFloat(monto),
         cobrador,
         forma,
