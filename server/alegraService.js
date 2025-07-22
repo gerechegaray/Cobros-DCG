@@ -3,9 +3,15 @@
 import fetch from 'node-fetch';
 
 export async function getAlegraInvoices() {
+  const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   const url = 'https://api.alegra.com/api/v1/invoices';
-  const authorization = 'Basic ' + Buffer.from(apiKey + ':').toString('base64');
+  const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+
+  // Logs de depuración
+  console.log('EMAIL:', JSON.stringify(email));
+  console.log('API KEY:', JSON.stringify(apiKey));
+  console.log('Authorization header:', authorization);
 
   const response = await fetch(url, {
     headers: {

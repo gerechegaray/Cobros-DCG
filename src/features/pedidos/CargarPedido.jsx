@@ -36,6 +36,16 @@ const CONDICIONES = [
 
 // Definir PedidoForm fuera de cualquier función principal
 function PedidoForm({ form, setForm, productosAlegra, clientes, loading, loadingProductosAlegra, loadingClientes, onSubmit, onCancel, user, modoEdicion }) {
+  // Lista de vendedores
+  const VENDEDORES = [
+    { label: "Mariano", value: "Mariano" },
+    { label: "Ruben", value: "Ruben" },
+    { label: "Diego", value: "Diego" },
+    { label: "Guille", value: "Guille" },
+    { label: "Santi", value: "Santi" },
+    { label: "German", value: "German" }
+  ];
+  const esVendedorFijo = user.role === "Santi" || user.role === "Guille";
   return (
     <form onSubmit={onSubmit} style={{ padding: "0 0.5rem" }}>
       {/* Información Básica */}
@@ -197,14 +207,17 @@ function PedidoForm({ form, setForm, productosAlegra, clientes, loading, loading
           {/* Vendedor */}
           <div style={{ flex: 1 }}>
             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", color: "#374151", fontSize: "0.9rem" }}>
-              Vendedor (opcional)
+              Vendedor {user.role === "admin" ? "(opcional)" : ""}
             </label>
-            <InputText
-              value={form.vendedor}
-              onChange={(e) => setForm({ ...form, vendedor: e.target.value })}
-              placeholder="Nombre del vendedor"
-              style={{ height: "3rem", borderRadius: "8px", border: "2px solid #e5e7eb", fontSize: "0.95rem" }}
-              className="p-inputtext-lg"
+            <Dropdown
+              value={esVendedorFijo ? user.name : form.vendedor}
+              options={VENDEDORES}
+              onChange={e => setForm({ ...form, vendedor: e.value })}
+              placeholder="Selecciona vendedor"
+              style={{ height: "3rem", borderRadius: "8px" }}
+              className="p-dropdown-lg"
+              disabled={esVendedorFijo}
+              required={user.role === "admin" ? false : true}
             />
           </div>
         </div>

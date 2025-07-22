@@ -589,6 +589,23 @@ function PedidosEnviados({ user }) {
     toast.current.show({ severity: 'success', summary: 'Hoja de ruta creada', detail: 'Facturas seleccionadas agrupadas.' });
   };
 
+  // Ordenar facturas por fecha descendente
+  const facturasAlegraOrdenadas = [...facturasAlegra].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Formatear fecha DD/MM/AA
+  const fechaFormateada = (row) => {
+    if (!row.date) return '';
+    const d = new Date(row.date);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
+
+  // Mostrar domicilio del cliente
+  const domicilioCliente = (row) => {
+    return row.client?.address?.address || row.client?.address || '-';
+  };
+
+  // Elimino las tablas y lógica de pedidos pendientes/facturados y cambio de estado
+
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
@@ -596,91 +613,18 @@ function PedidosEnviados({ user }) {
       <Card className="p-mb-3">
         <h2 style={{ color: "#1f2937" }}>Facturas de Alegra</h2>
         <Button label="Crear hoja de ruta con seleccionadas" icon="pi pi-plus" className="p-button-primary p-button-sm" disabled={selectedFacturas.length === 0} onClick={crearHojaDeRutaConFacturas} />
-        <DataTable value={facturasAlegra} selection={selectedFacturas} onSelectionChange={e => setSelectedFacturas(e.value)} dataKey="id" paginator rows={10} loading={loadingFacturas} responsiveLayout="stack" emptyMessage="No hay facturas de Alegra disponibles." className="p-datatable-sm p-fluid p-mt-3">
+        <DataTable value={facturasAlegraOrdenadas} selection={selectedFacturas} onSelectionChange={e => setSelectedFacturas(e.value)} dataKey="id" paginator rows={10} loading={loadingFacturas} responsiveLayout="stack" emptyMessage="No hay facturas de Alegra disponibles." className="p-datatable-sm p-fluid p-mt-3">
           <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
           <Column field="number" header="N° Comprobante" />
-          <Column field="date" header="Fecha" />
+          <Column field="date" header="Fecha" body={fechaFormateada} />
           <Column field="client.name" header="Cliente" />
+          <Column header="Domicilio" body={domicilioCliente} />
           <Column header="Estado" body={estadoTemplate} />
           <Column header="Detalle" body={detalleArticulos} />
           <Column header="Vendedor" body={vendedorTemplate} />
         </DataTable>
         <ConfirmarDialog />
       </Card>
-      <Card className="p-mb-3">
-        <h2 className="p-m-0 p-text-lg p-text-md-xl p-text-lg-2xl" style={{ color: "#1f2937", wordWrap: "break-word" }}>Agrupar Pedidos en Hojas de Ruta</h2>
-        <div className="p-mt-3">
-          <Button 
-            label="Crear hoja de ruta con seleccionados" 
-            icon="pi pi-plus" 
-            className="p-button-primary p-button-sm"
-            disabled={selectedPedidos.length === 0}
-            onClick={() => setModalVisible(true)}
-          />
-        </div>
-        <DataTable
-          value={pedidos}
-          selection={selectedPedidos}
-          onSelectionChange={e => setSelectedPedidos(e.value)}
-          dataKey="id"
-          paginator
-          rows={8}
-          responsiveLayout="stack"
-          emptyMessage="No hay pedidos recibidos disponibles."
-          className="p-datatable-sm p-fluid p-mt-3"
-          style={{ width: '100%' }}
-          expandedRows={expandedPedidos}
-          onRowToggle={e => setExpandedPedidos(e.data)}
-          rowExpansionTemplate={detallePedidoTemplate}
-        >
-          <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
-          <Column expander style={{ width: '3em' }} />
-          <Column field="fecha" header="Fecha" body={row => formatFecha(row.fecha)} />
-          <Column
-            field="cliente"
-            header="Cliente"
-            body={(row) => <ClienteNombre clienteId={row.cliente} />}
-            style={{ minWidth: "150px" }}
-          />
-          <Column field="cobrador" header="Cargado por" />
-        </DataTable>
-      </Card>
-
-      {/* Modal para crear hoja de ruta */}
-      {modalVisible && (
-        <div className="p-dialog-mask" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 1000 }}>
-          <div className="p-dialog" style={{ maxWidth: 400, margin: '10vh auto', background: '#fff', borderRadius: 8, padding: 24, position: 'relative' }}>
-            <h3>Crear Hoja de Ruta</h3>
-            <form onSubmit={handleCrearHojaDeRuta}>
-              <div className="p-field">
-                <label>Nombre *</label>
-                <InputText value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} className="p-fluid" required />
-              </div>
-              <div className="p-field">
-                <label>Fecha *</label>
-                <Calendar value={form.fecha} onChange={e => setForm({ ...form, fecha: e.value })} dateFormat="dd/mm/yy" showIcon className="p-fluid" required />
-              </div>
-              <div className="p-field">
-                <label>Cobrador *</label>
-                <Dropdown value={form.cobrador} options={COBRADORES} onChange={e => setForm({ ...form, cobrador: e.value })} placeholder="Selecciona cobrador" className="p-fluid" required />
-              </div>
-              <div className="p-field">
-                <label>Pedidos seleccionados</label>
-                <ul style={{ paddingLeft: 18 }}>
-                  {selectedPedidos.map(p => (
-                    <li key={p.id}>{p.cliente} ({formatFecha(p.fecha)})</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="p-d-flex p-jc-end p-mt-3" style={{ gap: 8 }}>
-                <Button type="button" label="Cancelar" className="p-button-text" onClick={() => setModalVisible(false)} />
-                <Button type="submit" label="Crear" icon="pi pi-save" loading={loading} className="p-button-primary" />
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Listado de hojas de ruta */}
       <Card className="p-mt-4">
         <div className="p-d-flex p-jc-between p-ai-center p-mb-3">
