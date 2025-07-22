@@ -25,6 +25,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog } from "primereact/dialog";
 import { PedidoForm } from "./CargarPedido";
 import { getClientesCatalogo, getProductosCatalogo } from '../../services/firebase';
+import FacturasAlegra from '../facturas/FacturasAlegra';
 
 function ListaPedidosClientes({ user }) {
   const estados = [
@@ -1219,6 +1220,10 @@ function ListaPedidosClientes({ user }) {
             }
           `}</style>
         </div>
+      </div>
+      {/* Agrego la visualización de facturas de Alegra */}
+      <div style={{ marginTop: '2rem' }}>
+        <FacturasAlegra />
       </div>
       <Dialog header="Editar Pedido" visible={modalVisible} style={{ width: '90vw', maxWidth: 600 }} onHide={() => setModalVisible(false)}>
         {pedidoEditando && formEdicion && (

@@ -1,33 +1,31 @@
 // server/app.js
 import express from "express";
 import cors from "cors";
-import { getFilteredItems, getLatestClientes, getLatestProductos } from "./sheetsService.js";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 dotenv.config();
+
+// Importo el servicio de Alegra
+import { getAlegraInvoices } from "./alegraService.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/api/items", async (req, res) => {
-  const userRole = req.query.role;
-  if (!userRole) return res.status(400).json({ error: "Role is required" });
-
+// Endpoint para obtener facturas de venta de Alegra
+app.get("/api/alegra/invoices", async (req, res) => {
   try {
-    const items = await getFilteredItems(userRole);
-    res.json(items);
-  } catch (err) {
-    console.error("Error al obtener ítems:", err);
-    res.status(500).json({ error: "Failed to fetch items" });
+    const facturas = await getAlegraInvoices();
+    res.json(facturas);
+  } catch (error) {
+    console.error("Error al obtener facturas de Alegra:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-// Eliminar imports y endpoints relacionados con sheetsService y /api/sheets/*
 
 const PORT = process.env.PORT || 3001;
 
