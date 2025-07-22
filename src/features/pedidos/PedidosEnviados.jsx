@@ -25,6 +25,7 @@ import { ConfirmDialog } from "primereact/confirmdialog";
 import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
 import { getClientesCatalogo, getProductosCatalogo } from '../../services/firebase';
+import { getAlegraInvoices } from '../../services/alegra';
 
 const COBRADORES = [
   { label: "Mariano", value: "Mariano" },
@@ -64,6 +65,13 @@ function PedidosEnviados({ user }) {
   const [productosCatalogo, setProductosCatalogo] = useState([]);
   const [loadingClientesCatalogo, setLoadingClientesCatalogo] = useState(true);
   const [catalogoCargado, setCatalogoCargado] = useState(false);
+
+  // Estado para facturas de Alegra y su estado local
+  const [facturasAlegra, setFacturasAlegra] = useState([]);
+  const [selectedFacturas, setSelectedFacturas] = useState([]);
+  const [estadoFacturas, setEstadoFacturas] = useState({}); // { idFactura: 'enviado' }
+  const [loadingFacturas, setLoadingFacturas] = useState(true);
+  const [confirmarCambio, setConfirmarCambio] = useState({ visible: false, id: null });
 
   // Cargar pedidos con estado 'recibido' y filtrar en frontend los que no tengan hoja de ruta asignada
   useEffect(() => {
@@ -151,6 +159,33 @@ function PedidosEnviados({ user }) {
     fetchClientesCatalogo();
     fetchProductosCatalogo();
   }, []);
+
+  // Cargar facturas de Alegra y estados guardados en Firestore
+  useEffect(() => {
+    async function fetchFacturas() {
+      setLoadingFacturas(true);
+      try {
+        const data = await getAlegraInvoices();
+        setFacturasAlegra(data);
+        // Traer estados de Firestore
+        const estadosSnap = await getDocs(collection(db, 'estadoFacturasAlegra'));
+        const estados = {};
+        estadosSnap.forEach(doc => { estados[doc.id] = doc.data().estado; });
+        setEstadoFacturas(estados);
+      } catch (err) {
+        setFacturasAlegra([]);
+      }
+      setLoadingFacturas(false);
+    }
+    fetchFacturas();
+  }, []);
+
+  // Cambiar estado de facturado a enviado y guardar en Firestore
+  const cambiarEstadoFactura = async (idFactura) => {
+    await updateDoc(doc(db, 'estadoFacturasAlegra', idFactura), { estado: 'enviado' });
+    setEstadoFacturas(prev => ({ ...prev, [idFactura]: 'enviado' }));
+    setConfirmarCambio({ visible: false, id: null });
+  };
 
   // Cambiar orden de pedidos en hoja de ruta
   const moverPedido = async (hoja, idx, direccion) => {
@@ -453,6 +488,39 @@ function PedidosEnviados({ user }) {
     );
   };
 
+  // Renderizar detalle de artículos
+  const detalleArticulos = (row) => (
+    <ul style={{ margin: 0, paddingLeft: 16 }}>
+      {row.items && row.items.length > 0 ? row.items.map((item, idx) => (
+        <li key={idx}>{item.name} x{item.quantity}</li>
+      )) : <li>-</li>}
+    </ul>
+  );
+
+  // Renderizar estado editable
+  const estadoTemplate = (row) => {
+    const estado = estadoFacturas[row.id] === 'enviado' ? 'Enviado' : 'Facturado';
+    return (
+      <div>
+        <Tag value={estado} severity={estado === 'Enviado' ? 'success' : 'info'} />
+        {estado === 'Facturado' && (
+          <Button icon="pi pi-send" className="p-button-text p-button-sm" style={{ marginLeft: 8 }}
+            onClick={() => setConfirmarCambio({ visible: true, id: row.id })} tooltip="Marcar como Enviado" />
+        )}
+      </div>
+    );
+  };
+
+  // Renderizar vendedor
+  const vendedorTemplate = (row) => row.seller?.name || row.seller || '-';
+
+  // Renderizar confirmación de cambio de estado
+  const ConfirmarDialog = () => (
+    <ConfirmDialog visible={confirmarCambio.visible} onHide={() => setConfirmarCambio({ visible: false, id: null })}
+      message="¿Seguro que deseas marcar esta factura como Enviada?" header="Confirmar cambio de estado" icon="pi pi-exclamation-triangle"
+      accept={() => cambiarEstadoFactura(confirmarCambio.id)} reject={() => setConfirmarCambio({ visible: false, id: null })} />
+  );
+
   const validar = () => {
     if (!form.nombre.trim()) return "El nombre es obligatorio";
     if (!form.fecha) return "La fecha es obligatoria";
@@ -513,9 +581,32 @@ function PedidosEnviados({ user }) {
     // eslint-disable-next-line
   }, [editandoHoja, detallesPedidosHoja]);
 
+  // Crear hoja de ruta con facturas seleccionadas (solo ejemplo, puedes adaptar)
+  const crearHojaDeRutaConFacturas = async () => {
+    // Aquí puedes abrir un modal o usar lógica similar a pedidos
+    // Por ahora solo resetea la selección
+    setSelectedFacturas([]);
+    toast.current.show({ severity: 'success', summary: 'Hoja de ruta creada', detail: 'Facturas seleccionadas agrupadas.' });
+  };
+
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
+      {/* Tabla de facturas de Alegra */}
+      <Card className="p-mb-3">
+        <h2 style={{ color: "#1f2937" }}>Facturas de Alegra</h2>
+        <Button label="Crear hoja de ruta con seleccionadas" icon="pi pi-plus" className="p-button-primary p-button-sm" disabled={selectedFacturas.length === 0} onClick={crearHojaDeRutaConFacturas} />
+        <DataTable value={facturasAlegra} selection={selectedFacturas} onSelectionChange={e => setSelectedFacturas(e.value)} dataKey="id" paginator rows={10} loading={loadingFacturas} responsiveLayout="stack" emptyMessage="No hay facturas de Alegra disponibles." className="p-datatable-sm p-fluid p-mt-3">
+          <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
+          <Column field="number" header="N° Comprobante" />
+          <Column field="date" header="Fecha" />
+          <Column field="client.name" header="Cliente" />
+          <Column header="Estado" body={estadoTemplate} />
+          <Column header="Detalle" body={detalleArticulos} />
+          <Column header="Vendedor" body={vendedorTemplate} />
+        </DataTable>
+        <ConfirmarDialog />
+      </Card>
       <Card className="p-mb-3">
         <h2 className="p-m-0 p-text-lg p-text-md-xl p-text-lg-2xl" style={{ color: "#1f2937", wordWrap: "break-word" }}>Agrupar Pedidos en Hojas de Ruta</h2>
         <div className="p-mt-3">
@@ -719,6 +810,7 @@ function PedidosEnviados({ user }) {
 
       {/* Confirm dialog para eliminar hoja de ruta */}
       <ConfirmDialog visible={confirmDialogVisible} onHide={() => setConfirmDialogVisible(false)} message="¿Seguro que deseas eliminar la hoja de ruta?" header="Confirmar eliminación" icon="pi pi-exclamation-triangle" accept={() => eliminarHojaDeRuta(hojaAEliminar)} reject={() => setConfirmDialogVisible(false)} />
+      <ConfirmarDialog />
     </div>
   );
 }

@@ -3,9 +3,9 @@
 import fetch from 'node-fetch';
 
 export async function getAlegraInvoices() {
+  const apiKey = process.env.ALEGRA_API_KEY?.trim();
   const url = 'https://api.alegra.com/api/v1/invoices';
-  // Usa el valor de Authorization que funcionó en la documentación
-  const authorization = 'Basic Z2VyZWNoZWdhcmF5QGdtYWlsLmNvbTozZGUyNjNiOTVhMjQwYjlkNDg5ZA==';
+  const authorization = 'Basic ' + Buffer.from(apiKey + ':').toString('base64');
 
   const response = await fetch(url, {
     headers: {
