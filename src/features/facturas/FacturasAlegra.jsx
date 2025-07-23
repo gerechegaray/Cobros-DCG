@@ -4,11 +4,12 @@ import { Column } from 'primereact/column';
 import { getAlegraInvoices } from '../../services/alegra';
 import { Dialog } from 'primereact/dialog';
 import { db } from '../../services/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { Calendar } from 'primereact/calendar';
 import { Dropdown } from 'primereact/dropdown';
+import HojaDeRutaForm from '../hojasderuta/HojaDeRutaForm';
 
 const COBRADORES = [
   { label: "Mariano", value: "Mariano" },
@@ -25,8 +26,7 @@ const FacturasAlegra = () => {
   const [error, setError] = useState(null);
   const [selectedFacturas, setSelectedFacturas] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState({ nombre: '', fecha: null, cobrador: '' });
-  const [creando, setCreando] = useState(false);
+  const [hojasDeRuta, setHojasDeRuta] = useState([]);
 
   useEffect(() => {
     getAlegraInvoices()
@@ -40,41 +40,28 @@ const FacturasAlegra = () => {
       });
   }, []);
 
+  // Obtener hojas de ruta pendientes desde Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'hojasDeRuta'), orderBy('fecha', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const data = [];
+      querySnapshot.forEach((doc) => {
+        const hoja = { id: doc.id, ...doc.data() };
+        if (hoja.estado === 'pendiente') data.push(hoja);
+      });
+      setHojasDeRuta(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleAbrirModal = () => {
-    setModalVisible(true);
-  };
-
-  const validar = () => {
-    if (!form.nombre.trim()) return "El nombre es obligatorio";
-    if (!form.fecha) return "La fecha es obligatoria";
-    if (!form.cobrador) return "Debes seleccionar el cobrador";
-    if (selectedFacturas.length === 0) return "Debes seleccionar al menos una factura";
-    return null;
-  };
-
-  const handleCrearHojaDeRuta = async (e) => {
-    e.preventDefault();
-    const error = validar();
-    if (error) {
-      alert(error);
+    console.log('[FacturasAlegra] Handler abrir modal. selectedFacturas:', selectedFacturas);
+    if (selectedFacturas.length === 0) {
+      alert('Selecciona al menos una factura.');
       return;
     }
-    setCreando(true);
-    try {
-      await addDoc(collection(db, "hojasDeRuta"), {
-        nombre: form.nombre,
-        fecha: form.fecha,
-        cobrador: form.cobrador,
-        facturas: selectedFacturas.map(f => f.id),
-        pedidos: [] // Por compatibilidad, si se usan pedidos
-      });
-      setModalVisible(false);
-      setSelectedFacturas([]);
-      setForm({ nombre: '', fecha: null, cobrador: '' });
-    } catch (err) {
-      alert('Error al crear hoja de ruta: ' + err.message);
-    }
-    setCreando(false);
+    setModalVisible(true);
+    console.log('[FacturasAlegra] Modal debería abrirse.');
   };
 
   if (loading) return <p>Cargando facturas...</p>;
@@ -96,7 +83,10 @@ const FacturasAlegra = () => {
         rows={10}
         responsiveLayout="scroll"
         selection={selectedFacturas}
-        onSelectionChange={e => setSelectedFacturas(e.value)}
+        onSelectionChange={e => {
+          setSelectedFacturas(e.value);
+          console.log('[FacturasAlegra] onSelectionChange:', e.value);
+        }}
         dataKey="id"
         selectionMode="multiple"
       >
@@ -107,34 +97,35 @@ const FacturasAlegra = () => {
         <Column field="total" header="Total" />
         <Column field="status" header="Estado" />
       </DataTable>
-      <Dialog header="Crear Hoja de Ruta" visible={modalVisible} style={{ width: '350px' }} onHide={() => setModalVisible(false)}>
-        <form onSubmit={handleCrearHojaDeRuta}>
-          <div className="p-field">
-            <label>Nombre *</label>
-            <InputText value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} className="p-fluid" required />
-          </div>
-          <div className="p-field">
-            <label>Fecha *</label>
-            <Calendar value={form.fecha} onChange={e => setForm({ ...form, fecha: e.value })} dateFormat="dd/mm/yy" showIcon className="p-fluid" required />
-          </div>
-          <div className="p-field">
-            <label>Cobrador *</label>
-            <Dropdown value={form.cobrador} options={COBRADORES} onChange={e => setForm({ ...form, cobrador: e.value })} placeholder="Selecciona cobrador" className="p-fluid" required />
-          </div>
-          <div className="p-field">
-            <label>Facturas seleccionadas</label>
-            <ul style={{ paddingLeft: 18 }}>
-              {selectedFacturas.map(f => (
-                <li key={f.id}>{f.client?.name || f.id} ({f.date})</li>
-              ))}
-            </ul>
-          </div>
-          <div className="p-d-flex p-jc-end p-mt-3" style={{ gap: 8 }}>
-            <Button type="button" label="Cancelar" className="p-button-text" onClick={() => setModalVisible(false)} />
-            <Button type="submit" label="Crear" icon="pi pi-save" loading={creando} className="p-button-primary" />
-          </div>
-        </form>
-      </Dialog>
+      {/* Modal con el formulario modular para hoja de ruta */}
+      {modalVisible && (
+        (() => { console.log('[FacturasAlegra] Renderizando HojaDeRutaForm, modalVisible:', modalVisible, 'selectedFacturas:', selectedFacturas); return null; })() ||
+        <HojaDeRutaForm
+          visible={modalVisible}
+          onHide={() => setModalVisible(false)}
+          pedidosSeleccionados={selectedFacturas.map(f => ({
+            id: f.id,
+            cliente: f.client?.name || f.id,
+            fecha: { toDate: () => new Date(f.date) },
+            items: f.items || [],
+            estadoFactura: f.status
+          }))}
+          onSave={() => {
+            setSelectedFacturas([]);
+            setModalVisible(false);
+          }}
+        />
+      )}
+      {/* Lista de hojas de ruta pendientes */}
+      <div style={{ marginTop: 32 }}>
+        <h3>Hojas de Ruta Pendientes</h3>
+        <DataTable value={hojasDeRuta} dataKey="id" paginator rows={5} responsiveLayout="stack" emptyMessage="No hay hojas de ruta pendientes." className="p-datatable-sm p-fluid p-mt-3">
+          <Column field="fecha" header="Fecha" body={row => row.fecha?.toDate ? row.fecha.toDate().toLocaleDateString('es-AR') : ''} />
+          <Column field="responsable" header="Responsable" />
+          <Column field="pedidos" header="Facturas agrupadas" body={row => row.pedidos?.map(p => p.cliente).join(', ')} />
+          <Column field="estado" header="Estado" />
+        </DataTable>
+      </div>
     </div>
   );
 };

@@ -7,7 +7,8 @@ import {
   updateDoc,
   doc,
   deleteDoc,
-  orderBy
+  orderBy,
+  getDocs
 } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
@@ -78,22 +79,6 @@ function ListaPedidosClientes({ user }) {
   const [modalVisible, setModalVisible] = useState(false);
   // Estado para el form del modal de edición
   const [formEdicion, setFormEdicion] = useState(null);
-
-  // Estado y funciones para el cambio de estado con confirmación
-  const [confirmarCambioPedido, setConfirmarCambioPedido] = useState({ visible: false, id: null, nuevoEstado: null });
-
-  const cambiarEstadoPedidoAdmin = async (pedido, nuevoEstado) => {
-    setConfirmarCambioPedido({ visible: true, id: pedido.id, nuevoEstado });
-  };
-
-  const confirmarCambioEstado = async () => {
-    if (confirmarCambioPedido.id && confirmarCambioPedido.nuevoEstado) {
-      await updateDoc(doc(db, 'pedidosClientes', confirmarCambioPedido.id), { estadoFactura: confirmarCambioPedido.nuevoEstado });
-      setConfirmarCambioPedido({ visible: false, id: null, nuevoEstado: null });
-    }
-  };
-
-  const location = useLocation();
 
   useEffect(() => {
     const q = query(collection(db, "pedidosClientes"), orderBy("fecha", "desc"));
@@ -300,9 +285,19 @@ function ListaPedidosClientes({ user }) {
   const pedidosPendientes = pedidos.filter(p => (p.estadoFactura || 'pendiente') === 'pendiente');
   const pedidosFacturados = pedidos.filter(p => p.estadoFactura === 'facturado');
 
-  // ... (resto de la lógica igual)
+  // Handler para crear hoja de ruta
+  const handleCrearHojaDeRuta = () => {
+    if (selectedPedidos.length === 0) {
+      toast.current.show({ severity: 'warn', summary: 'Atención', detail: 'Selecciona al menos un pedido.' });
+      return;
+    }
+    setPedidosSeleccionados(selectedPedidos);
+    setHojaModalVisible(true);
+  };
 
-  // Renderizado SOLO de las dos listas nuevas
+  // Estado para selección de pedidos
+  const [selectedPedidos, setSelectedPedidos] = useState([]);
+
   return (
     <div
       style={{
@@ -317,6 +312,8 @@ function ListaPedidosClientes({ user }) {
       <ConfirmDialog />
       {/* Header y filtros igual que tu archivo original */}
       {/* ... */}
+      {/* Botón para crear hoja de ruta */}
+      <Button label="Crear hoja de ruta con seleccionadas" icon="pi pi-plus" onClick={handleCrearHojaDeRuta} className="p-mb-3" />
       {/* Lista de pedidos pendientes */}
       <Card className="p-mb-3">
         <h2 style={{ color: '#1f2937' }}>Pedidos Pendientes</h2>
@@ -324,7 +321,11 @@ function ListaPedidosClientes({ user }) {
           expandedRows={expandedPedido ? { [expandedPedido]: true } : null}
           onRowToggle={e => setExpandedPedido(e.data ? Object.keys(e.data)[0] : null)}
           rowExpansionTemplate={detalleExpandido}
+          selection={selectedPedidos}
+          onSelectionChange={e => setSelectedPedidos(e.value)}
+          selectionMode="checkbox"
         >
+          <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
           <Column expander style={{ width: '3em' }} />
           <Column field="fecha" header="Fecha" body={row => formatFecha(row.fecha)} />
           <Column field="cliente" header="Cliente" />
@@ -355,9 +356,7 @@ function ListaPedidosClientes({ user }) {
           <Column header="Acciones" body={accionesPedido} />
         </DataTable>
       </Card>
-      <ConfirmDialog visible={confirmarCambioPedido.visible} onHide={() => setConfirmarCambioPedido({ visible: false, id: null, nuevoEstado: null })}
-        message="¿Seguro que deseas cambiar el estado de este pedido?" header="Confirmar cambio de estado" icon="pi pi-exclamation-triangle"
-        accept={confirmarCambioEstado} reject={() => setConfirmarCambioPedido({ visible: false, id: null, nuevoEstado: null })} />
+      {/* Eliminar cualquier referencia, renderizado o lógica que use 'hojasDeRuta' */}
     </div>
   );
 }

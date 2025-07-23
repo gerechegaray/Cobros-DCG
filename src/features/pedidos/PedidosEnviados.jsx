@@ -11,7 +11,9 @@ import {
   where,
   getDocs,
   query as fsQuery,
-  deleteDoc
+  deleteDoc,
+  setDoc,
+  getDoc
 } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { InputText } from "primereact/inputtext";
@@ -26,6 +28,8 @@ import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
 import { getClientesCatalogo, getProductosCatalogo } from '../../services/firebase';
 import { getAlegraInvoices } from '../../services/alegra';
+import HojaDeRutaForm from '../hojasderuta/HojaDeRutaForm';
+
 
 const COBRADORES = [
   { label: "Mariano", value: "Mariano" },
@@ -57,6 +61,7 @@ function PedidosEnviados({ user }) {
   const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
   const [hojaAEliminar, setHojaAEliminar] = useState(null);
   const [detallesPedidosHoja, setDetallesPedidosHoja] = useState({}); // { hojaId: [pedidos] }
+  // Agregar estado para tab activo
   const [activeTab, setActiveTab] = useState('pendientes'); // 'pendientes' o 'completas'
   const [expandedPedidos, setExpandedPedidos] = useState(null);
 
@@ -69,9 +74,9 @@ function PedidosEnviados({ user }) {
   // Estado para facturas de Alegra y su estado local
   const [facturasAlegra, setFacturasAlegra] = useState([]);
   const [selectedFacturas, setSelectedFacturas] = useState([]);
-  const [estadoFacturas, setEstadoFacturas] = useState({}); // { idFactura: 'enviado' }
   const [loadingFacturas, setLoadingFacturas] = useState(true);
   const [confirmarCambio, setConfirmarCambio] = useState({ visible: false, id: null });
+  const [estadoFacturas, setEstadoFacturas] = useState({}); // { idFactura: 'enviado' }
 
   // Cargar pedidos con estado 'recibido' y filtrar en frontend los que no tengan hoja de ruta asignada
   useEffect(() => {
@@ -167,17 +172,22 @@ function PedidosEnviados({ user }) {
       try {
         const data = await getAlegraInvoices();
         setFacturasAlegra(data);
-        // Traer estados de Firestore
-        const estadosSnap = await getDocs(collection(db, 'estadoFacturasAlegra'));
-        const estados = {};
-        estadosSnap.forEach(doc => { estados[doc.id] = doc.data().estado; });
-        setEstadoFacturas(estados);
       } catch (err) {
         setFacturasAlegra([]);
       }
       setLoadingFacturas(false);
     }
     fetchFacturas();
+  }, []);
+
+  // Sincronizar estadoFacturasAlegra en tiempo real
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'estadoFacturasAlegra'), (snapshot) => {
+      const estados = {};
+      snapshot.forEach(doc => { estados[doc.id] = doc.data().estado; });
+      setEstadoFacturas(estados);
+    });
+    return () => unsubscribe();
   }, []);
 
   // Cambiar estado de facturado a enviado y guardar en Firestore
@@ -606,29 +616,111 @@ function PedidosEnviados({ user }) {
 
   // Elimino las tablas y lógica de pedidos pendientes/facturados y cambio de estado
 
+  const handleAbrirModal = () => {
+    if (selectedFacturas.length === 0) {
+      toast.current.show({ severity: 'warn', summary: 'Atención', detail: 'Selecciona al menos una factura.' });
+      return;
+    }
+    setModalVisible(true);
+  };
+
+  // Reemplazar el handler de confirmación de cambio de estado en el listado de facturas
+  const handleConfirmarCambioEstadoFactura = async (idFactura) => {
+    // Buscar la hoja de ruta pendiente que contiene la factura
+    const hoja = hojasDeRuta.find(h => h.pedidos && h.pedidos.some(f => String(f.id) === String(idFactura)));
+    if (hoja) {
+      const facturaEnHoja = hoja.pedidos.find(f => String(f.id) === String(idFactura));
+      const nuevoEstado = facturaEnHoja && facturaEnHoja.estado === 'enviado' ? 'facturado' : 'enviado';
+      try {
+        const hojaRef = doc(db, 'hojasDeRuta', hoja.id);
+        const nuevosPedidos = hoja.pedidos.map(f => String(f.id) === String(idFactura) ? { ...f, estado: nuevoEstado } : f);
+        await updateDoc(hojaRef, { pedidos: nuevosPedidos });
+        toast.current.show({ severity: 'success', summary: 'Estado actualizado', detail: 'El estado de la factura fue actualizado.' });
+      } catch (e) {
+        console.error('[CambioEstado] Error al actualizar hoja de ruta:', e);
+        toast.current.show({ severity: 'error', summary: 'Error', detail: 'No se pudo actualizar el estado.' });
+      }
+    } else {
+      // Si no está en hoja de ruta, actualizar/crear en estadoFacturasAlegra
+      const estadoActual = estadoFacturas[idFactura] || 'facturado';
+      const nuevoEstado = estadoActual === 'enviado' ? 'facturado' : 'enviado';
+      try {
+        await setDoc(doc(db, 'estadoFacturasAlegra', String(idFactura)), { estado: nuevoEstado }, { merge: true });
+        toast.current.show({ severity: 'success', summary: 'Estado actualizado', detail: 'El estado de la factura fue actualizado.' });
+      } catch (e) {
+        console.error('[CambioEstado] Error al actualizar estadoFacturasAlegra:', e);
+        toast.current.show({ severity: 'error', summary: 'Error', detail: 'No se pudo actualizar el estado.' });
+      }
+    }
+  };
+
   return (
     <div className="p-p-2 p-p-md-3 p-p-lg-4" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
       <Toast ref={toast} />
       {/* Tabla de facturas de Alegra */}
       <Card className="p-mb-3">
         <h2 style={{ color: "#1f2937" }}>Facturas de Alegra</h2>
-        <Button label="Crear hoja de ruta con seleccionadas" icon="pi pi-plus" className="p-button-primary p-button-sm" disabled={selectedFacturas.length === 0} onClick={crearHojaDeRutaConFacturas} />
+        <Button label="Crear hoja de ruta con seleccionadas" icon="pi pi-plus" className="p-button-primary p-button-sm" disabled={selectedFacturas.length === 0} onClick={handleAbrirModal} />
         <DataTable value={facturasAlegraOrdenadas} selection={selectedFacturas} onSelectionChange={e => setSelectedFacturas(e.value)} dataKey="id" paginator rows={10} loading={loadingFacturas} responsiveLayout="stack" emptyMessage="No hay facturas de Alegra disponibles." className="p-datatable-sm p-fluid p-mt-3">
           <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
           <Column field="number" header="N° Comprobante" />
           <Column field="date" header="Fecha" body={fechaFormateada} />
           <Column field="client.name" header="Cliente" />
           <Column header="Domicilio" body={domicilioCliente} />
-          <Column header="Estado" body={estadoTemplate} />
+          <Column header="Estado" body={row => {
+            // Buscar la hoja de ruta pendiente que contiene la factura
+            const hoja = hojasDeRuta.find(h => h.pedidos && h.pedidos.some(f => String(f.id) === String(row.id)));
+            let estado = 'Facturado';
+            if (hoja) {
+              const facturaEnHoja = hoja.pedidos.find(f => String(f.id) === String(row.id));
+              if (facturaEnHoja && facturaEnHoja.estado) {
+                estado = facturaEnHoja.estado === 'enviado' ? 'Enviado' : 'Facturado';
+              }
+            } else if (estadoFacturas[row.id]) {
+              estado = estadoFacturas[row.id] === 'enviado' ? 'Enviado' : 'Facturado';
+            }
+            return (
+              <div>
+                <Tag value={estado} severity={estado === 'Enviado' ? 'success' : 'info'} />
+                <Button
+                  icon={estado === 'Enviado' ? 'pi pi-undo' : 'pi pi-send'}
+                  className={estado === 'Enviado' ? 'p-button-text p-button-warning' : 'p-button-text p-button-success'}
+                  style={{ marginLeft: 8 }}
+                  onClick={async () => {
+                    await handleConfirmarCambioEstadoFactura(row.id);
+                  }}
+                  tooltip={estado === 'Enviado' ? 'Volver a Facturado' : 'Marcar como Enviado'}
+                />
+              </div>
+            );
+          }} />
           <Column header="Detalle" body={detalleArticulos} />
           <Column header="Vendedor" body={vendedorTemplate} />
         </DataTable>
         <ConfirmarDialog />
+        {/* Modal con el formulario modular para hoja de ruta */}
+        {modalVisible && (
+          <HojaDeRutaForm
+            visible={modalVisible}
+            onHide={() => setModalVisible(false)}
+            pedidosSeleccionados={selectedFacturas.map(f => ({
+              id: f.id,
+              cliente: f.client?.name || f.id,
+              fecha: { toDate: () => new Date(f.date) },
+              items: f.items || [],
+              estadoFactura: f.status
+            }))}
+            onSave={() => {
+              setSelectedFacturas([]);
+              setModalVisible(false);
+            }}
+          />
+        )}
       </Card>
       {/* Listado de hojas de ruta */}
       <Card className="p-mt-4">
         <div className="p-d-flex p-jc-between p-ai-center p-mb-3">
-          <h3 className="p-m-0 p-text-lg p-text-md-xl">Hojas de Ruta</h3>
+          <h3 className="p-m-0 p-text-lg p-text-md-xl">Hojas de Ruta {activeTab === 'pendientes' ? 'Pendientes' : 'Completas'}</h3>
           <div className="p-d-flex p-gap-2">
             <Button 
               label="Pendientes" 
@@ -642,31 +734,74 @@ function PedidosEnviados({ user }) {
             />
           </div>
         </div>
-        <div style={{ margin: '16px 0' }}>
-          {/* Eliminar botones y lógica de refresco manual de clientes y productos */}
-        </div>
-        <DataTable
-          value={activeTab === 'pendientes' ? hojasDeRuta : hojasDeRutaCompletas}
-          paginator
-          rows={8}
-          responsiveLayout="stack"
-          emptyMessage={`No hay hojas de ruta ${activeTab === 'pendientes' ? 'pendientes' : 'completas'}.`}
-          className="p-datatable-sm p-fluid p-mt-3"
-          style={{ width: '100%' }}
+        <DataTable value={activeTab === 'pendientes' ? hojasDeRuta : hojasDeRutaCompletas} dataKey="id" paginator rows={5} responsiveLayout="stack" emptyMessage={`No hay hojas de ruta ${activeTab === 'pendientes' ? 'pendientes' : 'completas'}.`} className="p-datatable-sm p-fluid p-mt-3"
           expandedRows={expandedHoja}
           onRowToggle={e => setExpandedHoja(e.data)}
-          rowExpansionTemplate={detalleHojaTemplate}
-          onRowExpand={onRowExpand}
+          rowExpansionTemplate={row => (
+            <div style={{ padding: 16, background: '#f8fafc', borderRadius: 8 }}>
+              {/* Mostrar total solo para admin */}
+              {user?.role === 'admin' && (
+                <div style={{ marginBottom: 12, fontWeight: 600, fontSize: 17, color: '#2563eb' }}>
+                  {(() => {
+                    // Sumar los totales de las facturas agrupadas usando facturasAlegra
+                    const total = (row.pedidos || []).reduce((sum, factura) => {
+                      const facturaAlegra = facturasAlegra.find(f => String(f.id) === String(factura.id));
+                      return sum + (facturaAlegra && facturaAlegra.total ? Number(facturaAlegra.total) : 0);
+                    }, 0);
+                    return `Total de la hoja de ruta: ${total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`;
+                  })()}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <h4 style={{ margin: 0 }}>Detalle por factura</h4>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button icon="pi pi-pencil" className="p-button-text p-button-info" tooltip="Editar hoja de ruta" onClick={() => { setEditandoHoja(row); setEditForm({ nombre: row.nombre, fecha: row.fecha, cobrador: row.responsable }); }} />
+                  <Button icon="pi pi-trash" className="p-button-text p-button-danger" tooltip="Eliminar hoja de ruta" onClick={() => { setConfirmDialogVisible(true); setHojaAEliminar(row); }} />
+                  {row.estado === 'completa' ? (
+                    <Button icon="pi pi-undo" className="p-button-text p-button-warning" tooltip="Marcar como pendiente" onClick={() => marcarHojaComoPendiente(row)} />
+                  ) : (
+                    <Button icon="pi pi-check" className="p-button-text p-button-success" tooltip="Marcar como completa" onClick={() => marcarHojaComoCompleta(row)} />
+                  )}
+                </div>
+              </div>
+              {row.pedidos && row.pedidos.length > 0 ? (
+                <div>
+                  {row.pedidos.map((factura, idx) => (
+                    <div key={idx} style={{ marginBottom: 12, padding: 8, background: '#fff', borderRadius: 6, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                      <div style={{ fontWeight: 600, color: '#374151' }}>Cliente: {factura.cliente}</div>
+                      <div style={{ color: '#6b7280', fontSize: 13 }}>Comprobante: {factura.id}</div>
+                      <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
+                        {Array.isArray(factura.detalle) && factura.detalle.length > 0 ? factura.detalle.map((item, i) => (
+                          <li key={i}>{item.name || item.producto} x{item.quantity || item.cantidad}</li>
+                        )) : <li>-</li>}
+                      </ul>
+                      <div style={{ marginTop: 6 }}>
+                        <Button
+                          icon={factura.estado === 'enviado' ? 'pi pi-undo' : 'pi pi-send'}
+                          className={factura.estado === 'enviado' ? 'p-button-text p-button-warning' : 'p-button-text p-button-success'}
+                          tooltip={factura.estado === 'enviado' ? 'Volver a Facturado' : 'Marcar como Enviada'}
+                          onClick={async () => {
+                            const nuevoEstado = factura.estado === 'enviado' ? 'facturado' : 'enviado';
+                            // Actualizar en Firestore la hoja de ruta
+                            const hojaRef = doc(db, 'hojasDeRuta', row.id);
+                            const nuevosPedidos = row.pedidos.map((f, i) => i === idx ? { ...f, estado: nuevoEstado } : f);
+                            await updateDoc(hojaRef, { pedidos: nuevosPedidos });
+                          }}
+                        />
+                        <Tag value={factura.estado === 'enviado' ? 'Enviado' : 'Facturado'} severity={factura.estado === 'enviado' ? 'success' : 'info'} style={{ marginLeft: 8 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <div style={{ color: '#888', fontStyle: 'italic' }}>No hay facturas agrupadas.</div>}
+            </div>
+          )}
         >
           <Column expander style={{ width: '3em' }} />
-          <Column field="nombre" header="Nombre" />
-          <Column field="fecha" header="Fecha" body={row => formatFecha(row.fecha)} />
-          <Column field="cobrador" header="Cargado por" />
-          <Column field="pedidos" header="Pedidos agrupados" body={row => row.pedidos?.length || 0} />
-          <Column header="Estado" body={row => {
-            const esCompleta = esHojaCompleta(row);
-            return <Tag value={esCompleta ? 'Completa' : 'Pendiente'} severity={esCompleta ? 'success' : 'warning'} />;
-          }} />
+          <Column field="fecha" header="Fecha" body={row => row.fecha?.toDate ? row.fecha.toDate().toLocaleDateString('es-AR') : ''} />
+          <Column field="responsable" header="Responsable" />
+          <Column field="pedidos" header="Facturas agrupadas" body={row => row.pedidos?.map(p => p.cliente).join(', ')} />
+          <Column field="estado" header="Estado" />
         </DataTable>
       </Card>
 
@@ -688,68 +823,16 @@ function PedidosEnviados({ user }) {
         </div>
       )}
 
-      {/* Modal para editar hoja de ruta */}
+      {/* Reemplazar el modal de edición de hoja de ruta por HojaDeRutaForm en modo edición */}
       {editandoHoja && (
-        <div className="p-dialog-mask" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 1000 }}>
-          <div className="p-dialog" style={{ maxWidth: 400, margin: '10vh auto', background: '#fff', borderRadius: 8, padding: 24, position: 'relative' }}>
-            <h3>Editar Hoja de Ruta</h3>
-            <form onSubmit={async e => {
-              e.preventDefault();
-              if (editandoHoja && editandoHoja.pedidos && editForm.pedidosOrder) {
-                await updateDoc(doc(db, "hojasDeRuta", editandoHoja.id), {
-                  pedidos: editForm.pedidosOrder.map(p => p.id),
-                  nombre: editForm.nombre,
-                  fecha: editForm.fecha,
-                  cobrador: editForm.cobrador
-                });
-                // Actualizar el estado local para reflejar el nuevo orden
-                setDetallesPedidosHoja(prev => ({
-                  ...prev,
-                  [editandoHoja.id]: editForm.pedidosOrder
-                }));
-                setEditandoHoja(null);
-                return;
-              }
-              await guardarEdicionHoja();
-            }}>
-              <div className="p-field">
-                <label>Nombre *</label>
-                <InputText value={editForm.nombre} onChange={e => setEditForm({ ...editForm, nombre: e.target.value })} className="p-fluid" required />
-              </div>
-              <div className="p-field">
-                <label>Fecha *</label>
-                <Calendar value={editForm.fecha} onChange={e => setEditForm({ ...editForm, fecha: e.value })} dateFormat="dd/mm/yy" showIcon className="p-fluid" required />
-              </div>
-              <div className="p-field">
-                <label>Cargado por *</label>
-                <Dropdown value={editForm.cobrador} options={COBRADORES} onChange={e => setEditForm({ ...editForm, cobrador: e.value })} placeholder="Selecciona cobrador" className="p-fluid" required />
-              </div>
-              {/* Reordenamiento de pedidos agrupados */}
-              {editandoHoja && detallesPedidosHoja[editandoHoja.id] && detallesPedidosHoja[editandoHoja.id].length > 0 && (
-                <div className="p-field">
-                  <label>Reordenar pedidos agrupados</label>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {editForm.pedidosOrder && editForm.pedidosOrder.map((pedido, idx) => (
-                      <li key={pedido.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 4, background: '#f3f4f6', borderRadius: 6, padding: '4px 8px' }}>
-                        <span style={{ flex: 1 }}>
-                          <b>{pedido.cliente}</b> {pedido.items && Array.isArray(pedido.items) && pedido.items.length > 0 && (
-                            <span style={{ color: '#6366f1', fontSize: 13 }}>({pedido.items.map(i => `${getNombreProducto(i.producto)} x${i.cantidad}`).join(', ')})</span>
-                          )}
-                        </span>
-                        <Button icon="pi pi-arrow-up" className="p-button-rounded p-button-text" style={{ fontSize: 13, width: 28, height: 28 }} onClick={e => { e.preventDefault(); if (idx > 0) { const arr = [...editForm.pedidosOrder]; [arr[idx], arr[idx-1]] = [arr[idx-1], arr[idx]]; setEditForm(f => ({ ...f, pedidosOrder: arr })); } }} disabled={idx === 0} tooltip="Subir" />
-                        <Button icon="pi pi-arrow-down" className="p-button-rounded p-button-text" style={{ fontSize: 13, width: 28, height: 28 }} onClick={e => { e.preventDefault(); if (idx < editForm.pedidosOrder.length - 1) { const arr = [...editForm.pedidosOrder]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; setEditForm(f => ({ ...f, pedidosOrder: arr })); } }} disabled={idx === editForm.pedidosOrder.length - 1} tooltip="Bajar" />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div className="p-d-flex p-jc-end p-mt-3" style={{ gap: 8 }}>
-                <Button type="button" label="Cancelar" className="p-button-text" onClick={() => setEditandoHoja(null)} />
-                <Button type="submit" label="Guardar" icon="pi pi-save" className="p-button-primary" />
-              </div>
-            </form>
-          </div>
-        </div>
+        <HojaDeRutaForm
+          visible={!!editandoHoja}
+          onHide={() => setEditandoHoja(null)}
+          edicion={true}
+          hojaId={editandoHoja.id}
+          hojaData={editandoHoja}
+          onSave={() => setEditandoHoja(null)}
+        />
       )}
 
       {/* Confirm dialog para eliminar hoja de ruta */}
