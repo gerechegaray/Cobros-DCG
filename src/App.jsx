@@ -6,11 +6,9 @@ import Dashboard from "./features/dashboard/Dashboard";
 import CobroForm from "./features/cobros/CobroForm";
 import CobrosList from "./features/cobros/CobrosList";
 import UserProfile from "./features/auth/UserProfile";
-import CargarPedido from "./features/pedidos/CargarPedido";
-import ListaPedidosClientes from "./features/pedidos/ListaPedidosClientes";
-import PedidosEnviados from "./features/pedidos/PedidosEnviados";
 import EstadoCuenta from "./features/clientes/EstadoCuenta";
 import SelectorCliente from "./features/pedidos/SelectorCliente";
+import { PresupuestoForm, PresupuestosList } from "./features/presupuestos";
 import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -77,6 +75,9 @@ function App() {
   const getMenuItems = () => {
     const baseItems = [{ label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" }];
 
+    // Agregar Presupuestos para todos los usuarios autenticados
+    baseItems.push({ label: "Presupuestos", icon: "pi pi-file", path: "/presupuestos" });
+
     if (user?.role === "admin") {
       return [
         ...baseItems,
@@ -130,10 +131,9 @@ function App() {
             {user && (
               <>
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
-                <Route path="/cargar-pedido" element={<CargarPedido user={user} />} />
                 <Route path="/cargar-cobro" element={<CobroForm user={user} />} />
                 <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
-                <Route path="/lista-pedidos" element={<ListaPedidosClientes user={user} />} />
+                <Route path="/lista-pedidos" element={<SelectorCliente />} />
                 <Route path="/list" element={
                   user.role === "admin" || user.role === "Santi" || user.role === "Guille"
                     ? <CobrosList user={user} showOnlyMyCobros={user.role === "Santi" || user.role === "Guille"} />
@@ -146,9 +146,11 @@ function App() {
                     <Navigate to="/dashboard" />
                   )
                 } />
-                <Route path="/pedidos" element={<PedidosEnviados user={user} />} />
                 <Route path="/profile" element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />} />
                 <Route path="/clientes" element={<SelectorCliente />} />
+                {/* Nuevas rutas de presupuestos */}
+                <Route path="/presupuestos/nuevo" element={<PresupuestoForm user={user} />} />
+                <Route path="/presupuestos" element={<PresupuestosList user={user} />} />
               </>
             )}
             {/* Redirigir cualquier otra ruta al login si no está autenticado, o al dashboard si lo está */}
