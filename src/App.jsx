@@ -12,6 +12,8 @@ import { PresupuestoForm, PresupuestosList } from "./features/presupuestos";
 import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import FacturasAlegra from "./features/facturas/FacturasAlegra";
+import Alerts from "./features/dashboard/Alerts";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -73,30 +75,18 @@ function App() {
   const isCobrador = user?.role === "cobrador" || ["Santi", "Guille"].includes(user?.role);
 
   const getMenuItems = () => {
-    const baseItems = [{ label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" }];
-
-    // Agregar Presupuestos para todos los usuarios autenticados
-    baseItems.push({ label: "Presupuestos", icon: "pi pi-file", path: "/presupuestos" });
-
-    if (user?.role === "admin") {
-      return [
-        ...baseItems,
-        { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
-        { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
-        { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
-        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
-        { label: "Clientes", icon: "pi pi-users", path: "/clientes" }
-      ];
-    } else if (isCobrador) {
-      return [
-        ...baseItems,
-        { label: "Mis Cobranzas", icon: "pi pi-list", path: "/my-cobros" },
-        { label: "Lista de Pedidos", icon: "pi pi-list", path: "/lista-pedidos" },
-        { label: "Pedidos Enviados", icon: "pi pi-send", path: "/pedidos" },
-        { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
-        { label: "Clientes", icon: "pi pi-users", path: "/clientes" }
-      ];
-    }
+    const baseItems = [
+      { label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" },
+      { label: "Presupuestos", icon: "pi pi-file", path: "/presupuestos" },
+      { label: "Cobros", icon: "pi pi-wallet", path: "/cargar-cobro" },
+      { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
+      { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
+      { label: "Facturas", icon: "pi pi-file-o", path: "/facturas" },
+      { label: "Alertas", icon: "pi pi-bell", path: "/alertas" },
+      { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
+      { label: "Clientes", icon: "pi pi-users", path: "/clientes" },
+      { label: "Acceso Total", icon: "pi pi-th-large", path: "/acceso-total" }
+    ];
     return baseItems;
   };
 
@@ -133,23 +123,29 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
                 <Route path="/cargar-cobro" element={<CobroForm user={user} />} />
                 <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
-                <Route path="/list" element={
-                  user.role === "admin" || user.role === "Santi" || user.role === "Guille"
-                    ? <CobrosList user={user} showOnlyMyCobros={user.role === "Santi" || user.role === "Guille"} />
-                    : <Navigate to="/dashboard" />
-                } />
-                <Route path="/my-cobros" element={
-                  isCobrador ? (
-                    <CobrosList user={user} showOnlyMyCobros />
-                  ) : (
-                    <Navigate to="/dashboard" />
-                  )
-                } />
+                <Route path="/list" element={<CobrosList user={user} />} />
                 <Route path="/profile" element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />} />
                 <Route path="/clientes" element={<SelectorCliente />} />
-                {/* Nuevas rutas de presupuestos */}
                 <Route path="/presupuestos/nuevo" element={<PresupuestoForm user={user} />} />
                 <Route path="/presupuestos" element={<PresupuestosList user={user} />} />
+                <Route path="/facturas" element={<FacturasAlegra user={user} />} />
+                <Route path="/alertas" element={<Alerts user={user} />} />
+                {/* Menú de Acceso Total: muestra todos los módulos juntos para pruebas */}
+                <Route path="/acceso-total" element={
+                  <div style={{padding: 24}}>
+                    <h2>Acceso Total a Módulos</h2>
+                    <Dashboard user={user} />
+                    <CobroForm user={user} />
+                    <CobrosList user={user} />
+                    <EstadoCuenta user={user} />
+                    <FacturasAlegra user={user} />
+                    <Alerts user={user} />
+                    <UserProfile user={user} onUserUpdate={handleUserUpdate} />
+                    <SelectorCliente />
+                    <PresupuestoForm user={user} />
+                    <PresupuestosList user={user} />
+                  </div>
+                } />
               </>
             )}
             {/* Redirigir cualquier otra ruta al login si no está autenticado, o al dashboard si lo está */}

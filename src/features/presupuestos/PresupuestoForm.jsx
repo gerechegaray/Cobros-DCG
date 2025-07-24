@@ -6,11 +6,14 @@ import { Card } from "primereact/card";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { Calendar } from "primereact/calendar";
+import { useLocation } from "react-router-dom";
 
 function PresupuestoForm({ user, onPresupuestoCreado }) {
+  const location = useLocation();
+  const clienteInicial = location.state?.cliente || null;
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(clienteInicial);
   const [clientes, setClientes] = useState([]);
   const [productos, setProductos] = useState([]);
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [items, setItems] = useState([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [cantidad, setCantidad] = useState(1);
@@ -269,7 +272,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
         <label>Cliente</label>
         <Dropdown
           value={clienteSeleccionado}
-          options={clientes.map(c => ({ label: c.name, value: c.id }))}
+          options={[...clientes].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => ({ label: c.name, value: c.id }))}
           onChange={e => setClienteSeleccionado(e.value)}
           placeholder="Selecciona un cliente"
           filter
