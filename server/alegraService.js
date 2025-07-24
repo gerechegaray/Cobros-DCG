@@ -28,6 +28,7 @@ export async function getAlegraInvoices() {
 
   const data = await response.json();
   return data;
+<<<<<<< HEAD
 }
 
 export async function getAlegraContacts() {
@@ -64,4 +65,6 @@ export async function getAlegraItems() {
     throw new Error('Error al obtener los productos de Alegra: ' + errorText);
   }
   return await response.json();
+=======
+>>>>>>> cad67d197e0b79ecbb82f65ef0bcadfc46b5e93b
 } 
