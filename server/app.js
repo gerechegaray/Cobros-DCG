@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Importo el servicio de Alegra
-<<<<<<< HEAD
 import { getAlegraInvoices, getAlegraContacts, getAlegraItems } from "./alegraService.js";
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -19,9 +18,6 @@ if (!global._firebaseAdminInitialized) {
   global._firebaseAdminInitialized = true;
 }
 const adminDb = getFirestore();
-=======
-import { getAlegraInvoices } from "./alegraService.js";
->>>>>>> cad67d197e0b79ecbb82f65ef0bcadfc46b5e93b
 
 const app = express();
 app.use(cors());
@@ -38,7 +34,6 @@ app.get("/api/alegra/invoices", async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
 // Endpoint para obtener clientes de Alegra
 app.get("/api/alegra/contacts", async (req, res) => {
   try {
@@ -439,9 +434,6 @@ app.post("/api/sync-estados-presupuestos", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-=======
->>>>>>> cad67d197e0b79ecbb82f65ef0bcadfc46b5e93b
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
