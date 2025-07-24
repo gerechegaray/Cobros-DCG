@@ -148,6 +148,7 @@ app.post("/api/alegra/quotes", async (req, res) => {
 
 // Nuevo endpoint para crear presupuesto: primero en Firestore, luego en Alegra
 app.post("/api/presupuestos", async (req, res) => {
+  console.log('Entrando a /api/presupuestos');
   try {
     const { clienteId, items, observaciones, usuario, fechaCreacion, vendedor, condicion, dueDate } = req.body;
     // 1. Crear en Firestore con estado pendiente-alegra
@@ -206,12 +207,14 @@ app.post("/api/presupuestos", async (req, res) => {
     const doc = await docRef.get();
     res.json({ success: true, presupuesto: { id: doc.id, ...doc.data() }, alegraQuote, alegraError });
   } catch (error) {
+    console.error('Error en /api/presupuestos:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Endpoint para obtener todos los presupuestos guardados en Firestore, filtrando por usuario y rol
 app.get("/api/presupuestos", async (req, res) => {
+  console.log('Entrando a /api/presupuestos');
   try {
     const { email, role } = req.query;
     let query = adminDb.collection('presupuestos').orderBy('fechaCreacion', 'desc');
@@ -228,6 +231,7 @@ app.get("/api/presupuestos", async (req, res) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(data);
   } catch (error) {
+    console.error('Error en /api/presupuestos:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -325,11 +329,13 @@ app.post("/api/sync-clientes-alegra", async (req, res) => {
 
 // Endpoint para consultar los clientes desde Firestore
 app.get("/api/clientes-firebase", async (req, res) => {
+  console.log('Entrando a /api/clientes-firebase');
   try {
     const snapshot = await adminDb.collection('clientesAlegra').get();
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(data);
   } catch (error) {
+    console.error('Error en /api/clientes-firebase:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -376,11 +382,13 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
 
 // Endpoint para consultar los productos desde Firestore
 app.get("/api/productos-firebase", async (req, res) => {
+  console.log('Entrando a /api/productos-firebase');
   try {
     const snapshot = await adminDb.collection('productosAlegra').get();
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(data);
   } catch (error) {
+    console.error('Error en /api/productos-firebase:', error);
     res.status(500).json({ error: error.message });
   }
 });
