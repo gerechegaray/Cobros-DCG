@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../services/firebase";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, getDocs } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { ProgressBar } from "primereact/progressbar";
 import { Button } from "primereact/button";
@@ -24,63 +24,46 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     recibidos: 0
   });
 
-  useEffect(() => {
-    const q = query(collection(db, "cobranzas"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const data = [];
-      querySnapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() });
-      });
-
-      let filteredData = data;
-      if (user.role === "Santi" || user.role === "Guille") {
-        filteredData = data.filter(cobro => cobro.cobrador === user.role);
-      } else if (user.role === "admin") {
-        filteredData = data;
+  const fetchCobranzas = async (force = false) => {
+    let data = [];
+    if (!force) {
+      const cache = localStorage.getItem("cobranzas_dashboard");
+      if (cache) {
+        data = JSON.parse(cache);
+        setUserCobros(data);
+        // También actualiza stats
+        const totalCobranzas = data.length;
+        const totalMonto = data.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+        setStats(prev => ({ ...prev, totalCobranzas, totalMonto }));
+        return;
       }
-
-      setUserCobros(filteredData);
-
-      // ... cálculos de stats ...
-      const totalCobranzas = filteredData.length;
-      const totalMonto = filteredData.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-      const cargadasEnSistema = filteredData.filter(cobro => cobro.cargado).length;
-      const pendientesDeCarga = totalCobranzas - cargadasEnSistema;
-
-      // Calcular monto del mes actual
-      const ahora = new Date();
-      const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-      const montoMes = filteredData
-        .filter(cobro => {
-          const fechaCobro = cobro.fecha.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha.seconds * 1000);
-          return fechaCobro >= inicioMes;
-        })
-        .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-
-      // Calcular monto de la semana actual
-      const inicioSemana = new Date(ahora);
-      inicioSemana.setDate(ahora.getDate() - ahora.getDay()); // Domingo
-      inicioSemana.setHours(0, 0, 0, 0);
-      const montoSemana = filteredData
-        .filter(cobro => {
-          const fechaCobro = cobro.fecha.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha.seconds * 1000);
-          return fechaCobro >= inicioSemana;
-        })
-        .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-
-      setStats({
-        totalCobranzas,
-        totalMonto,
-        cargadasEnSistema,
-        pendientesDeCarga,
-        montoMes,
-        montoSemana
-      });
+    }
+    const q = query(collection(db, "cobranzas"));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() });
     });
+    localStorage.setItem("cobranzas_dashboard", JSON.stringify(data));
+    let filteredData = data;
+    if (user.role === "Santi" || user.role === "Guille") {
+      filteredData = data.filter(cobro => cobro.cobrador === user.role);
+    } else if (user.role === "admin") {
+      filteredData = data;
+    }
+    setUserCobros(filteredData);
+    const totalCobranzas = filteredData.length;
+    const totalMonto = filteredData.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+    setStats(prev => ({ ...prev, totalCobranzas, totalMonto }));
+  };
 
-    // Pedidos de clientes
-    const pedidosQ = query(collection(db, "pedidosClientes"));
-    const unsubPedidos = onSnapshot(pedidosQ, (querySnapshot) => {
+  useEffect(() => {
+    fetchCobranzas();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchPedidos = async () => {
+      const pedidosQ = query(collection(db, "pedidosClientes"));
+      const querySnapshot = await getDocs(pedidosQ);
       let data = [];
       querySnapshot.forEach((doc) => {
         data.push({ id: doc.id, ...doc.data() });
@@ -99,19 +82,13 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         pendientes: filtered.filter(p => p.estadoRecepcion === "pendiente").length,
         recibidos: filtered.filter(p => p.estadoRecepcion === "recibido").length
       });
-    });
-
-    return () => {
-      unsubscribe();
-      unsubPedidos();
     };
+    fetchPedidos();
   }, [user]);
 
-  // Calcular clientes únicos y pendientes fuera del useEffect
+  // Calcular clientes únicos y pendientes dentro del componente
   const clientesUnicos = new Set(userCobros.map(cobro => cobro.cliente)).size;
   const pendientes = userCobros.filter(cobro => !cobro.cargado).length;
-
-  // Calcular cobranzas pendientes (no cargadas)
   const pendientesAdmin = userCobros.filter(cobro => !cobro.cargado).length;
 
   const formatCurrency = (amount) => {
@@ -150,6 +127,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       <h2 className="p-text-center p-mb-2 p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word" }}>
         {getDashboardTitle()}
       </h2>
+      <Button label="Actualizar" icon="pi pi-refresh" onClick={() => fetchCobranzas(true)} style={{ marginBottom: 16 }} />
 
       {/* Alertas de cobros pendientes */}
       <div className="dashboard-alerts-container" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>

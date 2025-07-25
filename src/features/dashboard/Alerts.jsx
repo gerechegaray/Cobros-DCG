@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db, auth, getClientesCatalogo } from "../../services/firebase";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, getDocs } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
 import { Badge } from "primereact/badge";
@@ -26,29 +26,42 @@ function Alerts({ user, onNavigateToMyCobros }) {
     fetchClientesCatalogo();
   }, []);
 
-  useEffect(() => {
-    const q = query(collection(db, "cobranzas"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const data = [];
-      querySnapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Filtrar cobros pendientes según el rol del usuario
-      let filteredData = data.filter(cobro => !cobro.cargado);
-      
-      if (user.role === "Santi" || user.role === "Guille") {
-        filteredData = filteredData.filter(cobro => cobro.cobrador === user.role);
-      } else if (user.role === "admin") {
-        filteredData = filteredData;
+  const fetchCobranzas = async (force = false) => {
+    let data = [];
+    if (!force) {
+      const cache = localStorage.getItem("cobranzas_alerts");
+      if (cache) {
+        data = JSON.parse(cache);
+        // Filtrar cobros pendientes según el rol del usuario
+        let filteredData = data.filter(cobro => !cobro.cargado);
+        if (user.role === "Santi" || user.role === "Guille") {
+          filteredData = filteredData.filter(cobro => cobro.cobrador === user.role);
+        } else if (user.role === "admin") {
+          filteredData = filteredData;
+        }
+        setPendingCobros(filteredData);
+        setTotalPending(filteredData.length);
+        return;
       }
-
-      setPendingCobros(filteredData);
-      setTotalPending(filteredData.length);
-    }, (error) => {
-      console.error("Error al cargar datos:", error);
+    }
+    const q = query(collection(db, "cobranzas"));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() });
     });
-    return () => unsubscribe();
+    localStorage.setItem("cobranzas_alerts", JSON.stringify(data));
+    let filteredData = data.filter(cobro => !cobro.cargado);
+    if (user.role === "Santi" || user.role === "Guille") {
+      filteredData = filteredData.filter(cobro => cobro.cobrador === user.role);
+    } else if (user.role === "admin") {
+      filteredData = filteredData;
+    }
+    setPendingCobros(filteredData);
+    setTotalPending(filteredData.length);
+  };
+
+  useEffect(() => {
+    fetchCobranzas();
   }, [user]);
 
   const formatCurrency = (amount) => {
@@ -192,6 +205,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
             onClick={() => navigate("/list")}
           />
         )}
+        <Button label="Actualizar" icon="pi pi-refresh" onClick={() => fetchCobranzas(true)} style={{ marginBottom: 16 }} />
       </div>
     </Card>
   );

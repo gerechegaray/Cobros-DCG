@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db } from "../../services/firebase";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import { getClientesCatalogo } from '../../services/firebase';
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -63,52 +63,36 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     { label: "No cargados", value: false },
   ];
 
-  useEffect(() => {
-    const q = query(collection(db, "cobranzas"), orderBy("fecha", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const data = [];
+  const fetchCobranzas = async (force = false) => {
+    setLoading(true);
+    let data = [];
+    if (!force) {
+      const cache = localStorage.getItem("cobranzas_list");
+      if (cache) {
+        data = JSON.parse(cache);
+        setCobros(data);
+        setLoading(false);
+        return;
+      }
+    }
+    try {
+      const q = query(collection(db, "cobranzas"), orderBy("fecha", "desc"));
+      const querySnapshot = await getDocs(q);
       querySnapshot.forEach((doc) => {
         data.push({ id: doc.id, ...doc.data() });
       });
-
-      console.log("Todos los cobros cargados:", data.length);
-      console.log("Usuario actual:", user);
-      console.log("Rol del usuario:", user?.role);
-      console.log("Nombre del usuario:", user?.name);
-
-      let filteredData = data;
-      // Filtrar según el rol del usuario
-      if (showOnlyMyCobros && user) {
-        if (user.role === "Santi" || user.role === "Guille") {
-          // Santi y Guille solo ven sus propios cobros
-          filteredData = data.filter(cobro => cobro.cobrador === user.role);
-          console.log("Filtrando por cobrador:", user.role);
-          console.log("Cobros filtrados:", filteredData.length);
-        } else if (user.role === "admin") {
-          // Admin ve todos los cobros
-          filteredData = data;
-          console.log("Admin - mostrando todos los cobros");
-        }
-      } else if (user && (user.role === "Santi" || user.role === "Guille")) {
-        // En vista general, Santi y Guille solo ven sus propios cobros
-        filteredData = data.filter(cobro => cobro.cobrador === user.role);
-        console.log("Vista general - filtrando por cobrador:", user.role);
-        console.log("Cobros filtrados:", filteredData.length);
-      }
-
-      setCobros(filteredData);
-      setLoading(false);
-    }, (error) => {
+      localStorage.setItem("cobranzas_list", JSON.stringify(data));
+      setCobros(data);
+    } catch (error) {
       console.error("Error al cargar cobranzas:", error);
-      toast.current?.show({ 
-        severity: 'error', 
-        summary: 'Error', 
-        detail: `Error al cargar datos: ${error.message}` 
-      });
+    } finally {
       setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [showOnlyMyCobros, user]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCobranzas();
+  }, []);
 
   // Cargar catálogo de clientes
   useEffect(() => {
@@ -471,453 +455,252 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   );
 
   return (
-    <div className="p-2 px-3 md:p-3 lg:p-4" style={{ width: "100%", margin: "0 auto", boxSizing: "border-box", overflowX: "auto" }}>
+    <div className="p-2 px-3 md:p-3 lg:p-4" style={{ width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
       <Toast ref={toast} />
       <ConfirmDialog />
       
-      {/* Header con título y botones para móvil */}
-      <div className="cobros-header-mobile" style={{ display: 'none' }}>
-        <div className="mb-3">
-          <div className="flex flex-column md:flex-row justify-content-between align-items-center mb-3 gap-2">
-            <div className="text-center md:text-left">
-              <h2 className="m-0 text-lg md:text-xl" style={{ color: "#1f2937" }}>
-                {showOnlyMyCobros ? "Mis Cobranzas" : "Lista de Cobranzas"}
-              </h2>
-              <p className="mt-1 mb-0 text-sm" style={{ color: "#6b7280" }}>
-                {showOnlyMyCobros 
-                  ? `Total: ${cobros.length} cobranzas realizadas por ${user?.name}` 
-                  : `Total: ${cobros.length} cobranzas registradas`
-                }
-              </p>
-            </div>
-            <div className="flex gap-2 flex-wrap justify-content-center">
-              {showOnlyMyCobros && (
-                <Button 
-                  label="Volver" 
-                  icon="pi pi-arrow-left" 
-                  className="p-button-secondary p-button-sm"
-                  onClick={() => onNavigateToDashboard && onNavigateToDashboard()}
-                />
-              )}
-              <Button 
-                label="Filtros" 
-                icon={filtersVisible ? "pi pi-chevron-up" : "pi pi-filter"} 
-                className="p-button-outlined p-button-sm"
-                onClick={() => setFiltersVisible(!filtersVisible)}
-              />
-            </div>
-          </div>
-
-          {/* Filtros desplegables para móvil */}
-          {filtersVisible && (
-            <Card className="p-mb-3 p-shadow-2" style={{ borderRadius: 8, background: '#f8fafc' }}>
-              <div className="grid">
-                <div className="col-12">
-                  <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                    Fecha específica
-                  </label>
-                  <Calendar 
-                    value={filters.fecha.value} 
-                    onChange={(e) => setFilters({...filters, fecha: {...filters.fecha, value: e.value}})}
-                    dateFormat="dd/mm/yy" 
-                    showIcon 
-                    placeholder="Selecciona fecha"
-                    className="w-full"
-                    style={{ borderRadius: "8px" }}
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                    Cobrador
-                  </label>
-                  <Dropdown 
-                    value={filters.cobrador.value} 
-                    options={cobradores} 
-                    onChange={(e) => setFilters({...filters, cobrador: {...filters.cobrador, value: e.value}})}
-                    placeholder="Selecciona cobrador"
-                    className="w-full"
-                    style={{ borderRadius: "8px" }}
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                    Método de pago
-                  </label>
-                  <Dropdown 
-                    value={filters.forma.value} 
-                    options={formasDeCobro} 
-                    onChange={(e) => setFilters({...filters, forma: {...filters.forma, value: e.value}})}
-                    placeholder="Selecciona método"
-                    className="w-full"
-                    style={{ borderRadius: "8px" }}
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                    Cliente
-                  </label>
-                  <InputText 
-                    value={filters.cliente.value || ''} 
-                    onChange={(e) => setFilters({...filters, cliente: {...filters.cliente, value: e.target.value}})}
-                    placeholder="Buscar por cliente"
-                    className="w-full"
-                    style={{ borderRadius: "8px" }}
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                    Estado de carga
-                  </label>
-                  <Dropdown 
-                    value={filters.cargado.value} 
-                    options={estadoCarga} 
-                    onChange={(e) => setFilters({...filters, cargado: {...filters.cargado, value: e.value}})}
-                    placeholder="Selecciona estado"
-                    className="w-full"
-                    style={{ borderRadius: "8px" }}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-content-end mt-3">
-                <Button 
-                  label="Limpiar filtros" 
-                  icon="pi pi-times" 
-                  className="p-button-outlined p-button-sm"
-                  onClick={clearFilters}
-                />
-              </div>
-            </Card>
-          )}
-        </div>
+      {/* Header con botón actualizar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0, color: "#1f2937" }}>Lista de Cobranzas</h2>
+        <Button 
+          label="Actualizar" 
+          icon="pi pi-refresh" 
+          onClick={() => fetchCobranzas(true)} 
+          className="p-button-sm p-button-info" 
+        />
       </div>
 
-      <Card className="p-fluid" style={{ overflowX: "auto", width: "100%" }}>
-        {/* Vista de lista compacta para móvil */}
-        <div className="cobros-list-mobile" style={{ display: 'none' }}>
-          {cobros.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', color: '#6b7280', padding: '1rem' }}>No hay cobranzas cargadas.</div>
-          )}
-          
-          {/* Vista agrupada por fecha para móvil */}
-          {groupByDate && groupedCobros ? (
-            Object.entries(groupedCobros).map(([fecha, cobrosDelDia]) => {
-              const totalDelDia = cobrosDelDia.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-              const cargadosDelDia = cobrosDelDia.filter(cobro => cobro.cargado).length;
-              
-              return (
-                <div key={fecha} className="mb-3">
-                  <div className="p-2 mb-2" style={{ 
-                    background: '#f8fafc', 
-                    borderRadius: '6px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div className="flex justify-content-between align-items-center">
-                      <div>
-                        <h5 className="m-0" style={{ color: '#1f2937', fontSize: '0.9rem', fontWeight: '600' }}>
-                          {fecha}
-                        </h5>
-                        <p className="m-0 mt-1" style={{ color: '#6b7280', fontSize: '0.75rem' }}>
-                          {cobrosDelDia.length} cobranzas • {formatMonto({ monto: totalDelDia })} • {cargadosDelDia} cargados
-                        </p>
-                      </div>
-                      <Tag 
-                        value={`${cargadosDelDia}/${cobrosDelDia.length}`}
-                        severity={cargadosDelDia === cobrosDelDia.length ? 'success' : 'warning'}
-                        style={{ fontSize: '0.7rem', fontWeight: '600' }}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="cobros-list-items-mobile">
-                    {cobrosDelDia.map((cobro, index) => (
-                      <div key={cobro.id} className="cobro-list-item-mobile" style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '8px 10px',
-                        borderBottom: index < cobrosDelDia.length - 1 ? '1px solid #f1f5f9' : 'none',
-                        background: index % 2 === 0 ? '#ffffff' : '#fafbfc',
-                        fontSize: '0.8rem'
-                      }}>
-                        <div className="flex-1" style={{ minWidth: '80px' }}>
-                          <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px', fontSize: '0.85rem' }}>
-                            {getRazonSocial(cobro.cliente)}
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                            {cobro.cobrador} • {cobro.forma}
-                          </div>
-                        </div>
-                        <div className="text-right" style={{ minWidth: '80px', marginRight: '8px' }}>
-                          <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '0.8rem' }}>
-                            {formatMonto(cobro)}
-                          </div>
-                        </div>
-                        <div className="flex align-items-center gap-1" style={{ minWidth: '80px' }}>
-                          <Tag 
-                            value={cobro.cargado ? "Sí" : "No"} 
-                            severity={cobro.cargado ? "success" : "danger"} 
-                            style={{ fontSize: '0.65rem', padding: '1px 4px' }}
-                          />
-                          {user?.role === "admin" && (
-                            <Button
-                              icon={cobro.cargado ? "pi pi-times" : "pi pi-check"}
-                              className={cobro.cargado ? "p-button-rounded p-button-text p-button-danger p-button-sm" : "p-button-rounded p-button-text p-button-success p-button-sm"}
-                              style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, fontSize: '0.6rem' }}
-                              size="small"
-                              loading={updatingId === cobro.id}
-                              onClick={() => {
-                                if (cobro.cargado) {
-                                  confirmDialog({
-                                    message: '¿Seguro que deseas marcar este cobro como NO cargado?',
-                                    header: 'Confirmar cambio de estado',
-                                    icon: 'pi pi-exclamation-triangle',
-                                    accept: () => updateCargadoStatus(cobro.id, false)
-                                  });
-                                } else {
-                                  updateCargadoStatus(cobro.id, true);
-                                }
-                              }}
-                              tooltip={cobro.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
-                              tooltipOptions={{ position: "top" }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            /* Vista simple sin agrupar para móvil */
-            cobros.map((cobro, index) => (
-              <div key={cobro.id} className="cobro-list-item-mobile" style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '8px 10px',
-                borderBottom: index < cobros.length - 1 ? '1px solid #f1f5f9' : 'none',
-                background: index % 2 === 0 ? '#ffffff' : '#fafbfc',
-                fontSize: '0.8rem'
-              }}>
-                <div className="flex-1" style={{ minWidth: '80px' }}>
-                  <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px', fontSize: '0.85rem' }}>
-                    {getRazonSocial(cobro.cliente)}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                    {formatFecha(cobro)} • {cobro.cobrador} • {cobro.forma}
-                  </div>
-                </div>
-                <div className="text-right" style={{ minWidth: '80px', marginRight: '8px' }}>
-                  <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '0.8rem' }}>
-                    {formatMonto(cobro)}
-                  </div>
-                </div>
-                <div className="flex align-items-center gap-1" style={{ minWidth: '80px' }}>
-                  <Tag 
-                    value={cobro.cargado ? "Sí" : "No"} 
-                    severity={cobro.cargado ? "success" : "danger"} 
-                    style={{ fontSize: '0.65rem', padding: '1px 4px' }}
-                  />
-                  {user?.role === "admin" && (
-                    <Button
-                      icon={cobro.cargado ? "pi pi-times" : "pi pi-check"}
-                      className={cobro.cargado ? "p-button-rounded p-button-text p-button-danger p-button-sm" : "p-button-rounded p-button-text p-button-success p-button-sm"}
-                      style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, fontSize: '0.6rem' }}
-                      size="small"
-                      loading={updatingId === cobro.id}
-                      onClick={() => {
-                        if (cobro.cargado) {
-                          confirmDialog({
-                            message: '¿Seguro que deseas marcar este cobro como NO cargado?',
-                            header: 'Confirmar cambio de estado',
-                            icon: 'pi pi-exclamation-triangle',
-                            accept: () => updateCargadoStatus(cobro.id, false)
-                          });
-                        } else {
-                          updateCargadoStatus(cobro.id, true);
-                        }
-                      }}
-                      tooltip={cobro.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
-                      tooltipOptions={{ position: "top" }}
-                    />
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        {/* Vista de lista simple agrupada por fecha */}
-        {groupByDate && groupedCobros && (
-          <div className="cobros-list-desktop" style={{ display: groupByDate ? 'block' : 'none' }}>
-            {Object.entries(groupedCobros).map(([fecha, cobrosDelDia]) => {
-              const totalDelDia = cobrosDelDia.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-              const cargadosDelDia = cobrosDelDia.filter(cobro => cobro.cargado).length;
-              
-              return (
-                <div key={fecha} className="mb-3">
-                  <div className="flex justify-content-between align-items-center mb-2 p-2" style={{ 
-                    background: '#f8fafc', 
-                    borderRadius: '6px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div>
-                      <h4 className="m-0" style={{ color: '#1f2937', fontSize: '1rem', fontWeight: '600' }}>
-                        {fecha}
-                      </h4>
-                      <p className="m-0 mt-1" style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                        {cobrosDelDia.length} cobranzas • {formatMonto({ monto: totalDelDia })} • {cargadosDelDia} cargados
-                      </p>
-                    </div>
-                    <Tag 
-                      value={`${cargadosDelDia}/${cobrosDelDia.length}`}
-                      severity={cargadosDelDia === cobrosDelDia.length ? 'success' : 'warning'}
-                      style={{ fontSize: '0.8rem', fontWeight: '600' }}
-                    />
-                  </div>
-                  
-                  <div className="cobros-list-items">
-                    {cobrosDelDia.map((cobro, index) => (
-                      <div key={cobro.id} className="cobro-list-item" style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        borderBottom: index < cobrosDelDia.length - 1 ? '1px solid #f1f5f9' : 'none',
-                        background: index % 2 === 0 ? '#ffffff' : '#fafbfc',
-                        fontSize: '0.875rem'
-                      }}>
-                        <div className="flex-1" style={{ minWidth: '120px' }}>
-                          <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px' }}>
-                            {getRazonSocial(cobro.cliente)}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                            {cobro.cobrador} • {cobro.forma}
-                          </div>
-                        </div>
-                        <div className="text-right" style={{ minWidth: '100px', marginRight: '12px' }}>
-                          <div style={{ fontWeight: '600', color: '#1f2937' }}>
-                            {formatMonto(cobro)}
-                          </div>
-                        </div>
-                        <div className="flex align-items-center gap-2" style={{ minWidth: '120px' }}>
-                          <Tag 
-                            value={cobro.cargado ? "Sí" : "No"} 
-                            severity={cobro.cargado ? "success" : "danger"} 
-                            style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                          />
-                          {user?.role === "admin" && (
-                            <Button
-                              icon={cobro.cargado ? "pi pi-times" : "pi pi-check"}
-                              className={cobro.cargado ? "p-button-rounded p-button-text p-button-danger p-button-sm" : "p-button-rounded p-button-text p-button-success p-button-sm"}
-                              style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, fontSize: '0.7rem' }}
-                              size="small"
-                              loading={updatingId === cobro.id}
-                              onClick={() => {
-                                if (cobro.cargado) {
-                                  confirmDialog({
-                                    message: '¿Seguro que deseas marcar este cobro como NO cargado?',
-                                    header: 'Confirmar cambio de estado',
-                                    icon: 'pi pi-exclamation-triangle',
-                                    accept: () => updateCargadoStatus(cobro.id, false)
-                                  });
-                                } else {
-                                  updateCargadoStatus(cobro.id, true);
-                                }
-                              }}
-                              tooltip={cobro.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
-                              tooltipOptions={{ position: "top" }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* Estadísticas discretas */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '16px', 
+        marginBottom: '16px', 
+        padding: '8px 12px', 
+        background: '#f8fafc', 
+        borderRadius: '6px',
+        border: '1px solid #e2e8f0',
+        fontSize: '0.875rem'
+      }}>
+        <span style={{ color: '#6b7280' }}>
+          <strong style={{ color: '#1f2937' }}>{stats.total}</strong> total
+        </span>
+        <span style={{ color: '#6b7280' }}>
+          <strong style={{ color: '#059669' }}>{stats.loadedCount}</strong> cargados
+        </span>
+        <span style={{ color: '#6b7280' }}>
+          <strong style={{ color: '#dc2626' }}>{stats.notLoadedCount}</strong> pendientes
+        </span>
+        <span style={{ color: '#6b7280' }}>
+          <strong style={{ color: '#1f2937' }}>{formatMonto({ monto: stats.totalAmount })}</strong> total
+        </span>
+      </div>
 
-        {/* Tabla tradicional para desktop */}
-        <div className="cobros-table-desktop" style={{ display: groupByDate ? 'none' : 'block' }}>
-          <DataTable 
-            value={cobros} 
-            paginator 
-            rows={viewMode === 'compact' ? 25 : 10} 
-            emptyMessage="No hay cobranzas cargadas."
-            loading={loading}
-            header={headerTemplate()}
-            className="p-fluid"
-            stripedRows
-            showGridlines
-            filters={filters}
-            filterDisplay="menu"
-            globalFilterFields={['cliente', 'cobrador', 'forma']}
-            responsiveLayout="stack"
-            style={{ width: "100%" }}
-          >
-            <Column field="fecha" header="Fecha" body={formatFecha} />
-            <Column field="cliente" header="Cliente" body={row => getRazonSocial(row.cliente)} />
-            <Column field="monto" header="Monto" body={formatMonto} />
-            <Column field="cobrador" header="Quién cobró" />
-            <Column field="forma" header="Forma de cobro" />
-            <Column field="cargado" header="¿Cargado en el sistema?" body={cargadoTemplate} />
-            <Column body={eliminarTemplate} header="Eliminar" style={{ width: 80, textAlign: 'center' }} />
-          </DataTable>
+      {/* Lista de cobros agrupados por fecha */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <div className="pi pi-spin pi-spinner" style={{ fontSize: '1.5rem' }}></div>
+            <span>Cargando cobranzas...</span>
+          </div>
         </div>
-      </Card>
-      {/* Estilos para alternar entre tabla y cards según el tamaño de pantalla */}
+      ) : cobros.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+          No hay cobranzas registradas.
+        </div>
+      ) : (
+        <div>
+          {Object.entries(groupedCobros).map(([fecha, cobrosDelDia]) => {
+            const cargados = cobrosDelDia.filter(c => c.cargado);
+            const noCargados = cobrosDelDia.filter(c => !c.cargado);
+            const totalDelDia = cobrosDelDia.reduce((sum, c) => sum + (c.monto || 0), 0);
+            
+            return (
+              <Card key={fecha} className="mb-3" style={{ borderRadius: 8 }}>
+                {/* Header del día */}
+                <div className="flex justify-content-between align-items-center mb-2 p-2" style={{ 
+                  background: '#f8fafc', 
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <div>
+                    <h4 className="m-0" style={{ color: '#1f2937', fontSize: '1rem', fontWeight: '600' }}>
+                      {fecha}
+                    </h4>
+                    <p className="m-0 mt-1" style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                      {cobrosDelDia.length} cobranzas • {formatMonto({ monto: totalDelDia })}
+                    </p>
+                  </div>
+                  <Tag 
+                    value={`${cargados.length}/${cobrosDelDia.length}`}
+                    severity={cargados.length === cobrosDelDia.length ? 'success' : 'warning'}
+                    style={{ fontSize: '0.7rem', fontWeight: '600' }}
+                  />
+                </div>
+
+                {/* Cobros Cargados */}
+                {cargados.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex align-items-center gap-2 mb-2">
+                      <Tag value="Cargados" severity="success" style={{ fontSize: '0.7rem' }} />
+                      <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                        {cargados.length} cobranza{cargados.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="cobros-cargados">
+                      {cargados.map((cobro, index) => (
+                        <div key={cobro.id} className="cobro-item" style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          borderBottom: index < cargados.length - 1 ? '1px solid #f1f5f9' : 'none',
+                          background: '#f0fdf4',
+                          fontSize: '0.875rem',
+                          borderRadius: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <div className="flex-1" style={{ minWidth: '80px' }}>
+                            <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px' }}>
+                              {getRazonSocial(cobro.cliente)}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                              {cobro.cobrador} • {cobro.forma}
+                            </div>
+                          </div>
+                          <div className="text-right" style={{ minWidth: '80px', marginRight: '8px' }}>
+                            <div style={{ fontWeight: '600', color: '#1f2937' }}>
+                              {formatMonto(cobro)}
+                            </div>
+                          </div>
+                          <div className="flex align-items-center gap-1" style={{ minWidth: '60px' }}>
+                            <Tag 
+                              value="Sí" 
+                              severity="success" 
+                              style={{ fontSize: '0.6rem', padding: '1px 4px' }}
+                            />
+                            {user?.role === "admin" && (
+                              <Button
+                                icon="pi pi-times"
+                                className="p-button-rounded p-button-text p-button-danger p-button-sm"
+                                style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, fontSize: '0.6rem' }}
+                                size="small"
+                                loading={updatingId === cobro.id}
+                                onClick={() => {
+                                  confirmDialog({
+                                    message: '¿Marcar como NO cargado?',
+                                    header: 'Confirmar cambio',
+                                    icon: 'pi pi-exclamation-triangle',
+                                    accept: () => updateCargadoStatus(cobro.id, false)
+                                  });
+                                }}
+                                tooltip="Marcar como no cargado"
+                                tooltipOptions={{ position: "top" }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cobros No Cargados */}
+                {noCargados.length > 0 && (
+                  <div>
+                    <div className="flex align-items-center gap-2 mb-2">
+                      <Tag value="Pendientes" severity="danger" style={{ fontSize: '0.7rem' }} />
+                      <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                        {noCargados.length} cobranza{noCargados.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="cobros-pendientes">
+                      {noCargados.map((cobro, index) => (
+                        <div key={cobro.id} className="cobro-item" style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          borderBottom: index < noCargados.length - 1 ? '1px solid #f1f5f9' : 'none',
+                          background: '#fef2f2',
+                          fontSize: '0.875rem',
+                          borderRadius: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <div className="flex-1" style={{ minWidth: '80px' }}>
+                            <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px' }}>
+                              {getRazonSocial(cobro.cliente)}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                              {cobro.cobrador} • {cobro.forma}
+                            </div>
+                          </div>
+                          <div className="text-right" style={{ minWidth: '80px', marginRight: '8px' }}>
+                            <div style={{ fontWeight: '600', color: '#1f2937' }}>
+                              {formatMonto(cobro)}
+                            </div>
+                          </div>
+                          <div className="flex align-items-center gap-1" style={{ minWidth: '60px' }}>
+                            <Tag 
+                              value="No" 
+                              severity="danger" 
+                              style={{ fontSize: '0.6rem', padding: '1px 4px' }}
+                            />
+                            {user?.role === "admin" && (
+                              <Button
+                                icon="pi pi-check"
+                                className="p-button-rounded p-button-text p-button-success p-button-sm"
+                                style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, fontSize: '0.6rem' }}
+                                size="small"
+                                loading={updatingId === cobro.id}
+                                onClick={() => updateCargadoStatus(cobro.id, true)}
+                                tooltip="Marcar como cargado"
+                                tooltipOptions={{ position: "top" }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Estilos responsive */}
       <style>{`
         @media (max-width: 768px) {
-          .cobros-table-desktop { display: none !important; }
-          .cobros-list-mobile { display: block !important; }
-          .cobros-header-mobile { display: block !important; }
-          .cobros-list-desktop { display: none !important; }
-        }
-        @media (min-width: 769px) {
-          .cobros-table-desktop { display: block !important; }
-          .cobros-list-mobile { display: none !important; }
-          .cobros-header-mobile { display: none !important; }
-          .cobros-list-desktop { display: block !important; }
-        }
-        
-        /* Estilos para la lista de cobranzas desktop */
-        .cobros-list-desktop .cobro-list-item {
-          transition: background-color 0.2s ease;
-        }
-        .cobros-list-desktop .cobro-list-item:hover {
-          background-color: #f8fafc !important;
-        }
-        
-        /* Optimización para pantallas grandes */
-        @media (min-width: 1200px) {
-          .cobros-list-desktop .cobro-list-item {
-            padding: 10px 16px !important;
-            font-size: 0.9rem !important;
+          .cobro-item {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 8px;
+          }
+          .cobro-item .flex-1 {
+            min-width: 100% !important;
+          }
+          .cobro-item .text-right {
+            min-width: 100% !important;
+            margin-right: 0 !important;
+            text-align: left !important;
+          }
+          .cobro-item .flex.align-items-center {
+            min-width: 100% !important;
+            justify-content: space-between;
           }
         }
         
-        /* Estilos para la lista de cobranzas móvil */
-        .cobros-list-mobile .cobro-list-item-mobile {
-          transition: background-color 0.2s ease;
-        }
-        .cobros-list-mobile .cobro-list-item-mobile:hover {
-          background-color: #f1f5f9 !important;
-        }
-        
-        /* Optimización para pantallas pequeñas */
         @media (max-width: 480px) {
-          .cobros-list-mobile .cobro-list-item-mobile {
-            padding: 6px 8px !important;
-            font-size: 0.75rem !important;
+          .grid .col-6 {
+            padding: 0.25rem;
           }
-          .cobros-list-mobile .cobro-list-item-mobile .flex-1 {
-            min-width: 60px !important;
+          .grid .col-6 .p-card {
+            padding: 0.5rem !important;
           }
-          .cobros-list-mobile .cobro-list-item-mobile .text-right {
-            min-width: 60px !important;
-            margin-right: 4px !important;
+          .grid .col-6 .text-xl {
+            font-size: 1rem !important;
           }
-          .cobros-list-mobile .cobro-list-item-mobile .flex.align-items-center {
-            min-width: 60px !important;
+          .grid .col-6 .text-xs {
+            font-size: 0.6rem !important;
           }
         }
       `}</style>

@@ -24,6 +24,6 @@ export async function getProductosCatalogo() {
 }
 
 export async function getClientesCatalogo() {
-  const querySnapshot = await getDocs(collection(db, 'clientes'));
+  const querySnapshot = await getDocs(collection(db, 'clientesAlegra'));
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }

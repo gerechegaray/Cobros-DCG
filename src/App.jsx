@@ -78,14 +78,11 @@ function App() {
     const baseItems = [
       { label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" },
       { label: "Presupuestos", icon: "pi pi-file", path: "/presupuestos" },
-      { label: "Cobros", icon: "pi pi-wallet", path: "/cargar-cobro" },
       { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
       { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
       { label: "Facturas", icon: "pi pi-file-o", path: "/facturas" },
-      { label: "Alertas", icon: "pi pi-bell", path: "/alertas" },
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
-      { label: "Clientes", icon: "pi pi-users", path: "/clientes" },
-      { label: "Acceso Total", icon: "pi pi-th-large", path: "/acceso-total" }
+      { label: "Clientes", icon: "pi pi-users", path: "/clientes" }
     ];
     return baseItems;
   };

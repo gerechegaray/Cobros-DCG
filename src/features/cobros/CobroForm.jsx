@@ -16,7 +16,7 @@ import { getClientesCatalogo } from '../../services/firebase';
 function CobroForm({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const clienteNavegacion = location.state?.cliente;
+  const clienteNavegacion = location.state?.cliente || null;
 
   useEffect(() => {
     if (!clienteNavegacion) {
@@ -25,7 +25,7 @@ function CobroForm({ user }) {
   }, [clienteNavegacion, navigate]);
 
   const [fecha, setFecha] = useState(null);
-  const [cliente, setCliente] = useState(clienteNavegacion ? clienteNavegacion.id : "");
+  const [cliente, setCliente] = useState(clienteNavegacion || "");
   const [monto, setMonto] = useState("");
   const [cobrador, setCobrador] = useState(user.role === "cobrador" ? user.name : "");
   const [forma, setForma] = useState("");
@@ -67,8 +67,8 @@ function CobroForm({ user }) {
         const data = await getClientesCatalogo();
         const options = data
           .slice()
-          .sort((a, b) => (a['Razón Social'] || '').localeCompare(b['Razón Social'] || ''))
-          .map((c) => ({ label: c['Razón Social'] || '(Sin nombre)', value: c.id }));
+          .sort((a, b) => ((a.name || a.nombre || a['Razón Social'] || '').localeCompare(b.name || b.nombre || b['Razón Social'] || '')))
+          .map((c) => ({ label: c.name || c.nombre || c['Razón Social'] || c.id || '(Sin nombre)', value: c.id }));
         setClientes(options);
       } catch (error) {
         console.error('Error al obtener clientes de Firestore:', error);
@@ -100,6 +100,8 @@ function CobroForm({ user }) {
         forma,
         cargado,
       });
+      // Limpiar caché de la lista de cobranzas para forzar recarga
+      localStorage.removeItem('cobranzas_list');
       showToast('success', 'Éxito', 'Cobro guardado correctamente.');
       // Limpiar formulario
       setFecha(null);
@@ -156,30 +158,20 @@ function CobroForm({ user }) {
               <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
                 Cliente *
               </label>
-              {clienteNavegacion ? (
-                <InputText
-                  value={clienteNavegacion.razonSocial || clienteNavegacion.nombre || ''}
-                  disabled
-                  className="p-fluid"
-                />
+              {loadingClientes ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ProgressSpinner style={{ width: '1.5rem', height: '1.5rem' }} strokeWidth="4" />
+                  <span>Cargando clientes...</span>
+                </div>
               ) : (
-                <>
-                  {loadingClientes ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <ProgressSpinner style={{ width: '1.5rem', height: '1.5rem' }} strokeWidth="4" />
-                      <span>Cargando clientes...</span>
-                    </div>
-                  ) : (
-                    <Dropdown
-                      value={cliente}
-                      options={clientes}
-                      onChange={(e) => setCliente(e.value)}
-                      className="p-fluid"
-                      placeholder="Selecciona un cliente"
-                      filter
-                    />
-                  )}
-                </>
+                <Dropdown
+                  value={cliente}
+                  options={clientes}
+                  onChange={e => setCliente(e.value)}
+                  className="p-fluid"
+                  placeholder="Selecciona un cliente"
+                  filter
+                />
               )}
             </div>
 

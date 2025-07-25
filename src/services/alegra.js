@@ -18,4 +18,21 @@ export async function getAlegraInvoices() {
   }
   const data = await response.json();
   return data;
+}
+
+// Obtener estado de cuenta de un cliente específico
+export async function getEstadoCuenta(clienteId) {
+  console.log('[ALEGRA SERVICE] Consultando estado de cuenta para cliente:', clienteId);
+  const response = await fetch(`/api/alegra/estado-cuenta/${clienteId}`);
+  if (!response.ok) {
+    throw new Error('Error al obtener el estado de cuenta de Alegra');
+  }
+  const data = await response.json();
+  console.log('[ALEGRA SERVICE] Datos recibidos:', data.length, 'facturas');
+  console.log('[ALEGRA SERVICE] Primeras 3 facturas:', data.slice(0, 3).map(f => ({
+    numero: f.numero,
+    clienteNombre: f.clienteNombre,
+    montoTotal: f.montoTotal
+  })));
+  return data;
 } 

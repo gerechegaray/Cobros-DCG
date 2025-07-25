@@ -393,6 +393,90 @@ app.get("/api/productos-firebase", async (req, res) => {
   }
 });
 
+// Endpoint para obtener el estado de cuenta de un cliente específico
+app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
+  try {
+    const { clienteId } = req.params;
+    const email = process.env.ALEGRA_EMAIL?.trim();
+    const apiKey = process.env.ALEGRA_API_KEY?.trim();
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    
+    console.log(`[ESTADO CUENTA] Cliente ID solicitado: ${clienteId}`);
+    
+    // Primero obtener información del cliente para verificar que existe
+    const clienteUrl = `https://api.alegra.com/api/v1/contacts/${clienteId}`;
+    console.log(`[ESTADO CUENTA] Consultando cliente: ${clienteUrl}`);
+    
+    const clienteResponse = await fetch(clienteUrl, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    let clienteInfo = null;
+    if (clienteResponse.ok) {
+      clienteInfo = await clienteResponse.json();
+      console.log(`[ESTADO CUENTA] Cliente encontrado:`, clienteInfo.name || clienteInfo.organization);
+    } else {
+      console.log(`[ESTADO CUENTA] Cliente no encontrado en Alegra`);
+    }
+    
+    // Obtener facturas específicas del cliente usando el parámetro client_id (según documentación oficial)
+    const facturasUrl = `https://api.alegra.com/api/v1/invoices?client_id=${clienteId}`;
+    console.log(`[ESTADO CUENTA] Consultando facturas del cliente: ${facturasUrl}`);
+    
+    const facturasResponse = await fetch(facturasUrl, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    if (!facturasResponse.ok) {
+      const errorText = await facturasResponse.text();
+      console.error(`[ESTADO CUENTA] Error de Alegra: ${errorText}`);
+      return res.status(500).json({ error: errorText });
+    }
+    
+    const facturasDelCliente = await facturasResponse.json();
+    console.log(`[ESTADO CUENTA] Facturas del cliente ${clienteId}: ${facturasDelCliente.length}`);
+    
+    console.log(`[ESTADO CUENTA] Facturas obtenidas:`, facturasDelCliente.map(f => ({ 
+      numero: f.number, 
+      client: f.client,
+      clientName: f.clientName 
+    })));
+    
+    // Transformar los datos al formato esperado por el frontend
+    const boletas = facturasDelCliente.map(factura => {
+      // Calcular el total de pagos asociados (solo payments.amount)
+      const pagosAsociados = factura.payments || [];
+      const montoPagado = pagosAsociados.reduce((sum, pago) => sum + (pago.amount || 0), 0);
+      const montoTotal = factura.total || 0;
+      const montoAdeudado = montoTotal - montoPagado;
+      return {
+        numero: factura.number || factura.id,
+        fechaEmision: factura.date,
+        fechaVencimiento: factura.dueDate,
+        montoTotal: montoTotal,
+        montoPagado: montoPagado,
+        montoAdeudado: montoAdeudado,
+        estado: montoPagado >= montoTotal ? 'PAGADO' : 
+                new Date(factura.dueDate) < new Date() ? 'VENCIDO' : 'PENDIENTE',
+        pagos: pagosAsociados,
+        clienteNombre: factura.clientName || (clienteInfo ? clienteInfo.name || clienteInfo.organization : 'Cliente no identificado')
+      };
+    });
+    
+    console.log(`[ESTADO CUENTA] Boletas procesadas: ${boletas.length}`);
+    res.json(boletas);
+  } catch (error) {
+    console.error('Error al obtener estado de cuenta:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint para sincronizar estados de presupuestos con Alegra (manual)
 app.post("/api/sync-estados-presupuestos", async (req, res) => {
   try {

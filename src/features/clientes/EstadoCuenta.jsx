@@ -8,6 +8,7 @@ import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { getEstadoCuenta } from "../../services/alegra";
 
 function EstadoCuenta({ user }) {
   const location = useLocation();
@@ -17,6 +18,7 @@ function EstadoCuenta({ user }) {
   const [cliente, setCliente] = useState(null);
   const [boletas, setBoletas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [totales, setTotales] = useState({
     totalAdeudado: 0,
     totalPagado: 0,
@@ -34,63 +36,85 @@ function EstadoCuenta({ user }) {
     }
   }, [location.state, navigate]);
 
-  const cargarEstadoCuenta = async (clienteId) => {
+  const cargarEstadoCuenta = async (clienteData) => {
     setLoading(true);
     try {
-      // Por ahora, datos de ejemplo
-      // En el futuro, esto vendrá de Google Sheets
-      const datosEjemplo = [
-        {
-          numero: "001-001-00012345",
-          fechaEmision: "2025-01-15",
-          fechaVencimiento: "2025-02-15",
-          montoTotal: 50000,
-          montoPagado: 30000,
-          montoAdeudado: 20000,
-          estado: "PENDIENTE"
-        },
-        {
-          numero: "001-001-00012346", 
-          fechaEmision: "2025-01-20",
-          fechaVencimiento: "2025-02-20",
-          montoTotal: 75000,
-          montoPagado: 75000,
-          montoAdeudado: 0,
-          estado: "PAGADO"
-        },
-        {
-          numero: "001-001-00012347",
-          fechaEmision: "2025-01-25", 
-          fechaVencimiento: "2025-02-25",
-          montoTotal: 120000,
-          montoPagado: 0,
-          montoAdeudado: 120000,
-          estado: "VENCIDO"
-        }
-      ];
-
-      setBoletas(datosEjemplo);
+      console.log('[ESTADO CUENTA FRONTEND] Cliente recibido:', clienteData);
+      console.log('[ESTADO CUENTA FRONTEND] Cliente ID:', clienteData.id);
+      // Obtener datos reales de Alegra
+      const datosAlegra = await getEstadoCuenta(clienteData.id);
       
-      // Calcular totales
-      const totalAdeudado = datosEjemplo.reduce((sum, b) => sum + b.montoAdeudado, 0);
-      const totalPagado = datosEjemplo.reduce((sum, b) => sum + b.montoPagado, 0);
-      const totalGeneral = datosEjemplo.reduce((sum, b) => sum + b.montoTotal, 0);
-      
-      setTotales({
-        totalAdeudado,
-        totalPagado,
-        totalGeneral
-      });
+      if (datosAlegra && datosAlegra.length > 0) {
+        setBoletas(datosAlegra);
+        
+        // Calcular totales
+        const totalAdeudado = datosAlegra.reduce((sum, b) => sum + ((b.montoTotal || 0) - (b.montoPagado || 0)), 0);
+        const totalPagado = datosAlegra.reduce((sum, b) => sum + (b.montoPagado || 0), 0);
+        const totalGeneral = datosAlegra.reduce((sum, b) => sum + (b.montoTotal || 0), 0);
+        
+        setTotales({
+          totalAdeudado,
+          totalPagado,
+          totalGeneral
+        });
+      } else {
+        // Si no hay datos, mostrar tabla vacía
+        setBoletas([]);
+        setTotales({
+          totalAdeudado: 0,
+          totalPagado: 0,
+          totalGeneral: 0
+        });
+        
+        toast.current.show({
+          severity: 'info',
+          summary: 'Sin datos',
+          detail: 'No se encontraron movimientos para este cliente en Alegra'
+        });
+      }
 
     } catch (error) {
       console.error('Error al cargar estado de cuenta:', error);
+      
+      // En caso de error, mostrar tabla vacía
+      setBoletas([]);
+      setTotales({
+        totalAdeudado: 0,
+        totalPagado: 0,
+        totalGeneral: 0
+      });
+
       toast.current.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'No se pudo cargar el estado de cuenta'
+        detail: 'No se pudo conectar con Alegra. Verifica que el cliente exista y tenga movimientos.'
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const actualizarDesdeAlegra = async () => {
+    setUpdating(true);
+    try {
+      // Llamar a la API de Alegra para obtener datos actualizados
+      await cargarEstadoCuenta(cliente);
+      
+      toast.current.show({
+        severity: 'success',
+        summary: 'Actualizado',
+        detail: 'Estado de cuenta actualizado desde Alegra'
+      });
+
+    } catch (error) {
+      console.error('Error al actualizar desde Alegra:', error);
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo actualizar desde Alegra'
+      });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -217,6 +241,22 @@ function EstadoCuenta({ user }) {
                 }}
               />
               <Button
+                label={updating ? "Actualizando..." : "Actualizar"}
+                icon={updating ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
+                className="p-button-outlined"
+                onClick={actualizarDesdeAlegra}
+                disabled={updating}
+                style={{
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "2px solid rgba(255, 255, 255, 0.3)",
+                  color: "white",
+                  borderRadius: "12px",
+                  padding: "0.75rem 1.5rem",
+                  fontWeight: "600",
+                  backdropFilter: "blur(10px)"
+                }}
+              />
+              <Button
                 label="Exportar PDF"
                 icon="pi pi-file-pdf"
                 className="p-button-outlined"
@@ -274,12 +314,11 @@ function EstadoCuenta({ user }) {
           </div>
         </div>
 
-        {/* Tabla de Boletas */}
+        {/* Tabla de Boletas con filas expandibles para pagos */}
         <div style={{ padding: "0 0.5rem" }}>
           <h3 style={{ color: "#374151", marginBottom: "1rem" }}>
             Detalle de Boletas
           </h3>
-          
           {loading ? (
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <ProgressSpinner />
@@ -300,47 +339,76 @@ function EstadoCuenta({ user }) {
                 overflow: "hidden",
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
               }}
+              rowExpansionTemplate={(rowData) =>
+                rowData.pagos && rowData.pagos.length > 0 ? (
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
+                    <strong>Pagos asociados:</strong>
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {rowData.pagos.map((pago, idx) => (
+                        <li key={idx} style={{ marginBottom: 4 }}>
+                          <span>Fecha: {formatFecha(pago.date)}</span> | <span>Monto: {formatMonto(pago.amount)}</span> {pago.notes ? `| Nota: ${pago.notes}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, color: '#6b7280' }}>
+                    Sin pagos registrados para esta factura.
+                  </div>
+                )
+              }
+              expandedRows={boletas.reduce((acc, b) => {
+                if (b.pagos && b.pagos.length > 0) acc[b.numero] = true;
+                return acc;
+              }, {})}
+              dataKey="numero"
             >
+              <Column expander style={{ width: '3em' }} />
               <Column
                 field="numero"
                 header="Número"
+                style={{ minWidth: "120px" }}
+              />
+              <Column
+                field="clienteNombre"
+                header="Cliente"
                 style={{ minWidth: "150px" }}
               />
               <Column
                 field="fechaEmision"
                 header="Fecha Emisión"
                 body={(row) => formatFecha(row.fechaEmision)}
-                style={{ minWidth: "120px" }}
+                style={{ minWidth: "110px" }}
               />
               <Column
                 field="fechaVencimiento"
                 header="Fecha Vencimiento"
                 body={(row) => formatFecha(row.fechaVencimiento)}
-                style={{ minWidth: "120px" }}
+                style={{ minWidth: "110px" }}
               />
               <Column
                 field="montoTotal"
                 header="Monto Total"
                 body={montoTemplate('montoTotal')}
-                style={{ minWidth: "120px" }}
+                style={{ minWidth: "110px" }}
               />
               <Column
                 field="montoPagado"
                 header="Monto Pagado"
                 body={montoTemplate('montoPagado')}
-                style={{ minWidth: "120px" }}
+                style={{ minWidth: "110px" }}
               />
               <Column
                 field="montoAdeudado"
                 header="Monto Adeudado"
-                body={montoTemplate('montoAdeudado')}
-                style={{ minWidth: "120px" }}
+                body={rowData => formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
+                style={{ minWidth: "110px" }}
               />
               <Column
                 field="estado"
                 header="Estado"
                 body={estadoTemplate}
-                style={{ minWidth: "100px" }}
+                style={{ minWidth: "90px" }}
               />
             </DataTable>
           )}
