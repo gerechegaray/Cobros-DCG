@@ -23,8 +23,10 @@ export default function VisitasDashboard({ user }) {
   const [filtroFecha, setFiltroFecha] = useState(new Date());
   const [mostrarNuevoPrograma, setMostrarNuevoPrograma] = useState(false);
   const [mostrarReporte, setMostrarReporte] = useState(false);
+  const [mostrarReprogramar, setMostrarReprogramar] = useState(false);
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   const [visitaSeleccionada, setVisitaSeleccionada] = useState(null);
+  const [fechaReprogramar, setFechaReprogramar] = useState('');
   // Estado para el nuevo programa
   const [nuevoPrograma, setNuevoPrograma] = useState({
     vendedorId: null,
@@ -283,8 +285,10 @@ export default function VisitasDashboard({ user }) {
     const resultados = {
       'pedido': { label: 'Pedido', severity: 'success' },
       'pago': { label: 'Pago', severity: 'info' },
+      'pedido_pago': { label: 'Pedido y Pago', severity: 'success' },
       'sin_pedido': { label: 'Sin pedido', severity: 'warning' },
-      'no_visito': { label: 'No visitó', severity: 'danger' }
+      'no_visito': { label: 'No visitó', severity: 'danger' },
+      'no_estaba': { label: 'No estaba', severity: 'warning' }
     };
     
     const resultado = resultados[visita.resultado];
@@ -345,7 +349,7 @@ export default function VisitasDashboard({ user }) {
             justifyContent: 'center',
             fontSize: '0.9rem'
           }}
-          onClick={() => cancelarVisita(visita)}
+          onClick={() => cancelarVisita(visita.id)}
           tooltip="Cancelar visita"
           tooltipOptions={{ position: "top" }}
         />
@@ -357,9 +361,9 @@ export default function VisitasDashboard({ user }) {
   const abrirReporte = (visita) => {
     setVisitaSeleccionada(visita);
     setReporteVisita({
-      estado: 'realizada',
-      resultado: 'pedido',
-      comentario: ''
+      estado: visita.estado || 'realizada',
+      resultado: visita.resultado || 'pedido',
+      comentario: visita.comentario || ''
     });
     setMostrarReporte(true);
   };
@@ -408,6 +412,76 @@ export default function VisitasDashboard({ user }) {
         severity: 'error',
         summary: 'Error',
         detail: 'Error al guardar el reporte'
+      });
+    }
+  };
+
+  // Abrir modal de reprogramar
+  const abrirReprogramar = () => {
+    // Establecer fecha por defecto (día siguiente)
+    const nuevaFecha = new Date(visitaSeleccionada.fecha);
+    nuevaFecha.setDate(nuevaFecha.getDate() + 1);
+    setFechaReprogramar(nuevaFecha.toISOString().split('T')[0]);
+    setMostrarReprogramar(true);
+  };
+
+  // Reprogramar visita con fecha seleccionada
+  const reprogramarVisita = async () => {
+    try {
+      if (!fechaReprogramar) {
+        toast.current.show({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Debes seleccionar una fecha'
+        });
+        return;
+      }
+
+      // Guardar el reporte actual primero
+      await guardarReporte();
+
+      // Crear nueva visita para la fecha seleccionada
+      const res = await fetch('/api/visitas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          clienteId: visitaSeleccionada.clienteId,
+          clienteNombre: visitaSeleccionada.clienteNombre,
+          vendedorId: visitaSeleccionada.vendedorId,
+          fecha: fechaReprogramar,
+          horario: visitaSeleccionada.horario,
+          estado: 'pendiente',
+          resultado: null,
+          comentario: `Reprogramada desde ${visitaSeleccionada.fecha}`
+        })
+      });
+
+      if (!res.ok) throw new Error('Error al reprogramar visita');
+
+      toast.current.show({
+        severity: 'success',
+        summary: 'Éxito',
+        detail: `Visita reprogramada para el ${fechaReprogramar}`
+      });
+
+      setMostrarReprogramar(false);
+      setMostrarReporte(false);
+      // Recargar visitas
+      const sellerId = getSellerId();
+      const urlVisitas = esAdmin 
+        ? '/api/visitas-cache'
+        : `/api/visitas-cache?vendedorId=${sellerId}`;
+      const resVisitas = await fetch(urlVisitas);
+      const dataVisitas = await resVisitas.json();
+      setVisitas(dataVisitas);
+    } catch (error) {
+      console.error('Error reprogramando visita:', error);
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error al reprogramar la visita'
       });
     }
   };
@@ -892,6 +966,24 @@ export default function VisitasDashboard({ user }) {
           <Column field="horario" header="Horario" />
           <Column field="estado" header="Estado" body={renderEstado} />
           <Column field="resultado" header="Resultado" body={renderResultado} />
+          <Column 
+            field="comentario" 
+            header="Observaciones" 
+            body={(visita) => (
+              <div className="max-w-xs">
+                {visita.comentario ? (
+                  <span className="text-sm text-gray-700" title={visita.comentario}>
+                    {visita.comentario.length > 50 
+                      ? `${visita.comentario.substring(0, 50)}...` 
+                      : visita.comentario
+                    }
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400">-</span>
+                )}
+              </div>
+            )}
+          />
           <Column header="Acciones" body={renderAcciones} />
         </DataTable>
       </Card>
@@ -1154,7 +1246,24 @@ export default function VisitasDashboard({ user }) {
                 { label: 'Realizada', value: 'realizada' },
                 { label: 'No realizada', value: 'no_realizada' }
               ]}
-              onChange={(e) => setReporteVisita({...reporteVisita, estado: e.value})}
+              onChange={(e) => {
+                const nuevoEstado = e.value;
+                let nuevoResultado = reporteVisita.resultado;
+                
+                // Si cambia a "no_realizada", forzar resultado a "no_visito"
+                if (nuevoEstado === 'no_realizada') {
+                  nuevoResultado = 'no_visito';
+                } else if (nuevoEstado === 'realizada' && reporteVisita.resultado === 'no_visito') {
+                  // Si cambia a "realizada" y el resultado era "no_visito", resetear
+                  nuevoResultado = 'pedido';
+                }
+                
+                setReporteVisita({
+                  ...reporteVisita, 
+                  estado: nuevoEstado,
+                  resultado: nuevoResultado
+                });
+              }}
               className="w-full"
             />
           </div>
@@ -1163,12 +1272,17 @@ export default function VisitasDashboard({ user }) {
             <label className="block text-sm font-medium mb-2">Resultado:</label>
             <Dropdown
               value={reporteVisita.resultado}
-              options={[
-                { label: 'Pedido', value: 'pedido' },
-                { label: 'Pago', value: 'pago' },
-                { label: 'Sin pedido', value: 'sin_pedido' },
-                { label: 'No visitó', value: 'no_visito' }
-              ]}
+              options={
+                reporteVisita.estado === 'no_realizada' 
+                  ? [{ label: 'No visitó', value: 'no_visito' }]
+                  : [
+                      { label: 'Pedido', value: 'pedido' },
+                      { label: 'Pago', value: 'pago' },
+                      { label: 'Pedido y Pago', value: 'pedido_pago' },
+                      { label: 'Sin pedido', value: 'sin_pedido' },
+                      { label: 'No estaba', value: 'no_estaba' }
+                    ]
+              }
               onChange={(e) => setReporteVisita({...reporteVisita, resultado: e.value})}
               className="w-full"
             />
@@ -1191,6 +1305,14 @@ export default function VisitasDashboard({ user }) {
             severity="secondary" 
             onClick={() => setMostrarReporte(false)}
           />
+          {(reporteVisita.estado === 'no_realizada' || reporteVisita.resultado === 'no_estaba') && (
+            <Button 
+              label="Reprogramar" 
+              severity="warning" 
+              icon="pi pi-calendar-plus"
+              onClick={abrirReprogramar}
+            />
+          )}
           <Button 
             label="Guardar" 
             severity="success" 
@@ -1230,6 +1352,48 @@ export default function VisitasDashboard({ user }) {
             )}
           </div>
         )}
+      </Dialog>
+
+      {/* Modal para reprogramar */}
+      <Dialog 
+        header="Reprogramar Visita" 
+        visible={mostrarReprogramar} 
+        onHide={() => setMostrarReprogramar(false)}
+        style={{ width: '400px' }}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Fecha para reprogramar:</label>
+            <Calendar 
+              value={fechaReprogramar ? new Date(fechaReprogramar) : null}
+              onChange={(e) => setFechaReprogramar(e.value.toISOString().split('T')[0])}
+              showIcon
+              dateFormat="dd/mm/yy"
+              minDate={new Date()}
+              className="w-full"
+            />
+          </div>
+          
+          <div className="text-sm text-gray-600">
+            <p>• Se guardará el reporte actual de la visita</p>
+            <p>• Se creará una nueva visita para la fecha seleccionada</p>
+            <p>• La nueva visita quedará en estado "Pendiente"</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          <Button 
+            label="Cancelar" 
+            severity="secondary" 
+            onClick={() => setMostrarReprogramar(false)}
+          />
+          <Button 
+            label="Reprogramar y Guardar" 
+            severity="success" 
+            icon="pi pi-calendar-plus"
+            onClick={reprogramarVisita}
+          />
+        </div>
       </Dialog>
 
       {/* Confirmación de eliminación */}
