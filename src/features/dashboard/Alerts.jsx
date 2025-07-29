@@ -34,11 +34,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
         data = JSON.parse(cache);
         // Filtrar cobros pendientes según el rol del usuario
         let filteredData = data.filter(cobro => !cobro.cargado);
-        if (user.role === "Santi" || user.role === "Guille") {
-          filteredData = filteredData.filter(cobro => cobro.cobrador === user.role);
-        } else if (user.role === "admin") {
-          filteredData = filteredData;
-        }
+        filteredData = getFilteredData(filteredData);
         setPendingCobros(filteredData);
         setTotalPending(filteredData.length);
         return;
@@ -51,11 +47,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
     });
     localStorage.setItem("cobranzas_alerts", JSON.stringify(data));
     let filteredData = data.filter(cobro => !cobro.cargado);
-    if (user.role === "Santi" || user.role === "Guille") {
-      filteredData = filteredData.filter(cobro => cobro.cobrador === user.role);
-    } else if (user.role === "admin") {
-      filteredData = filteredData;
-    }
+    filteredData = getFilteredData(filteredData);
     setPendingCobros(filteredData);
     setTotalPending(filteredData.length);
   };
@@ -88,6 +80,16 @@ function Alerts({ user, onNavigateToMyCobros }) {
       return cliente ? cliente['Razón Social'] : clienteId;
     }
     return clienteId;
+  };
+
+  // Filtrar datos según el rol del usuario
+  const getFilteredData = (data) => {
+    if (user.role === "Santi" || user.role === "Guille") {
+      return data.filter(cobro => cobro.cobrador === user.role);
+    } else if (user.role === "admin") {
+      return data;
+    }
+    return data;
   };
 
   if (totalPending === 0) {

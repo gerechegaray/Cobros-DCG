@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
 
-export default function ClienteDropdown({ value, onChange }) {
+export default function ClienteDropdown({ value, onChange, user }) {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Obtener el sellerId según el rol del usuario
+  const getSellerId = () => {
+    if (user?.role === 'Guille') return 1;
+    if (user?.role === 'Santi') return 2;
+    if (user?.role === 'admin') return null; // Admin ve todos
+    return null;
+  };
 
   useEffect(() => {
     const fetchClientes = async () => {
@@ -23,7 +31,30 @@ export default function ClienteDropdown({ value, onChange }) {
         console.log('[ClienteDropdown] Clientes obtenidos:', data.length);
         console.log('[ClienteDropdown] Primer cliente:', data[0]);
         
-        setClientes(data);
+        // Filtrar clientes según el rol del usuario
+        const sellerId = getSellerId();
+        let clientesFiltrados = data;
+        
+        if (sellerId !== null) {
+          // Filtrar por sellerId específico - el seller es un objeto con id
+          clientesFiltrados = data.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+          console.log(`[ClienteDropdown] Filtrando por sellerId ${sellerId}: ${clientesFiltrados.length} clientes`);
+        } else if (user?.role === 'admin') {
+          // Admin ve todos los clientes
+          clientesFiltrados = data;
+          console.log(`[ClienteDropdown] Admin ve todos los clientes: ${clientesFiltrados.length}`);
+        } else {
+          // Usuario sin rol válido - no mostrar clientes
+          clientesFiltrados = [];
+          console.log('[ClienteDropdown] Usuario sin rol válido - no se muestran clientes');
+        }
+        
+        setClientes(clientesFiltrados);
       } catch (e) {
         console.error('[ClienteDropdown] Error al obtener clientes:', e);
         setError(e.message);
@@ -33,7 +64,7 @@ export default function ClienteDropdown({ value, onChange }) {
       }
     };
     fetchClientes();
-  }, []);
+  }, [user]);
 
   const clientesOrdenados = [...clientes].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 

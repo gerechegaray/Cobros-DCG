@@ -68,6 +68,14 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
     return general?.price || 0;
   };
 
+  // Obtener el sellerId según el rol del usuario
+  const getSellerId = () => {
+    if (user?.role === 'Guille') return 1;
+    if (user?.role === 'Santi') return 2;
+    if (user?.role === 'admin') return null; // Admin ve todos
+    return null;
+  };
+
   // Función para actualizar clientes desde Alegra
   const [actualizando, setActualizando] = useState(false);
   const actualizarClientes = async () => {
@@ -81,7 +89,26 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
         // Refrescar lista de clientes
         const resClientes = await fetch("/api/clientes-firebase");
         const clientesData = await resClientes.json();
-        setClientes(clientesData);
+        
+        // Filtrar clientes según el rol del usuario
+        const sellerId = getSellerId();
+        let clientesFiltrados = clientesData;
+        
+        if (sellerId !== null) {
+          // Filtrar por sellerId específico - el seller es un objeto con id
+          clientesFiltrados = clientesData.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+        } else if (user?.role === 'admin') {
+          clientesFiltrados = clientesData;
+        } else {
+          clientesFiltrados = [];
+        }
+        
+        setClientes(clientesFiltrados);
       } else {
         setError(data.error || "Error al actualizar clientes");
         toast.current?.show({ severity: 'error', summary: 'Error', detail: data.error || 'Error al actualizar clientes' });
@@ -138,7 +165,26 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
       try {
         const resClientes = await fetch("/api/clientes-firebase");
         const clientesData = await resClientes.json();
-        setClientes(clientesData);
+        
+        // Filtrar clientes según el rol del usuario
+        const sellerId = getSellerId();
+        let clientesFiltrados = clientesData;
+        
+        if (sellerId !== null) {
+          // Filtrar por sellerId específico - el seller es un objeto con id
+          clientesFiltrados = clientesData.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+        } else if (user?.role === 'admin') {
+          clientesFiltrados = clientesData;
+        } else {
+          clientesFiltrados = [];
+        }
+        
+        setClientes(clientesFiltrados);
         setLoading(false);
       } catch (err) {
         setError("Error al cargar clientes");

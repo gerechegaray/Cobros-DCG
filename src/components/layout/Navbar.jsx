@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "primereact/button";
 import { Sidebar } from "primereact/sidebar";
 import { Menu } from "primereact/menu";
+import { Tag } from "primereact/tag";
 
 function Navbar({ user, onLogout, menuItems }) {
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -177,21 +178,17 @@ function Navbar({ user, onLogout, menuItems }) {
               color: "white"
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <div
-                style={{
-                  background: "rgba(255, 255, 255, 0.2)",
-                  padding: "0.75rem",
-                  borderRadius: "12px"
-                }}
-              >
-                <i className="pi pi-user" style={{ fontSize: "1.25rem", color: "white" }}></i>
-              </div>
-              <div>
-                <h3 style={{ margin: 0 }}>{user.name}</h3>
-                <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.8 }}>
-                  {user.role === "admin" ? "Administrador" : "Cobrador"}
-                </p>
+            <div className="flex align-items-center gap-2">
+              <i className="pi pi-user" style={{ fontSize: '1.2rem' }}></i>
+              <div className="flex flex-column">
+                <span className="text-sm font-medium">
+                  {user.name || user.email}
+                </span>
+                <Tag 
+                  value={user.role === "admin" ? "Administrador" : user.role === "Santi" ? "Vendedor Santi" : user.role === "Guille" ? "Vendedor Guille" : "Usuario"}
+                  severity={user.role === "admin" ? "danger" : "info"}
+                  className="text-xs"
+                />
               </div>
             </div>
           </div>

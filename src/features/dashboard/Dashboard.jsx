@@ -18,6 +18,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     montoSemana: 0
   });
   const [userCobros, setUserCobros] = useState([]);
+  const [presupuestos, setPresupuestos] = useState([]);
   const [pedidosStats, setPedidosStats] = useState({
     total: 0,
     pendientes: 0,
@@ -34,7 +35,34 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         // También actualiza stats
         const totalCobranzas = data.length;
         const totalMonto = data.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-        setStats(prev => ({ ...prev, totalCobranzas, totalMonto }));
+        
+        // Calcular montos por período
+        const hoy = new Date();
+        const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        const inicioSemana = new Date(hoy);
+        inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+        
+        const montoMes = data
+          .filter(cobro => {
+            const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
+            return fechaCobro >= inicioMes && cobro.cargado;
+          })
+          .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+        
+        const montoSemana = data
+          .filter(cobro => {
+            const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
+            return fechaCobro >= inicioSemana && cobro.cargado;
+          })
+          .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+        
+        setStats(prev => ({ 
+          ...prev, 
+          totalCobranzas, 
+          totalMonto,
+          montoMes,
+          montoSemana
+        }));
         return;
       }
     }
@@ -53,11 +81,56 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     setUserCobros(filteredData);
     const totalCobranzas = filteredData.length;
     const totalMonto = filteredData.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-    setStats(prev => ({ ...prev, totalCobranzas, totalMonto }));
+    
+    // Calcular montos por período
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+    
+    const montoMes = filteredData
+      .filter(cobro => {
+        const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
+        return fechaCobro >= inicioMes && cobro.cargado;
+      })
+      .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+    
+    const montoSemana = filteredData
+      .filter(cobro => {
+        const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
+        return fechaCobro >= inicioSemana && cobro.cargado;
+      })
+      .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+    
+    setStats(prev => ({ 
+      ...prev, 
+      totalCobranzas, 
+      totalMonto,
+      montoMes,
+      montoSemana
+    }));
   };
 
   useEffect(() => {
     fetchCobranzas();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchPresupuestos = async () => {
+      try {
+        const presupuestosQ = query(collection(db, "presupuestos"));
+        const querySnapshot = await getDocs(presupuestosQ);
+        let data = [];
+        querySnapshot.forEach((doc) => {
+          data.push({ id: doc.id, ...doc.data() });
+        });
+        setPresupuestos(data);
+      } catch (error) {
+        console.error("Error cargando presupuestos:", error);
+        setPresupuestos([]);
+      }
+    };
+    fetchPresupuestos();
   }, [user]);
 
   useEffect(() => {
@@ -86,9 +159,40 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     fetchPedidos();
   }, [user]);
 
+  // Filtrar datos según el rol del usuario
+  const getFilteredData = (data) => {
+    if (user.role === "Santi" || user.role === "Guille") {
+      return data.filter(cobro => cobro.cobrador === user.role);
+    } else if (user.role === "admin") {
+      return data;
+    }
+    return data;
+  };
+
+  // Filtrar presupuestos según el rol del usuario
+  const getFilteredPresupuestos = (data) => {
+    if (user.role === "Santi" || user.role === "Guille") {
+      return data.filter(p => p.cobrador === user.role);
+    } else if (user.role === "admin") {
+      return data;
+    }
+    return data;
+  };
+
   // Calcular clientes únicos y pendientes dentro del componente
-  const clientesUnicos = new Set(userCobros.map(cobro => cobro.cliente)).size;
-  const pendientes = userCobros.filter(cobro => !cobro.cargado).length;
+  const clientesUnicos = [...new Set(userCobros.map(cobro => cobro.cliente))];
+  const clientesPendientes = clientesUnicos.filter(cliente => {
+    const cobrosCliente = getFilteredData(userCobros).filter(cobro => cobro.cliente === cliente);
+    return cobrosCliente.some(cobro => cobro.estado === "pendiente");
+  });
+
+  // Calcular totales
+  const totalCobros = getFilteredData(userCobros).length;
+  const totalPendiente = getFilteredData(userCobros).filter(cobro => cobro.estado === "pendiente").length;
+  const totalCobrado = getFilteredData(userCobros).filter(cobro => cobro.estado === "cobrado").length;
+  const totalPresupuestos = getFilteredPresupuestos(presupuestos).length;
+
+  // Calcular pendientes de carga
   const pendientesAdmin = userCobros.filter(cobro => !cobro.cargado).length;
 
   const formatCurrency = (amount) => {
@@ -201,26 +305,136 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         </Card>
       </div>
 
-      {/* Progreso de carga en sistema */}
-      {user.role === "cobrador" && (
-        <Card className="p-mt-3" style={{ width: '100%', boxSizing: 'border-box' }}>
-          <h3 className="p-mb-2 p-text-sm p-text-md-lg" style={{ color: "#1f2937" }}>
-            {user.role === "admin" ? "Progreso de Carga en Sistema" : "Mi Progreso de Carga"}
-          </h3>
-          <div className="p-mb-2">
-            <div className="p-d-flex p-jc-between p-mb-1 p-text-xs p-text-md-sm">
-              <span>Cargadas: {stats.cargadasEnSistema}</span>
-              <span>Pendientes: {stats.pendientesDeCarga}</span>
+      {/* Progreso de Carga */}
+      {user.role === "admin" ? (
+        <Card title="Progreso de Carga en Sistema" className="mb-4">
+          <div className="grid">
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Total Cobros</span>
+                    <div className="text-900 font-medium text-xl">{totalCobros}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-blue-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-dollar text-blue-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-green-500 font-medium">24% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
             </div>
-            <ProgressBar 
-              value={porcentajeCargadas} 
-              style={{ height: "0.75rem" }}
-              color={porcentajeCargadas === 100 ? "#059669" : porcentajeCargadas > 50 ? "#f59e0b" : "#dc2626"}
-            />
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Pendientes</span>
+                    <div className="text-900 font-medium text-xl">{totalPendiente}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-orange-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-clock text-orange-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-red-500 font-medium">56% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Cobrado</span>
+                    <div className="text-900 font-medium text-xl">{totalCobrado}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-cyan-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-check text-cyan-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-green-500 font-medium">23% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Presupuestos</span>
+                    <div className="text-900 font-medium text-xl">{totalPresupuestos}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-purple-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-file text-purple-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-green-500 font-medium">9% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
           </div>
-          <p className="p-m-0 p-text-xs p-text-md-sm" style={{ color: "#6b7280" }}>
-            {porcentajeCargadas.toFixed(1)}% de las cobranzas están cargadas en el sistema
-          </p>
+        </Card>
+      ) : (
+        <Card title="Mi Progreso de Carga" className="mb-4">
+          <div className="grid">
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Mis Cobros</span>
+                    <div className="text-900 font-medium text-xl">{totalCobros}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-blue-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-dollar text-blue-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-green-500 font-medium">24% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Pendientes</span>
+                    <div className="text-900 font-medium text-xl">{totalPendiente}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-orange-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-clock text-orange-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-red-500 font-medium">56% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Cobrado</span>
+                    <div className="text-900 font-medium text-xl">{totalCobrado}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-cyan-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-check text-cyan-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-green-500 font-medium">23% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
+            <div className="col-12 md:col-6 lg:col-3">
+              <div className="surface-0 shadow-1 p-3 border-round">
+                <div className="flex justify-content-between mb-3">
+                  <div>
+                    <span className="block text-500 font-medium mb-3">Presupuestos</span>
+                    <div className="text-900 font-medium text-xl">{totalPresupuestos}</div>
+                  </div>
+                  <div className="flex align-items-center justify-content-center bg-purple-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                    <i className="pi pi-file text-purple-500 text-xl"></i>
+                  </div>
+                </div>
+                <span className="text-green-500 font-medium">9% </span>
+                <span className="text-500">desde el mes pasado</span>
+              </div>
+            </div>
+          </div>
         </Card>
       )}
 

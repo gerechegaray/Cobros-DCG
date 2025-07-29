@@ -338,28 +338,27 @@ function UserProfile({ user, onUserUpdate }) {
                 </div>
               </div>
               <div className="p-col-12 p-md-6">
-                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
-                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Rol:</span>
+                <div className="flex justify-content-between align-items-center mb-3">
+                  <span className="text-600">Rol:</span>
                   <Tag 
-                    value={user.role === "admin" ? "Administrador" : "Cobrador"} 
+                    value={user.role === "admin" ? "Administrador" : user.role === "Santi" ? "Vendedor Santi" : user.role === "Guille" ? "Vendedor Guille" : "Usuario"}
                     severity={user.role === "admin" ? "danger" : "info"}
-                    className="p-text-xs"
                   />
                 </div>
               </div>
               <div className="p-col-12 p-md-6">
-                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
-                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Estado:</span>
-                  <span className="p-text-sm" style={{ color: "#6b7280" }}>
+                <div className="flex justify-content-between align-items-center mb-3">
+                  <span className="text-600">Permisos:</span>
+                  <span className="text-900 font-medium">
                     {user.role === "admin" ? "Acceso completo" : "Acceso limitado"}
                   </span>
                 </div>
               </div>
               <div className="p-col-12 p-md-6">
-                <div className="p-d-flex p-jc-between p-ai-center p-p-3 p-surface-100 p-border-round">
-                  <span className="p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>Permisos:</span>
-                  <span className="p-text-sm" style={{ color: "#6b7280" }}>
-                    {user.role === "admin" ? "Acceso completo" : "Acceso limitado"}
+                <div className="flex justify-content-between align-items-center">
+                  <span className="text-600">Funcionalidades:</span>
+                  <span className="text-900 font-medium">
+                    {user.role === "admin" ? "Todas las funciones" : "Funciones de vendedor"}
                   </span>
                 </div>
               </div>

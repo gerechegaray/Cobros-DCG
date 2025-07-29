@@ -3,12 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 
-export default function SelectorCliente() {
+export default function SelectorCliente({ user }) {
   const [cliente, setCliente] = useState(null);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Obtener el sellerId según el rol del usuario
+  const getSellerId = () => {
+    if (user?.role === 'Guille') return 1;
+    if (user?.role === 'Santi') return 2;
+    if (user?.role === 'admin') return null; // Admin ve todos
+    return null;
+  };
 
   useEffect(() => {
     const fetchClientes = async () => {
@@ -26,8 +34,33 @@ export default function SelectorCliente() {
         const data = await res.json();
         console.log('[SelectorCliente] Clientes obtenidos:', data.length);
         console.log('[SelectorCliente] Primer cliente:', data[0]);
+        console.log('[SelectorCliente] Rol del usuario:', user?.role);
         
-        setClientes(data);
+        // Filtrar clientes según el rol del usuario
+        const sellerId = getSellerId();
+        console.log('[SelectorCliente] SellerId obtenido:', sellerId);
+        let clientesFiltrados = data;
+        
+        if (sellerId !== null) {
+          // Filtrar por sellerId específico - el seller es un objeto con id
+          clientesFiltrados = data.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+          console.log(`[SelectorCliente] Filtrando por sellerId ${sellerId}: ${clientesFiltrados.length} clientes`);
+        } else if (user?.role === 'admin') {
+          // Admin ve todos los clientes
+          clientesFiltrados = data;
+          console.log(`[SelectorCliente] Admin ve todos los clientes: ${clientesFiltrados.length}`);
+        } else {
+          // Usuario sin rol válido - no mostrar clientes
+          clientesFiltrados = [];
+          console.log('[SelectorCliente] Usuario sin rol válido - no se muestran clientes');
+        }
+        
+        setClientes(clientesFiltrados);
       } catch (e) {
         console.error('[SelectorCliente] Error al obtener clientes:', e);
         setError(e.message);
@@ -37,7 +70,7 @@ export default function SelectorCliente() {
       }
     };
     fetchClientes();
-  }, []);
+  }, [user]);
 
   const handleCrearPedido = () => {
     if (cliente) {

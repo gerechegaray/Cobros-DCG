@@ -768,6 +768,332 @@ app.get("/api/cache/stats", (req, res) => {
   }
 });
 
+// 🆕 ENDPOINTS PARA VISITAS
+app.get("/api/visitas", async (req, res) => {
+  try {
+    const { vendedorId } = req.query;
+    let query = adminDb.collection("visitas");
+    
+    if (vendedorId) {
+      query = query.where("vendedorId", "==", parseInt(vendedorId));
+    }
+    
+    const snapshot = await query.get();
+    const visitas = [];
+    
+    snapshot.forEach(doc => {
+      visitas.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    res.json(visitas);
+  } catch (error) {
+    console.error("Error obteniendo visitas:", error);
+    res.status(500).json({ error: "Error obteniendo visitas" });
+  }
+});
+
+app.post("/api/visitas", async (req, res) => {
+  try {
+    const visitaData = {
+      ...req.body,
+      fechaCreacion: new Date(),
+      fechaActualizacion: new Date()
+    };
+    
+    const docRef = await adminDb.collection("visitas").add(visitaData);
+    
+    res.json({
+      id: docRef.id,
+      ...visitaData
+    });
+  } catch (error) {
+    console.error("Error creando visita:", error);
+    res.status(500).json({ error: "Error creando visita" });
+  }
+});
+
+app.put("/api/visitas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = {
+      ...req.body,
+      fechaActualizacion: new Date()
+    };
+    
+    await adminDb.collection("visitas").doc(id).update(updateData);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error actualizando visita:", error);
+    res.status(500).json({ error: "Error actualizando visita" });
+  }
+});
+
+app.delete("/api/visitas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await adminDb.collection("visitas").doc(id).delete();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error eliminando visita:", error);
+    res.status(500).json({ error: "Error eliminando visita" });
+  }
+});
+
+// 🆕 ENDPOINTS PARA VISITAS PROGRAMADAS
+app.get("/api/visitas-programadas", async (req, res) => {
+  try {
+    const { vendedorId } = req.query;
+    let query = adminDb.collection("visitasProgramadas");
+    
+    if (vendedorId) {
+      query = query.where("vendedorId", "==", parseInt(vendedorId));
+    }
+    
+    const snapshot = await query.get();
+    const programas = [];
+    
+    snapshot.forEach(doc => {
+      programas.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    res.json(programas);
+  } catch (error) {
+    console.error("Error obteniendo visitas programadas:", error);
+    res.status(500).json({ error: "Error obteniendo visitas programadas" });
+  }
+});
+
+app.post("/api/visitas-programadas", async (req, res) => {
+  try {
+    const programaData = req.body;
+    
+    // Agregar timestamps
+    programaData.fechaCreacion = new Date();
+    programaData.fechaActualizacion = new Date();
+    
+    // Guardar el programa
+    const docRef = await adminDb.collection("visitasProgramadas").add(programaData);
+    
+    // Generar visitas automáticamente para el próximo mes
+    const fechaInicio = new Date();
+    const fechaFin = new Date();
+    fechaFin.setDate(fechaFin.getDate() + 30); // Próximo mes
+    
+    let fechaActual = new Date(programaData.fechaInicio);
+    const visitasGeneradas = [];
+    
+    while (fechaActual <= fechaFin) {
+      // Verificar si es el día correcto de la semana
+      if (fechaActual.getDay() === programaData.diaSemana) {
+        // Verificar si la fecha está en el rango
+        if (fechaActual >= fechaInicio && fechaActual <= fechaFin) {
+          // Verificar si ya existe una visita para esta fecha y programa
+          const visitaExistente = await adminDb.collection("visitas")
+            .where("programaId", "==", docRef.id)
+            .where("fecha", "==", fechaActual.toISOString().split('T')[0])
+            .get();
+          
+          if (visitaExistente.empty) {
+            // Crear nueva visita
+            const visitaData = {
+              programaId: docRef.id,
+              vendedorId: programaData.vendedorId,
+              clienteId: programaData.clienteId,
+              clienteNombre: programaData.clienteNombre,
+              fecha: fechaActual.toISOString().split('T')[0],
+              horario: programaData.horario,
+              estado: "pendiente",
+              resultado: null,
+              comentario: "",
+              fechaCreacion: new Date()
+            };
+            
+            await adminDb.collection("visitas").add(visitaData);
+            visitasGeneradas.push(visitaData);
+          }
+        }
+      }
+      
+      // Avanzar según la frecuencia
+      if (programaData.frecuencia === "semanal") {
+        fechaActual.setDate(fechaActual.getDate() + 7);
+      } else if (programaData.frecuencia === "quincenal") {
+        fechaActual.setDate(fechaActual.getDate() + 14);
+      } else if (programaData.frecuencia === "mensual") {
+        fechaActual.setMonth(fechaActual.getMonth() + 1);
+      }
+    }
+    
+    res.json({
+      success: true,
+      programaId: docRef.id,
+      visitasGeneradas: visitasGeneradas.length
+    });
+  } catch (error) {
+    console.error("Error creando programa:", error);
+    res.status(500).json({ error: "Error creando programa" });
+  }
+});
+
+app.put("/api/visitas-programadas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = {
+      ...req.body,
+      fechaActualizacion: new Date()
+    };
+    
+    await adminDb.collection("visitasProgramadas").doc(id).update(updateData);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error actualizando visita programada:", error);
+    res.status(500).json({ error: "Error actualizando visita programada" });
+  }
+});
+
+app.delete("/api/visitas-programadas/:id", async (req, res) => {
+  try {
+    const programaId = req.params.id;
+    
+    console.log(`🗑️ Eliminando programa ${programaId} y todas sus visitas...`);
+    
+    // 1. Eliminar todas las visitas generadas por este programa
+    const visitasSnapshot = await adminDb.collection("visitas")
+      .where("programaId", "==", programaId)
+      .get();
+    
+    let visitasEliminadas = 0;
+    for (const visita of visitasSnapshot.docs) {
+      await visita.ref.delete();
+      visitasEliminadas++;
+    }
+    
+    console.log(`✅ Eliminadas ${visitasEliminadas} visitas del programa ${programaId}`);
+    
+    // 2. Eliminar el programa
+    await adminDb.collection("visitasProgramadas").doc(programaId).delete();
+    
+    console.log(`✅ Programa ${programaId} eliminado correctamente`);
+    
+    res.json({ 
+      success: true, 
+      programaEliminado: programaId,
+      visitasEliminadas: visitasEliminadas
+    });
+  } catch (error) {
+    console.error("Error eliminando programa y visitas:", error);
+    res.status(500).json({ error: "Error eliminando programa y visitas" });
+  }
+});
+
+// 🆕 ENDPOINT PARA GENERAR VISITAS DESDE PROGRAMAS
+app.post("/api/visitas/generar", async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin, vendedorId } = req.body;
+    
+    console.log("Generando visitas desde:", fechaInicio, "hasta:", fechaFin);
+    
+    // Obtener todos los programas activos
+    let query = adminDb.collection("visitasProgramadas").where("activo", "==", true);
+    if (vendedorId) {
+      query = query.where("vendedorId", "==", parseInt(vendedorId));
+    }
+    
+    const snapshot = await query.get();
+    const programas = [];
+    snapshot.forEach(doc => {
+      programas.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log("Programas encontrados:", programas.length);
+    
+    const visitasGeneradas = [];
+    const fechaInicioObj = new Date(fechaInicio);
+    const fechaFinObj = new Date(fechaFin);
+    
+    for (const programa of programas) {
+      console.log(`Procesando programa ${programa.id} para cliente ${programa.clienteNombre}`);
+      
+      let fechaActual = new Date(programa.fechaInicio);
+      
+      while (fechaActual <= fechaFinObj) {
+        // Verificar si es el día correcto de la semana
+        if (fechaActual.getDay() === programa.diaSemana) {
+          // Verificar si la fecha está en el rango
+          if (fechaActual >= fechaInicioObj && fechaActual <= fechaFinObj) {
+            const fechaStr = fechaActual.toISOString().split('T')[0];
+            
+            // Verificar si ya existe una visita para esta fecha y programa
+            const visitaExistente = await adminDb.collection("visitas")
+              .where("programaId", "==", programa.id)
+              .where("fecha", "==", fechaStr)
+              .get();
+            
+            if (visitaExistente.empty) {
+              console.log(`Creando visita para ${programa.clienteNombre} el ${fechaStr}`);
+              
+              // Crear nueva visita
+              const visitaData = {
+                programaId: programa.id,
+                vendedorId: programa.vendedorId,
+                clienteId: programa.clienteId,
+                clienteNombre: programa.clienteNombre,
+                fecha: fechaStr,
+                horario: programa.horario,
+                estado: "pendiente",
+                resultado: null,
+                comentario: "",
+                fechaCreacion: new Date()
+              };
+              
+              const docRef = await adminDb.collection("visitas").add(visitaData);
+              visitasGeneradas.push({
+                id: docRef.id,
+                ...visitaData
+              });
+            } else {
+              console.log(`Visita ya existe para ${programa.clienteNombre} el ${fechaStr}`);
+            }
+          }
+        }
+        
+        // Avanzar según la frecuencia
+        if (programa.frecuencia === "semanal") {
+          fechaActual.setDate(fechaActual.getDate() + 7);
+        } else if (programa.frecuencia === "quincenal") {
+          fechaActual.setDate(fechaActual.getDate() + 14);
+        } else if (programa.frecuencia === "mensual") {
+          fechaActual.setMonth(fechaActual.getMonth() + 1);
+        }
+      }
+    }
+    
+    console.log(`Generación completada: ${visitasGeneradas.length} visitas nuevas`);
+    
+    res.json({
+      success: true,
+      visitasGeneradas: visitasGeneradas.length,
+      programas: programas.length
+    });
+  } catch (error) {
+    console.error("Error generando visitas:", error);
+    res.status(500).json({ error: "Error generando visitas" });
+  }
+});
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

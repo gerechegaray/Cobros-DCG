@@ -27,12 +27,13 @@ function CobroForm({ user }) {
   const [fecha, setFecha] = useState(null);
   const [cliente, setCliente] = useState(clienteNavegacion || "");
   const [monto, setMonto] = useState("");
-  const [cobrador, setCobrador] = useState(user.role === "cobrador" ? user.name : "");
+  const [cobrador, setCobrador] = useState(user.role === "Santi" || user.role === "Guille" ? user.role : "");
   const [forma, setForma] = useState("");
-  const [cargado, setCargado] = useState(false);
+  const [nota, setNota] = useState("");
   const [loading, setLoading] = useState(false);
-  const toast = useRef(null);
   const [clientes, setClientes] = useState([]);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const toast = useRef(null);
   const [loadingClientes, setLoadingClientes] = useState(true);
 
   const formasDeCobro = [
@@ -49,23 +50,46 @@ function CobroForm({ user }) {
   ];
 
   const cobradores = [
-    { label: "Mariano", value: "Mariano" },
-    { label: "Ruben", value: "Ruben" },
-    { label: "Diego", value: "Diego" },
-    { label: "Guille", value: "Guille" },
     { label: "Santi", value: "Santi" },
-    { label: "German", value: "German" },
+    { label: "Guille", value: "Guille" }
   ];
 
   const showToast = (severity, summary, detail) => {
     toast.current.show({ severity, summary, detail });
   };
 
+  // Obtener el sellerId según el rol del usuario
+  const getSellerId = () => {
+    if (user?.role === 'Guille') return 1;
+    if (user?.role === 'Santi') return 2;
+    if (user?.role === 'admin') return null; // Admin ve todos
+    return null;
+  };
+
   useEffect(() => {
     async function fetchClientes() {
       try {
         const data = await getClientesCatalogo();
-        const options = data
+        
+        // Filtrar clientes según el rol del usuario
+        const sellerId = getSellerId();
+        let clientesFiltrados = data;
+        
+        if (sellerId !== null) {
+          // Filtrar por sellerId específico - el seller es un objeto con id
+          clientesFiltrados = data.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+        } else if (user?.role === 'admin') {
+          clientesFiltrados = data;
+        } else {
+          clientesFiltrados = [];
+        }
+        
+        const options = clientesFiltrados
           .slice()
           .sort((a, b) => ((a.name || a.nombre || a['Razón Social'] || '').localeCompare(b.name || b.nombre || b['Razón Social'] || '')))
           .map((c) => ({ label: c.name || c.nombre || c['Razón Social'] || c.id || '(Sin nombre)', value: c.id }));
@@ -77,41 +101,55 @@ function CobroForm({ user }) {
       }
     }
     fetchClientes();
-  }, []);
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!fecha || !cliente || !monto || !cobrador || !forma) {
-      showToast('error', 'Error', 'Por favor, completá todos los campos.');
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Por favor completa todos los campos obligatorios'
+      });
       return;
     }
-    
+
     setLoading(true);
     try {
-      // Buscar el nombre del cliente seleccionado
-      const clienteSeleccionado = clientes.find(c => c.value === cliente);
-      const nombreCliente = clienteSeleccionado ? clienteSeleccionado.label : '';
-      await addDoc(collection(db, "cobranzas"), {
-        fecha: Timestamp.fromDate(fecha),
-        cliente: nombreCliente, // Guardar el nombre
-        codigoCliente: cliente, // Guardar el id/código
+      const cobroData = {
+        fecha,
+        cliente,
         monto: parseFloat(monto),
         cobrador,
         forma,
-        cargado,
-      });
-      // Limpiar caché de la lista de cobranzas para forzar recarga
-      localStorage.removeItem('cobranzas_list');
-      showToast('success', 'Éxito', 'Cobro guardado correctamente.');
-      // Limpiar formulario
-      setFecha(null);
+        nota,
+        cargado: false,
+        fechaCreacion: new Date()
+      };
+
+      await addDoc(collection(db, "cobranzas"), cobroData);
+      
+      setShowSuccess(true);
+      setFecha(new Date());
       setCliente("");
       setMonto("");
-      setCobrador(user.role === "cobrador" ? user.name : "");
+      setCobrador(user.role === "Santi" || user.role === "Guille" ? user.role : "");
       setForma("");
-      setCargado(false);
+      setNota("");
+      
+      toast.current.show({
+        severity: 'success',
+        summary: 'Éxito',
+        detail: 'Cobro registrado correctamente'
+      });
     } catch (error) {
-      showToast('error', 'Error', 'Error al guardar: ' + error.message);
+      console.error("Error al guardar cobro:", error);
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error al guardar el cobro'
+      });
     } finally {
       setLoading(false);
     }
@@ -190,17 +228,33 @@ function CobroForm({ user }) {
             </div>
 
             {/* Cobrador - Solo visible para admin */}
-            {user.role === "admin" && (
-              <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
-                <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
-                  Quién cobró *
+            {user?.role === 'admin' && (
+              <div className="field">
+                <label htmlFor="cobrador" className="block text-900 font-medium mb-2">
+                  Cobrador *
                 </label>
-                <Dropdown 
-                  value={cobrador} 
-                  options={cobradores} 
-                  onChange={(e) => setCobrador(e.value)} 
+                <Dropdown
+                  id="cobrador"
+                  value={cobrador}
+                  options={cobradores}
+                  onChange={(e) => setCobrador(e.value)}
                   placeholder="Selecciona el cobrador"
-                  className="p-fluid"
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            {/* Cobrador - Auto-asignado para vendedores */}
+            {(user?.role === 'Santi' || user?.role === 'Guille') && (
+              <div className="field">
+                <label htmlFor="cobrador" className="block text-900 font-medium mb-2">
+                  Cobrador
+                </label>
+                <InputText
+                  id="cobrador"
+                  value={cobrador}
+                  disabled
+                  className="w-full"
                 />
               </div>
             )}
