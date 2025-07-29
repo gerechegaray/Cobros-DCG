@@ -24,6 +24,23 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     pendientes: 0,
     recibidos: 0
   });
+  
+  // Nuevo estado para estadísticas de visitas
+  const [visitasStats, setVisitasStats] = useState({
+    total: 0,
+    pendientes: 0,
+    realizadas: 0,
+    noRealizadas: 0,
+    visitasHoy: 0
+  });
+  
+  // Nuevo estado para estadísticas de facturas/envíos
+  const [facturasStats, setFacturasStats] = useState({
+    total: 0,
+    pendientes: 0,
+    enReparto: 0,
+    entregadas: 0
+  });
 
   const fetchCobranzas = async (force = false) => {
     let data = [];
@@ -31,10 +48,18 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       const cache = localStorage.getItem("cobranzas_dashboard");
       if (cache) {
         data = JSON.parse(cache);
-        setUserCobros(data);
-        // También actualiza stats
-        const totalCobranzas = data.length;
-        const totalMonto = data.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+        // Aplicar filtrado por rol también al cache
+        let filteredData = data;
+        if (user.role === "Santi" || user.role === "Guille") {
+          filteredData = data.filter(cobro => cobro.cobrador === user.role);
+        } else if (user.role === "admin") {
+          filteredData = data;
+        }
+        setUserCobros(filteredData);
+        
+        // Calcular stats con datos filtrados
+        const totalCobranzas = filteredData.length;
+        const totalMonto = filteredData.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
         
         // Calcular montos por período
         const hoy = new Date();
@@ -42,14 +67,14 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         const inicioSemana = new Date(hoy);
         inicioSemana.setDate(hoy.getDate() - hoy.getDay());
         
-        const montoMes = data
+        const montoMes = filteredData
           .filter(cobro => {
             const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
             return fechaCobro >= inicioMes && cobro.cargado;
           })
           .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
         
-        const montoSemana = data
+        const montoSemana = filteredData
           .filter(cobro => {
             const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
             return fechaCobro >= inicioSemana && cobro.cargado;
@@ -111,8 +136,129 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     }));
   };
 
+  // Función para limpiar cache y recargar datos
+  const limpiarCacheYRecargar = () => {
+    localStorage.removeItem("cobranzas_dashboard");
+    localStorage.removeItem("cobranzas_list");
+    fetchCobranzas(true);
+  };
+
   useEffect(() => {
     fetchCobranzas();
+  }, [user]);
+
+  // Obtener el sellerId según el rol del usuario
+  const getSellerId = () => {
+    if (user?.role === 'Guille') return 1;
+    if (user?.role === 'Santi') return 2;
+    if (user?.role === 'admin') return null; // Admin ve todos
+    return null;
+  };
+
+  // Cargar estadísticas de visitas
+  useEffect(() => {
+    const fetchVisitas = async () => {
+      try {
+        const sellerId = getSellerId();
+        // 🆕 Usar endpoint con caché
+        const url = sellerId ? `/api/visitas-cache?vendedorId=${sellerId}` : '/api/visitas-cache';
+        const res = await fetch(url);
+        const visitas = await res.json();
+        
+        const hoy = new Date().toISOString().split('T')[0];
+        
+        // Filtrar solo visitas del día de hoy
+        const visitasHoy = visitas.filter(v => v.fecha === hoy);
+        
+        setVisitasStats({
+          total: visitasHoy.length, // Total de visitas del día
+          pendientes: visitasHoy.filter(v => v.estado === 'pendiente').length,
+          realizadas: visitasHoy.filter(v => v.estado === 'realizada').length,
+          noRealizadas: visitasHoy.filter(v => v.estado === 'no_realizada').length,
+          visitasHoy: visitasHoy.length // Visitas del día (mismo que total)
+        });
+      } catch (error) {
+        console.error('Error cargando visitas:', error);
+        setVisitasStats({
+          total: 0,
+          pendientes: 0,
+          realizadas: 0,
+          noRealizadas: 0,
+          visitasHoy: 0
+        });
+      }
+    };
+    
+    fetchVisitas();
+  }, [user]);
+
+  // Cargar estadísticas de facturas/envíos (solo para admin)
+  useEffect(() => {
+    const fetchFacturas = async () => {
+      if (user.role !== 'admin') return;
+      
+      try {
+        // 🆕 Obtener facturas de Alegra
+        const res = await fetch('/api/alegra/invoices');
+        const facturas = await res.json();
+        
+        // 🆕 Obtener hojas de ruta para calcular estados
+        const hojasRes = await fetch('/api/hojas-de-ruta');
+        const hojasDeRuta = await hojasRes.json();
+        
+        // 🆕 Calcular estados según la lógica de la pantalla de Envíos
+        let pendientes = 0;
+        let enReparto = 0;
+        let entregadas = 0;
+        
+        facturas.forEach(factura => {
+          // Buscar si la factura está en alguna hoja de ruta
+          let estado = 'pendiente'; // Por defecto
+          
+          for (const hoja of hojasDeRuta) {
+            const pedido = hoja.pedidos?.find(p => p.id === factura.id);
+            if (pedido) {
+              if (pedido.entregado) {
+                estado = 'entregado';
+              } else {
+                estado = 'en_reparto';
+              }
+              break;
+            }
+          }
+          
+          // Contar según el estado
+          switch (estado) {
+            case 'pendiente':
+              pendientes++;
+              break;
+            case 'en_reparto':
+              enReparto++;
+              break;
+            case 'entregado':
+              entregadas++;
+              break;
+          }
+        });
+        
+        setFacturasStats({
+          total: facturas.length,
+          pendientes,
+          enReparto,
+          entregadas
+        });
+      } catch (error) {
+        console.error('Error cargando facturas:', error);
+        setFacturasStats({
+          total: 0,
+          pendientes: 0,
+          enReparto: 0,
+          entregadas: 0
+        });
+      }
+    };
+    
+    fetchFacturas();
   }, [user]);
 
   useEffect(() => {
@@ -186,14 +332,16 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     return cobrosCliente.some(cobro => cobro.estado === "pendiente");
   });
 
-  // Calcular totales
+  // Calcular totales según el rol
   const totalCobros = getFilteredData(userCobros).length;
   const totalPendiente = getFilteredData(userCobros).filter(cobro => cobro.estado === "pendiente").length;
   const totalCobrado = getFilteredData(userCobros).filter(cobro => cobro.estado === "cobrado").length;
   const totalPresupuestos = getFilteredPresupuestos(presupuestos).length;
 
-  // Calcular pendientes de carga
-  const pendientesAdmin = userCobros.filter(cobro => !cobro.cargado).length;
+  // Calcular pendientes de carga según el rol
+  const pendientesAdmin = user.role === "admin" ? userCobros.filter(cobro => !cobro.cargado).length : 0;
+  const pendientesVendedor = (user.role === "Santi" || user.role === "Guille") ? 
+    userCobros.filter(cobro => !cobro.cargado && cobro.cobrador === user.role).length : 0;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-AR', {
@@ -216,11 +364,6 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     }
   };
 
-  // Función para navegar a la lista de pedidos de clientes
-  const handleNavigateToPedidos = () => {
-    navigate("/lista-pedidos");
-  };
-
   // Función para navegar a la lista de cobranzas
   const handleNavigateToCobros = () => {
     navigate("/list");
@@ -231,30 +374,17 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       <h2 className="p-text-center p-mb-2 p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word" }}>
         {getDashboardTitle()}
       </h2>
-      <Button label="Actualizar" icon="pi pi-refresh" onClick={() => fetchCobranzas(true)} style={{ marginBottom: 16 }} />
+      {/* 🆕 Botones solo para admin */}
+      {user.role === "admin" && (
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: 16 }}>
+          <Button label="Actualizar" icon="pi pi-refresh" onClick={() => fetchCobranzas(true)} />
+          <Button label="Limpiar Cache" icon="pi pi-trash" severity="secondary" onClick={limpiarCacheYRecargar} />
+        </div>
+      )}
 
       {/* Alertas de cobros pendientes */}
       <div className="dashboard-alerts-container" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
         <Alerts user={user} onNavigateToMyCobros={onNavigateToMyCobros} />
-        {/* Alerta de pedidos pendientes, justo debajo de la de cobros */}
-        {pedidosStats.pendientes > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ backgroundColor: '#fef9c3', border: '1px solid #f59e0b', borderRadius: 10, padding: '0.7rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap' }}>
-              <i className="pi pi-exclamation-triangle" style={{ fontSize: '1.3rem', color: '#f59e0b' }}></i>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h4 style={{ margin: 0, color: '#b45309', fontWeight: 600, fontSize: '1rem', wordBreak: 'break-word' }}>Pedidos Pendientes de Recepción</h4>
-                <p style={{ margin: 0, color: '#b45309', fontSize: '0.88rem', wordBreak: 'break-word' }}>Tienes <b>{pedidosStats.pendientes}</b> pedidos de clientes marcados como "pendiente".</p>
-              </div>
-              <button
-                className="p-button p-button-warning p-button-sm"
-                style={{ marginLeft: 'auto', fontWeight: 600, background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', borderRadius: 5, padding: '0.35rem 0.8rem', fontSize: '0.92rem', cursor: 'pointer', minWidth: 120 }}
-                onClick={handleNavigateToPedidos}
-              >
-                Ir a lista de pedidos
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Grupo de Cobranzas */}
@@ -274,169 +404,77 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
               <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobrado esta Semana</span></span>
               <span style={{ color: '#f59e0b', fontWeight: 600, marginLeft: 12 }}>{formatCurrency(stats.montoSemana)}</span>
             </li>
-            {pendientesAdmin > 0 && (
+            {user.role === "admin" && pendientesAdmin > 0 && (
               <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-exclamation-triangle p-mr-2" style={{ color: '#ef4444', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobro no cargado en Flexxus</span></span>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-exclamation-triangle p-mr-2" style={{ color: '#ef4444', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobros no cargados en Flexxus</span></span>
                 <span style={{ color: '#ef4444', fontWeight: 600, marginLeft: 12 }}>{pendientesAdmin}</span>
+              </li>
+            )}
+            {(user.role === "Santi" || user.role === "Guille") && pendientesVendedor > 0 && (
+              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-exclamation-triangle p-mr-2" style={{ color: '#ef4444', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Mis cobros no cargados</span></span>
+                <span style={{ color: '#ef4444', fontWeight: 600, marginLeft: 12 }}>{pendientesVendedor}</span>
               </li>
             )}
           </ul>
         </Card>
       </div>
 
-      {/* Grupo de Pedidos */}
-      <div className="dashboard-pedidos-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
-        <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Pedidos</h3>
-        <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-              <span className="p-d-flex p-ai-center"><i className="pi pi-shopping-cart p-mr-2" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos de Clientes</span></span>
-              <span style={{ color: '#0ea5e9', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.total}</span>
-            </li>
-            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-              <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos Pendientes</span></span>
-              <span style={{ color: '#f59e0b', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.pendientes}</span>
-            </li>
-            <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
-              <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pedidos Recibidos</span></span>
-              <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.recibidos}</span>
-            </li>
-          </ul>
-        </Card>
-      </div>
-
-      {/* Progreso de Carga */}
-      {user.role === "admin" ? (
-        <Card title="Progreso de Carga en Sistema" className="mb-4">
-          <div className="grid">
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Total Cobros</span>
-                    <div className="text-900 font-medium text-xl">{totalCobros}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-blue-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-dollar text-blue-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-green-500 font-medium">24% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Pendientes</span>
-                    <div className="text-900 font-medium text-xl">{totalPendiente}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-orange-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-clock text-orange-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-red-500 font-medium">56% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Cobrado</span>
-                    <div className="text-900 font-medium text-xl">{totalCobrado}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-cyan-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-check text-cyan-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-green-500 font-medium">23% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Presupuestos</span>
-                    <div className="text-900 font-medium text-xl">{totalPresupuestos}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-purple-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-file text-purple-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-green-500 font-medium">9% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      ) : (
-        <Card title="Mi Progreso de Carga" className="mb-4">
-          <div className="grid">
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Mis Cobros</span>
-                    <div className="text-900 font-medium text-xl">{totalCobros}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-blue-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-dollar text-blue-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-green-500 font-medium">24% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Pendientes</span>
-                    <div className="text-900 font-medium text-xl">{totalPendiente}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-orange-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-clock text-orange-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-red-500 font-medium">56% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Cobrado</span>
-                    <div className="text-900 font-medium text-xl">{totalCobrado}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-cyan-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-check text-cyan-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-green-500 font-medium">23% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <div className="surface-0 shadow-1 p-3 border-round">
-                <div className="flex justify-content-between mb-3">
-                  <div>
-                    <span className="block text-500 font-medium mb-3">Presupuestos</span>
-                    <div className="text-900 font-medium text-xl">{totalPresupuestos}</div>
-                  </div>
-                  <div className="flex align-items-center justify-content-center bg-purple-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                    <i className="pi pi-file text-purple-500 text-xl"></i>
-                  </div>
-                </div>
-                <span className="text-green-500 font-medium">9% </span>
-                <span className="text-500">desde el mes pasado</span>
-              </div>
-            </div>
-          </div>
-        </Card>
+      {/* Grupo de Visitas (solo para vendedores) */}
+      {(user.role === "Santi" || user.role === "Guille") && (
+        <div className="dashboard-visitas-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
+          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Mis Visitas de Hoy</h3>
+          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-calendar p-mr-2" style={{ color: '#8b5cf6', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Visitas Hoy</span></span>
+                <span style={{ color: '#8b5cf6', fontWeight: 600, marginLeft: 12 }}>{visitasStats.total}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes Hoy</span></span>
+                <span style={{ color: '#f59e0b', fontWeight: 600, marginLeft: 12 }}>{visitasStats.pendientes}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Realizadas Hoy</span></span>
+                <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 12 }}>{visitasStats.realizadas}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-times-circle p-mr-2" style={{ color: '#ef4444', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>No Realizadas Hoy</span></span>
+                <span style={{ color: '#ef4444', fontWeight: 600, marginLeft: 12 }}>{visitasStats.noRealizadas}</span>
+              </li>
+            </ul>
+          </Card>
+        </div>
       )}
+
+      {/* Grupo de Envíos (solo para admin) */}
+      {user.role === "admin" && (
+        <div className="dashboard-envios-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
+          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Envíos</h3>
+          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-truck p-mr-2" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Facturas</span></span>
+                <span style={{ color: '#0ea5e9', fontWeight: 600, marginLeft: 12 }}>{facturasStats.total}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes</span></span>
+                <span style={{ color: '#f59e0b', fontWeight: 600, marginLeft: 12 }}>{facturasStats.pendientes}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-map-marker p-mr-2" style={{ color: '#8b5cf6', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>En Reparto</span></span>
+                <span style={{ color: '#8b5cf6', fontWeight: 600, marginLeft: 12 }}>{facturasStats.enReparto}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Entregadas</span></span>
+                <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 12 }}>{facturasStats.entregadas}</span>
+              </li>
+            </ul>
+          </Card>
+        </div>
+      )}
+
+      {/* 🆕 Sección eliminada: "Progreso de Carga en Sistema" - No se muestra para ningún rol */}
 
       {/* Estilos responsive específicos para el dashboard */}
       <style>{`
@@ -446,7 +484,8 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
           }
           .dashboard-alerts-container,
           .dashboard-cobros-container,
-          .dashboard-pedidos-container {
+          .dashboard-visitas-container,
+          .dashboard-envios-container {
             max-width: 100% !important;
             padding: 0.25rem !important;
           }
@@ -464,7 +503,8 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
           }
           .dashboard-alerts-container,
           .dashboard-cobros-container,
-          .dashboard-pedidos-container {
+          .dashboard-visitas-container,
+          .dashboard-envios-container {
             padding: 0.1rem !important;
           }
           h2, h3 {

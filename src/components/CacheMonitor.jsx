@@ -16,10 +16,17 @@ function CacheMonitor() {
     try {
       const response = await fetch('/api/cache/status');
       const data = await response.json();
-      setEstado(data.estado);
-    } catch (error) {
-      console.error('Error cargando estado del cache:', error);
-      toast.current?.show({
+      
+      // 🆕 Agregar estado del caché del frontend
+      const estadoFrontend = obtenerEstadoCacheFrontend();
+      const estadoCompleto = {
+        ...data.estado,
+        clientesFrontend: estadoFrontend.clientes
+      };
+      
+      setEstado(estadoCompleto);
+         } catch (error) {
+       toast.current?.show({
         severity: 'error',
         summary: 'Error',
         detail: 'No se pudo cargar el estado del cache'
@@ -27,6 +34,43 @@ function CacheMonitor() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🆕 Función para obtener estado del caché del frontend
+  const obtenerEstadoCacheFrontend = () => {
+    const ahora = Date.now();
+    const ttl = 7 * 24 * 60 * 60 * 1000; // 7 días
+    
+    try {
+      const cache = localStorage.getItem("clientes_catalogo");
+      if (cache) {
+        const cacheData = JSON.parse(cache);
+        const tiempoTranscurrido = ahora - cacheData.timestamp;
+        const tiempoRestante = ttl - tiempoTranscurrido;
+        
+        return {
+          clientes: {
+            tieneDatos: tiempoTranscurrido < ttl,
+            ultimaActualizacion: new Date(cacheData.timestamp).toLocaleString(),
+            expiraEn: tiempoRestante > 0 ? `${Math.round(tiempoRestante / (1000 * 60 * 60 * 24))} días` : 'EXPIRADO',
+            registros: cacheData.data.length,
+            tiempoTranscurrido: `${Math.round(tiempoTranscurrido / (1000 * 60 * 60 * 24))} días`
+          }
+        };
+      }
+         } catch (error) {
+       // Error al leer caché del frontend
+     }
+    
+    return {
+      clientes: {
+        tieneDatos: false,
+        ultimaActualizacion: 'Nunca',
+        expiraEn: 'N/A',
+        registros: 0,
+        tiempoTranscurrido: 'N/A'
+      }
+    };
   };
 
   const invalidarCache = async (tipo) => {
@@ -46,9 +90,8 @@ function CacheMonitor() {
         });
         cargarEstado(); // Recargar estado
       }
-    } catch (error) {
-      console.error('Error invalidando cache:', error);
-      toast.current?.show({
+         } catch (error) {
+       toast.current?.show({
         severity: 'error',
         summary: 'Error',
         detail: 'No se pudo invalidar el cache'
@@ -74,9 +117,8 @@ function CacheMonitor() {
         });
         cargarEstado(); // Recargar estado
       }
-    } catch (error) {
-      console.error('Error actualizando cache:', error);
-      toast.current?.show({
+         } catch (error) {
+       toast.current?.show({
         severity: 'error',
         summary: 'Error',
         detail: 'No se pudo actualizar el cache'
@@ -244,6 +286,71 @@ function CacheMonitor() {
                     icon="pi pi-refresh" 
                     className="p-button-info p-button-sm"
                     onClick={() => refrescarCache('productos')}
+                    loading={refreshing}
+                  />
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* 🆕 Clientes Frontend */}
+          <div className="col-12 md:col-6">
+            <Card title="Clientes (Frontend)" className="mb-2">
+              <div className="mb-3">
+                <div className="flex justify-content-between align-items-center mb-2">
+                  <span>Estado:</span>
+                  <span className={`font-bold ${estado.clientesFrontend?.tieneDatos ? 'text-green-600' : 'text-red-600'}`}>
+                    {estado.clientesFrontend?.tieneDatos ? '✅ Cargado' : '❌ No cargado'}
+                  </span>
+                </div>
+                
+                <div className="mb-2">
+                  <span className="text-sm">Última actualización:</span>
+                  <div className="font-mono text-xs bg-gray-100 p-1 rounded mt-1">
+                    {estado.clientesFrontend?.ultimaActualizacion || 'N/A'}
+                  </div>
+                </div>
+                
+                <div className="mb-2">
+                  <span className="text-sm">Tiempo transcurrido:</span>
+                  <div className="font-bold text-blue-600">
+                    {estado.clientesFrontend?.tiempoTranscurrido || 'N/A'}
+                  </div>
+                </div>
+                
+                <div className="mb-2">
+                  <span className="text-sm">Registros en cache:</span>
+                  <div className="font-bold">
+                    {estado.clientesFrontend?.registros?.toLocaleString() || '0'}
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <span className="text-sm">Expira en:</span>
+                  <div className="font-bold text-orange-600">
+                    {estado.clientesFrontend?.expiraEn || 'N/A'}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    label="Limpiar Cache" 
+                    icon="pi pi-trash" 
+                    className="p-button-danger p-button-sm"
+                    onClick={() => {
+                      localStorage.removeItem("clientes_catalogo");
+                      cargarEstado();
+                    }}
+                    disabled={!estado.clientesFrontend?.tieneDatos}
+                  />
+                  <Button 
+                    label="Recargar" 
+                    icon="pi pi-refresh" 
+                    className="p-button-info p-button-sm"
+                    onClick={() => {
+                      localStorage.removeItem("clientes_catalogo");
+                      window.location.reload();
+                    }}
                     loading={refreshing}
                   />
                 </div>

@@ -11,7 +11,7 @@ import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { getClientesCatalogo } from '../../services/firebase';
+import { getClientesCatalogo, limpiarCacheClientes } from '../../services/firebase';
 
 function CobroForm({ user }) {
   const location = useLocation();
@@ -30,6 +30,7 @@ function CobroForm({ user }) {
   const [cobrador, setCobrador] = useState(user.role === "Santi" || user.role === "Guille" ? user.role : "");
   const [forma, setForma] = useState("");
   const [nota, setNota] = useState("");
+  const [cargado, setCargado] = useState(false);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -124,7 +125,7 @@ function CobroForm({ user }) {
         cobrador,
         forma,
         nota,
-        cargado: false,
+        cargado,
         fechaCreacion: new Date()
       };
 
@@ -137,6 +138,7 @@ function CobroForm({ user }) {
       setCobrador(user.role === "Santi" || user.role === "Guille" ? user.role : "");
       setForma("");
       setNota("");
+      setCargado(false);
       
       toast.current.show({
         severity: 'success',
@@ -170,6 +172,20 @@ function CobroForm({ user }) {
             <div className="p-mt-3 p-p-2 p-surface-200 p-border-round p-text-sm" style={{ color: "#92400e" }}>
               <i className="pi pi-user p-mr-2"></i>
               Cargando como: <strong>{user.name}</strong>
+            </div>
+          )}
+          {user.role === "admin" && (
+            <div className="p-mt-3">
+              <Button
+                label="Limpiar Cache Clientes"
+                icon="pi pi-refresh"
+                className="p-button-sm p-button-outlined"
+                onClick={() => {
+                  limpiarCacheClientes();
+                  window.location.reload();
+                }}
+                tooltip="Forzar recarga de clientes desde Firebase"
+              />
             </div>
           )}
         </div>

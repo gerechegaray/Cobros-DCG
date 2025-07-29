@@ -23,13 +23,16 @@ const adminDb = getFirestore();
 const cacheCompartido = {
   clientes: null,
   productos: null,
+  visitas: null, // 🆕 Agregar visitas al caché
   ultimaActualizacion: {
     clientes: null,
-    productos: null
+    productos: null,
+    visitas: null // 🆕 Agregar visitas al caché
   },
   ttl: {
     clientes: 7 * 24 * 60 * 60 * 1000,    // 7 días
-    productos: 12 * 60 * 60 * 1000         // 12 horas
+    productos: 12 * 60 * 60 * 1000,        // 12 horas
+    visitas: 5 * 60 * 1000                  // 🆕 5 minutos para visitas
   }
 };
 
@@ -61,7 +64,7 @@ function getEstadoCache() {
   const ahora = Date.now();
   const estado = {};
   
-  ['clientes', 'productos'].forEach(tipo => {
+  ['clientes', 'productos', 'visitas'].forEach(tipo => { // 🆕 Agregar visitas
     if (cacheCompartido[tipo]) {
       const tiempoTranscurrido = ahora - cacheCompartido.ultimaActualizacion[tipo];
       const tiempoRestante = cacheCompartido.ttl[tipo] - tiempoTranscurrido;
@@ -293,18 +296,49 @@ app.get("/api/presupuestos", async (req, res) => {
   console.log('Entrando a /api/presupuestos');
   try {
     const { email, role } = req.query;
+    console.log(`Filtrando presupuestos para email: ${email}, role: ${role}`);
+    
     let query = adminDb.collection('presupuestos').orderBy('fechaCreacion', 'desc');
     let snapshot;
+    
     if (role === 'admin') {
+      // Admin ve todos los presupuestos
+      console.log('Admin: mostrando todos los presupuestos');
       snapshot = await query.get();
     } else {
-      // Solo ver los propios pendientes y todos los facturados
-      const all = await query.get();
-      const data = all.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const filtrados = data.filter(p => p.estado === 'facturado' || p.usuario === email);
+      // Vendedores (Guille, Santi) ven solo sus presupuestos por rol
+      console.log(`Vendedor ${role}: filtrando por rol`);
+      snapshot = await query.get();
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Debug: mostrar todos los presupuestos y sus usuarios
+      console.log('Todos los presupuestos:');
+      data.forEach(p => {
+        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}`);
+      });
+      
+      // Filtrado SOLO por rol/vendedor, no por email
+      let filtrados;
+      if (role === 'Guille') {
+        filtrados = data.filter(p => p.vendedor === 1 || p.vendedor === "1");
+      } else if (role === 'Santi') {
+        filtrados = data.filter(p => p.vendedor === 2 || p.vendedor === "2");
+      } else {
+        // Fallback: filtrar por email si no es Guille ni Santi
+        filtrados = data.filter(p => p.usuario === email);
+      }
+      
+      console.log(`Presupuestos filtrados para ${role}: ${filtrados.length} de ${data.length} total`);
+      console.log('Presupuestos filtrados:');
+      filtrados.forEach(p => {
+        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}`);
+      });
+      
       return res.json(filtrados);
     }
+    
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log(`Presupuestos para admin: ${data.length} total`);
     res.json(data);
   } catch (error) {
     console.error('Error en /api/presupuestos:', error);
@@ -768,6 +802,61 @@ app.get("/api/cache/stats", (req, res) => {
   }
 });
 
+// 🆕 ENDPOINT CON CACHÉ PARA VISITAS
+app.get("/api/visitas-cache", async (req, res) => {
+  try {
+    const { vendedorId } = req.query;
+    console.log('Entrando a /api/visitas-cache, vendedorId:', vendedorId);
+    
+    // Verificar si el cache está disponible y no expiró
+    if (!cacheExpiro('visitas') && cacheCompartido.visitas) {
+      console.log('📦 Sirviendo visitas desde cache');
+      
+      let visitas = cacheCompartido.visitas;
+      
+      // Filtrar por vendedor si se especifica
+      if (vendedorId) {
+        visitas = visitas.filter(visita => visita.vendedorId === parseInt(vendedorId));
+        console.log(`Filtradas ${visitas.length} visitas para vendedor ${vendedorId}`);
+      }
+      
+      res.json(visitas);
+      return;
+    }
+    
+    // Cache expirado o no disponible, cargar desde Firestore
+    console.log('🔄 Cache expirado o no disponible, cargando visitas desde Firestore...');
+    
+    const snapshot = await adminDb.collection('visitas').get();
+    const visitas = [];
+    
+    snapshot.forEach(doc => {
+      visitas.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    // Guardar en cache
+    cacheCompartido.visitas = visitas;
+    cacheCompartido.ultimaActualizacion.visitas = Date.now();
+    
+    console.log(`💾 Cache actualizado con ${visitas.length} visitas`);
+    
+    // Filtrar por vendedor si se especifica
+    let visitasFiltradas = visitas;
+    if (vendedorId) {
+      visitasFiltradas = visitas.filter(visita => visita.vendedorId === parseInt(vendedorId));
+      console.log(`Filtradas ${visitasFiltradas.length} visitas para vendedor ${vendedorId}`);
+    }
+    
+    res.json(visitasFiltradas);
+  } catch (error) {
+    console.error('Error en /api/visitas-cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 🆕 ENDPOINTS PARA VISITAS
 app.get("/api/visitas", async (req, res) => {
   try {
@@ -805,6 +894,9 @@ app.post("/api/visitas", async (req, res) => {
     
     const docRef = await adminDb.collection("visitas").add(visitaData);
     
+    // 🆕 Invalidar cache de visitas
+    invalidarCache('visitas');
+    
     res.json({
       id: docRef.id,
       ...visitaData
@@ -825,7 +917,10 @@ app.put("/api/visitas/:id", async (req, res) => {
     
     await adminDb.collection("visitas").doc(id).update(updateData);
     
-    res.json({ success: true });
+    // 🆕 Invalidar cache de visitas
+    invalidarCache('visitas');
+    
+    res.json({ success: true, id });
   } catch (error) {
     console.error("Error actualizando visita:", error);
     res.status(500).json({ error: "Error actualizando visita" });
@@ -837,6 +932,9 @@ app.delete("/api/visitas/:id", async (req, res) => {
     const { id } = req.params;
     
     await adminDb.collection("visitas").doc(id).delete();
+    
+    // 🆕 Invalidar cache de visitas
+    invalidarCache('visitas');
     
     res.json({ success: true });
   } catch (error) {
@@ -874,73 +972,65 @@ app.get("/api/visitas-programadas", async (req, res) => {
 
 app.post("/api/visitas-programadas", async (req, res) => {
   try {
-    const programaData = req.body;
+    const programaData = {
+      ...req.body,
+      activo: true,
+      fechaCreacion: new Date(),
+      fechaActualizacion: new Date()
+    };
     
-    // Agregar timestamps
-    programaData.fechaCreacion = new Date();
-    programaData.fechaActualizacion = new Date();
-    
-    // Guardar el programa
     const docRef = await adminDb.collection("visitasProgramadas").add(programaData);
     
     // Generar visitas automáticamente para el próximo mes
     const fechaInicio = new Date();
     const fechaFin = new Date();
-    fechaFin.setDate(fechaFin.getDate() + 30); // Próximo mes
+    fechaFin.setMonth(fechaFin.getMonth() + 1);
     
-    let fechaActual = new Date(programaData.fechaInicio);
     const visitasGeneradas = [];
+    let fechaActual = new Date(programaData.fechaInicio);
     
     while (fechaActual <= fechaFin) {
-      // Verificar si es el día correcto de la semana
       if (fechaActual.getDay() === programaData.diaSemana) {
-        // Verificar si la fecha está en el rango
-        if (fechaActual >= fechaInicio && fechaActual <= fechaFin) {
-          // Verificar si ya existe una visita para esta fecha y programa
-          const visitaExistente = await adminDb.collection("visitas")
-            .where("programaId", "==", docRef.id)
-            .where("fecha", "==", fechaActual.toISOString().split('T')[0])
-            .get();
+        const fechaStr = fechaActual.toISOString().split('T')[0];
+        
+        // Verificar si ya existe una visita
+        const visitaExistente = await adminDb.collection("visitas")
+          .where("programaId", "==", docRef.id)
+          .where("fecha", "==", fechaStr)
+          .get();
+        
+        if (visitaExistente.empty) {
+          const visitaData = {
+            programaId: docRef.id,
+            vendedorId: programaData.vendedorId,
+            clienteId: programaData.clienteId,
+            clienteNombre: programaData.clienteNombre,
+            fecha: fechaStr,
+            horario: programaData.horario,
+            estado: "pendiente",
+            resultado: null,
+            comentario: "",
+            fechaCreacion: new Date()
+          };
           
-          if (visitaExistente.empty) {
-            // Crear nueva visita
-            const visitaData = {
-              programaId: docRef.id,
-              vendedorId: programaData.vendedorId,
-              clienteId: programaData.clienteId,
-              clienteNombre: programaData.clienteNombre,
-              fecha: fechaActual.toISOString().split('T')[0],
-              horario: programaData.horario,
-              estado: "pendiente",
-              resultado: null,
-              comentario: "",
-              fechaCreacion: new Date()
-            };
-            
-            await adminDb.collection("visitas").add(visitaData);
-            visitasGeneradas.push(visitaData);
-          }
+          await adminDb.collection("visitas").add(visitaData);
+          visitasGeneradas.push(visitaData);
         }
       }
       
-      // Avanzar según la frecuencia
-      if (programaData.frecuencia === "semanal") {
-        fechaActual.setDate(fechaActual.getDate() + 7);
-      } else if (programaData.frecuencia === "quincenal") {
-        fechaActual.setDate(fechaActual.getDate() + 14);
-      } else if (programaData.frecuencia === "mensual") {
-        fechaActual.setMonth(fechaActual.getMonth() + 1);
-      }
+      fechaActual.setDate(fechaActual.getDate() + 7);
     }
     
+    // 🆕 Invalidar cache de visitas
+    invalidarCache('visitas');
+    
     res.json({
-      success: true,
-      programaId: docRef.id,
+      id: docRef.id,
       visitasGeneradas: visitasGeneradas.length
     });
   } catch (error) {
-    console.error("Error creando programa:", error);
-    res.status(500).json({ error: "Error creando programa" });
+    console.error("Error creando programa de visitas:", error);
+    res.status(500).json({ error: "Error creando programa de visitas" });
   }
 });
 
@@ -1083,6 +1173,9 @@ app.post("/api/visitas/generar", async (req, res) => {
     
     console.log(`Generación completada: ${visitasGeneradas.length} visitas nuevas`);
     
+    // 🆕 Invalidar cache de visitas
+    invalidarCache('visitas');
+    
     res.json({
       success: true,
       visitasGeneradas: visitasGeneradas.length,
@@ -1091,6 +1184,29 @@ app.post("/api/visitas/generar", async (req, res) => {
   } catch (error) {
     console.error("Error generando visitas:", error);
     res.status(500).json({ error: "Error generando visitas" });
+  }
+});
+
+// 🆕 Endpoint para obtener hojas de ruta (para Dashboard)
+app.get("/api/hojas-de-ruta", async (req, res) => {
+  try {
+    console.log('Entrando a /api/hojas-de-ruta');
+    
+    const snapshot = await adminDb.collection('hojasDeRuta').get();
+    const hojasDeRuta = [];
+    
+    snapshot.forEach(doc => {
+      hojasDeRuta.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log(`Hojas de ruta encontradas: ${hojasDeRuta.length}`);
+    res.json(hojasDeRuta);
+  } catch (error) {
+    console.error('Error en /api/hojas-de-ruta:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db } from "../../services/firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getClientesCatalogo } from '../../services/firebase';
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -8,60 +8,28 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
-import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
-import { FilterMatchMode } from "primereact/api";
 import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
-import { Panel } from "primereact/panel";
+import { ProgressSpinner } from "primereact/progressspinner";
+import { Dialog } from "primereact/dialog";
 
 function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const [cobros, setCobros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const toast = useRef(null);
-  const [filters, setFilters] = useState({
-    fecha: { value: null, matchMode: FilterMatchMode.DATE_IS },
-    cobrador: { value: null, matchMode: FilterMatchMode.EQUALS },
-    forma: { value: null, matchMode: FilterMatchMode.EQUALS },
-    cliente: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    cargado: { value: null, matchMode: FilterMatchMode.EQUALS },
-  });
-  const [filtersVisible, setFiltersVisible] = useState(false);
-  const [viewMode, setViewMode] = useState('compact'); // 'compact' o 'detailed'
-  const [groupByDate, setGroupByDate] = useState(true);
   const [clientesCatalogo, setClientesCatalogo] = useState([]);
   const [loadingClientesCatalogo, setLoadingClientesCatalogo] = useState(true);
   const [catalogoCargado, setCatalogoCargado] = useState(false);
 
-  const cobradores = [
-    { label: "Todos", value: null },
-    { label: "Mariano", value: "Mariano" },
-    { label: "Ruben", value: "Ruben" },
-    { label: "Diego", value: "Diego" },
-    { label: "Guille", value: "Guille" },
-    { label: "Santi", value: "Santi" },
-    { label: "German", value: "German" },
-  ];
-
-  const formasDeCobro = [
-    { label: "Todos", value: null },
-    { label: "Efectivo", value: "Efectivo" },
-    { label: "Mercado Pago", value: "Mercado Pago" },
-    { label: "Transferencia DCG", value: "Transferencia DCG" },
-    { label: "Transferencia Santander", value: "Transferencia Santander" },
-    { label: "Transferencia Galicia DCG", value: "Transferencia Galicia DCG" },
-    { label: "Alleata", value: "Alleata" },
-    { label: "Transferencia", value: "Transferencia" },
-    { label: "Cheque", value: "Cheque" },
-    { label: "Otro", value: "Otro" },
-  ];
-
-  const estadoCarga = [
-    { label: "Todos", value: null },
-    { label: "Cargados", value: true },
-    { label: "No cargados", value: false },
-  ];
+  // Estados para filtros
+  const [filtroCliente, setFiltroCliente] = useState(null);
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState(null);
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState(null);
+  const [cobranzasFiltradas, setCobranzasFiltradas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [showFiltros, setShowFiltros] = useState(false);
 
   const fetchCobranzas = async (force = false) => {
     setLoading(true);
@@ -70,7 +38,16 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
       const cache = localStorage.getItem("cobranzas_list");
       if (cache) {
         data = JSON.parse(cache);
-        setCobros(data);
+        // Aplicar filtrado por rol
+        let filteredData = data;
+        if (user.role === "Santi" || user.role === "Guille") {
+          filteredData = data.filter(cobro => cobro.cobrador === user.role);
+        } else if (user.role === "admin") {
+          filteredData = data;
+        }
+        // Limpiar datos antes de establecer el estado
+        const datosLimpios = limpiarDatosParaRender(filteredData);
+        setCobros(datosLimpios);
         setLoading(false);
         return;
       }
@@ -82,28 +59,39 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
         data.push({ id: doc.id, ...doc.data() });
       });
       localStorage.setItem("cobranzas_list", JSON.stringify(data));
-      setCobros(data);
+      
+      // Aplicar filtrado por rol
+      let filteredData = data;
+      if (user.role === "Santi" || user.role === "Guille") {
+        filteredData = data.filter(cobro => cobro.cobrador === user.role);
+      } else if (user.role === "admin") {
+        filteredData = data;
+      }
+      // Limpiar datos antes de establecer el estado
+      const datosLimpios = limpiarDatosParaRender(filteredData);
+      setCobros(datosLimpios);
     } catch (error) {
-      console.error("Error al cargar cobranzas:", error);
+      // Error al cargar cobranzas
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCobranzas();
+    // 🆕 Limpiar caché para forzar recarga
+    localStorage.removeItem("cobranzas_list");
+    fetchCobranzas(true);
   }, []);
 
   // Cargar catálogo de clientes
   useEffect(() => {
-    // Cargar catálogo de clientes para mostrar nombres
     async function fetchClientesCatalogo() {
       try {
         const data = await getClientesCatalogo();
         setClientesCatalogo(data);
         setCatalogoCargado(true);
       } catch (error) {
-        console.error('Error al obtener clientes de Firestore:', error);
+        // Error al obtener clientes de Firestore
       } finally {
         setLoadingClientesCatalogo(false);
       }
@@ -111,31 +99,275 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     fetchClientesCatalogo();
   }, []);
 
-  // Agregar función para obtener razón social
-  const getRazonSocial = (clienteId) => {
-    if (catalogoCargado && clientesCatalogo.length > 0) {
-      const cliente = clientesCatalogo.find(c => c.id === clienteId);
-      return cliente ? cliente['Razón Social'] : clienteId;
+  // 🆕 Función para aplicar filtros
+  const aplicarFiltros = (datos) => {
+    let filtradas = [...datos];
+
+    // Filtro por cliente
+    if (filtroCliente) {
+      filtradas = filtradas.filter(cobro => {
+        const clienteNombre = getRazonSocial(cobro.cliente);
+        return clienteNombre.toLowerCase().includes(filtroCliente.toLowerCase());
+      });
     }
-    return clienteId;
+
+    // Filtro por fecha desde
+    if (filtroFechaDesde) {
+      filtradas = filtradas.filter(cobro => {
+        // Convertir la fecha del cobro a Date para comparación
+        let fechaCobro = null;
+        if (typeof cobro.fecha === 'string') {
+          // Si ya es string, intentar parsearlo
+          const partes = cobro.fecha.split('/');
+          if (partes.length === 3) {
+            // Formato DD/MM/YY
+            const dia = parseInt(partes[0]);
+            const mes = parseInt(partes[1]) - 1; // Meses van de 0-11
+            const año = 2000 + parseInt(partes[2]); // Asumir siglo 21
+            fechaCobro = new Date(año, mes, dia);
+          } else {
+            fechaCobro = new Date(cobro.fecha);
+          }
+        } else {
+          fechaCobro = new Date(cobro.fecha);
+        }
+        
+        return !isNaN(fechaCobro.getTime()) && fechaCobro >= filtroFechaDesde;
+      });
+    }
+
+    // Filtro por fecha hasta
+    if (filtroFechaHasta) {
+      filtradas = filtradas.filter(cobro => {
+        // Convertir la fecha del cobro a Date para comparación
+        let fechaCobro = null;
+        if (typeof cobro.fecha === 'string') {
+          // Si ya es string, intentar parsearlo
+          const partes = cobro.fecha.split('/');
+          if (partes.length === 3) {
+            // Formato DD/MM/YY
+            const dia = parseInt(partes[0]);
+            const mes = parseInt(partes[1]) - 1; // Meses van de 0-11
+            const año = 2000 + parseInt(partes[2]); // Asumir siglo 21
+            fechaCobro = new Date(año, mes, dia);
+          } else {
+            fechaCobro = new Date(cobro.fecha);
+          }
+        } else {
+          fechaCobro = new Date(cobro.fecha);
+        }
+        
+        const fechaHasta = new Date(filtroFechaHasta);
+        fechaHasta.setHours(23, 59, 59, 999); // Incluir todo el día
+        return !isNaN(fechaCobro.getTime()) && fechaCobro <= fechaHasta;
+      });
+    }
+
+    // 🆕 Validación final: asegurarse de que no haya objetos problemáticos
+    filtradas = filtradas.map(cobro => {
+      const cobroFinal = { ...cobro };
+      Object.keys(cobroFinal).forEach(key => {
+        // Solo convertir objetos que no sean booleanos (como timestamps)
+        if (typeof cobroFinal[key] === 'object' && cobroFinal[key] !== null && typeof cobroFinal[key] !== 'boolean') {
+  
+          // Si es un timestamp, convertirlo a string
+          if (cobroFinal[key]._seconds !== undefined || cobroFinal[key].seconds !== undefined || typeof cobroFinal[key].toDate === 'function') {
+            cobroFinal[key] = formatFechaUnificada(cobroFinal[key]);
+          } else {
+            cobroFinal[key] = '[Objeto]';
+          }
+        }
+      });
+      return cobroFinal;
+    });
+
+    setCobranzasFiltradas(filtradas);
   };
 
-  const formatFecha = (rowData) => {
-    if (!rowData.fecha) return "";
-    const date = rowData.fecha.toDate ? rowData.fecha.toDate() : new Date(rowData.fecha.seconds * 1000);
-    return date.toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+  // 🆕 Función para limpiar filtros
+  const limpiarFiltros = () => {
+    setFiltroCliente(null);
+    setFiltroFechaDesde(null);
+    setFiltroFechaHasta(null);
+    setCobranzasFiltradas(cobros);
+  };
+
+  // 🆕 Función unificada para formatear fechas en DD/MM/YY
+  const formatFechaUnificada = (fecha) => {
+    if (!fecha) return '-';
+    
+    try {
+      let fechaObj = null;
+      
+      // Si es un objeto de Firestore Timestamp con _seconds
+      if (fecha && typeof fecha === 'object' && fecha._seconds !== undefined) {
+        fechaObj = new Date(fecha._seconds * 1000);
+      }
+      // Si es un objeto de Firestore Timestamp con seconds
+      else if (fecha && typeof fecha === 'object' && fecha.seconds !== undefined) {
+        fechaObj = new Date(fecha.seconds * 1000);
+      }
+      // Si es un objeto de Firestore con toDate()
+      else if (fecha && typeof fecha === 'object' && typeof fecha.toDate === 'function') {
+        fechaObj = fecha.toDate();
+      }
+      // Si es una fecha normal
+      else if (fecha instanceof Date) {
+        fechaObj = fecha;
+      }
+      // Si es un string o número
+      else if (typeof fecha === 'string' || typeof fecha === 'number') {
+        fechaObj = new Date(fecha);
+      }
+      
+      if (fechaObj && !isNaN(fechaObj.getTime())) {
+        // Formato DD/MM/YY
+        const dia = fechaObj.getDate().toString().padStart(2, '0');
+        const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
+        const año = fechaObj.getFullYear().toString().slice(-2); // Solo los últimos 2 dígitos
+        return `${dia}/${mes}/${año}`;
+      }
+      
+      return '-';
+    } catch (error) {
+      return '-';
+    }
+  };
+
+  // 🆕 Función para limpiar datos antes de renderizar
+  const limpiarDatosParaRender = (datos) => {
+    return datos.map(cobro => {
+      const cobroLimpio = { ...cobro };
+      
+      // Asegurarse de que todos los campos sean strings o números
+      Object.keys(cobroLimpio).forEach(key => {
+        const valor = cobroLimpio[key];
+        
+        // Si es null o undefined, convertirlo a string
+        if (valor === null || valor === undefined) {
+          cobroLimpio[key] = '-';
+          return;
+        }
+        
+        // Si ya es string o número, dejarlo como está
+        if (typeof valor === 'string' || typeof valor === 'number') {
+          return;
+        }
+        
+        // Si es boolean, mantenerlo como boolean (no convertir a string)
+        if (typeof valor === 'boolean') {
+          return;
+        }
+        
+        // Si es un objeto, convertirlo
+        if (typeof valor === 'object') {
+  
+          
+          // Si es un timestamp de Firestore, convertirlo a string con formato unificado
+          if (valor._seconds !== undefined || valor.seconds !== undefined || typeof valor.toDate === 'function') {
+            cobroLimpio[key] = formatFechaUnificada(valor);
+          } else {
+            // Para cualquier otro objeto, convertirlo a string
+            cobroLimpio[key] = JSON.stringify(valor);
+          }
+        }
+      });
+      
+      return cobroLimpio;
     });
   };
 
-  const formatMonto = (rowData) => {
-    if (!rowData.monto) return "";
-    return new Intl.NumberFormat('es-AR', {
+  // Aplicar filtros cuando cambien
+  useEffect(() => {
+    const datosLimpios = limpiarDatosParaRender(cobros);
+    aplicarFiltros(datosLimpios);
+  }, [cobros, filtroCliente, filtroFechaDesde, filtroFechaHasta]);
+
+  // Cargar clientes para el filtro usando caché
+  const cargarClientes = async () => {
+    try {
+      const data = await getClientesCatalogo();
+      
+      // Filtrar clientes según el rol del usuario
+      let clientesFiltrados = data;
+      if (user.role !== 'admin') {
+        const sellerId = user.role === 'Guille' ? 1 : 2;
+        clientesFiltrados = data.filter(cliente => {
+          if (cliente.seller && cliente.seller.id) {
+            return cliente.seller.id === sellerId.toString();
+          }
+          return false;
+        });
+      }
+      
+      // Convertir a formato para dropdown
+      const options = clientesFiltrados
+        .slice()
+        .sort((a, b) => ((a.name || a.nombre || a['Razón Social'] || '').localeCompare(b.name || b.nombre || b['Razón Social'] || '')))
+        .map((c) => ({ 
+          label: c.name || c.nombre || c['Razón Social'] || c.id || '(Sin nombre)', 
+          value: c.name || c.nombre || c['Razón Social'] || c.id 
+        }));
+      
+      setClientes(options);
+    } catch (error) {
+      // Error cargando clientes
+    }
+  };
+
+  useEffect(() => {
+    cargarClientes();
+  }, [user.role]);
+
+  // Agregar función para obtener razón social
+  const getRazonSocial = (clienteId) => {
+    if (!clienteId) return '-';
+    if (catalogoCargado && clientesCatalogo.length > 0) {
+      const cliente = clientesCatalogo.find(c => c.id === clienteId);
+      return cliente ? cliente['Razón Social'] : String(clienteId);
+    }
+    return String(clienteId);
+  };
+
+  const formatMonto = (monto) => {
+    if (!monto || isNaN(monto)) {
+      return "$0";
+    }
+    const resultado = new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'ARS'
-    }).format(rowData.monto);
+    }).format(monto);
+    return resultado;
+  };
+
+  // 🆕 Función para validar y formatear cualquier valor
+  const safeRender = (value, formatter = null) => {
+    // Si es null o undefined
+    if (value === null || value === undefined) return '-';
+    
+    // Si es un objeto (incluyendo Firestore Timestamps)
+    if (typeof value === 'object' && value !== null) {
+      
+      // Si es un timestamp de Firestore, usar formato unificado
+      if (value._seconds !== undefined || value.seconds !== undefined || typeof value.toDate === 'function') {
+        return formatFechaUnificada(value);
+      }
+      
+      // Si hay un formatter personalizado
+      if (formatter) {
+        try {
+          return formatter(value);
+        } catch (error) {
+          return '[Error]';
+        }
+      }
+      
+      // Si no hay formatter, mostrar información del objeto
+      return `[${Object.keys(value).join(', ')}]`;
+    }
+    
+    // Si es un string, número, boolean, etc.
+    return String(value);
   };
 
   const updateCargadoStatus = async (cobroId, newStatus) => {
@@ -150,8 +382,8 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
         summary: 'Actualizado', 
         detail: `Estado actualizado a: ${newStatus ? 'Cargado' : 'No cargado'}` 
       });
+      fetchCobranzas(true); // Recargar datos
     } catch (error) {
-      console.error("Error al actualizar estado:", error);
       toast.current.show({ 
         severity: 'error', 
         summary: 'Error', 
@@ -162,548 +394,228 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     }
   };
 
-  // Función para eliminar cobro
-  const eliminarCobro = async (cobroId) => {
+  // 🆕 Función para eliminar cobro (solo admin)
+  const deleteCobro = async (cobroId) => {
+    setUpdatingId(cobroId);
     try {
-      await deleteDoc(doc(db, "cobranzas", cobroId));
-      toast.current.show({ severity: 'success', summary: 'Eliminado', detail: 'Cobro eliminado correctamente' });
+      const cobroRef = doc(db, "cobranzas", cobroId);
+      await deleteDoc(cobroRef);
+      toast.current.show({ 
+        severity: 'success', 
+        summary: 'Eliminado', 
+        detail: 'Cobranza eliminada correctamente' 
+      });
+      fetchCobranzas(true); // Recargar datos
     } catch (error) {
-      console.error("Error al eliminar cobro:", error);
-      toast.current.show({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el cobro' });
+      toast.current.show({ 
+        severity: 'error', 
+        summary: 'Error', 
+        detail: 'Error al eliminar la cobranza' 
+      });
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  // Template para el botón de eliminar
-  const eliminarTemplate = (rowData) => (
-    user?.role === "admin" && (
-      <Button
-        icon="pi pi-trash"
-        className="p-button-danger p-button-text p-button-sm"
-        onClick={() => {
-          confirmDialog({
-            message: `¿Seguro que deseas eliminar el cobro de ${rowData.cliente}?`,
-            header: "Confirmar eliminación",
-            icon: "pi pi-exclamation-triangle",
-            accept: () => eliminarCobro(rowData.id)
-          });
-        }}
-        tooltip="Eliminar cobro"
-        tooltipOptions={{ position: "top" }}
-      />
-    )
-  );
-
-  const cargadoTemplate = (rowData) => (
-    <div className="flex align-items-center gap-3" style={{ minWidth: 120 }}>
-      <Tag 
-        value={rowData.cargado ? "Sí" : "No"} 
-        severity={rowData.cargado ? "success" : "danger"} 
-        style={{
-          fontSize: '1.1rem',
-          fontWeight: 700,
-          padding: '0.5rem 1.2rem',
-          borderRadius: 12,
-          minWidth: 48,
-          textAlign: 'center'
-        }}
-      />
-      {user?.role === "admin" && (
-        <Button
-          icon={rowData.cargado ? "pi pi-times" : "pi pi-check"}
-          className={rowData.cargado ? "p-button-rounded p-button-text p-button-danger p-button-sm" : "p-button-rounded p-button-text p-button-success p-button-sm"}
-          style={{
-            width: 36,
-            height: 36,
-            minWidth: 36,
-            minHeight: 36,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.2rem',
-            boxShadow: 'none',
-            border: 'none',
-            marginLeft: 8
-          }}
-          size="small"
-          loading={updatingId === rowData.id}
-          onClick={() => {
-            if (rowData.cargado) {
-              confirmDialog({
-                message: '¿Seguro que deseas marcar este cobro como NO cargado?',
-                header: 'Confirmar cambio de estado',
-                icon: 'pi pi-exclamation-triangle',
-                accept: () => updateCargadoStatus(rowData.id, false)
-              });
-            } else {
-              updateCargadoStatus(rowData.id, true);
-            }
-          }}
-          tooltip={rowData.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
-          tooltipOptions={{ position: "top" }}
-        />
-      )}
-    </div>
-  );
-
-  const clearFilters = () => {
-    setFilters({
-      fecha: { value: null, matchMode: FilterMatchMode.DATE_IS },
-      cobrador: { value: null, matchMode: FilterMatchMode.EQUALS },
-      forma: { value: null, matchMode: FilterMatchMode.EQUALS },
-      cliente: { value: null, matchMode: FilterMatchMode.CONTAINS },
-      cargado: { value: null, matchMode: FilterMatchMode.EQUALS },
-    });
-  };
-
-  // Calcular estadísticas
-  const calculateStats = () => {
-    const total = cobros.length;
-    const totalAmount = cobros.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
-    const loadedCount = cobros.filter(cobro => cobro.cargado).length;
-    const notLoadedCount = total - loadedCount;
-    
-    // Estadísticas por cobrador
-    const statsByCobrador = {};
-    cobros.forEach(cobro => {
-      const cobrador = cobro.cobrador || 'Sin asignar';
-      if (!statsByCobrador[cobrador]) {
-        statsByCobrador[cobrador] = { count: 0, amount: 0 };
-      }
-      statsByCobrador[cobrador].count++;
-      statsByCobrador[cobrador].amount += cobro.monto || 0;
-    });
-
-    return {
-      total,
-      totalAmount,
-      loadedCount,
-      notLoadedCount,
-      statsByCobrador
-    };
-  };
-
-  // Agrupar cobros por fecha
-  const groupCobrosByDate = () => {
-    const grouped = {};
-    cobros.forEach(cobro => {
-      const fecha = formatFecha(cobro);
-      if (!grouped[fecha]) {
-        grouped[fecha] = [];
-      }
-      grouped[fecha].push(cobro);
-    });
-    return grouped;
-  };
-
-  const stats = calculateStats();
-  const groupedCobros = groupByDate ? groupCobrosByDate() : null;
-
-  const headerTemplate = () => (
-    <div className="mb-3">
-      {/* Estadísticas principales */}
-      <div className="grid mb-3">
-        <div className="col-12 md:col-3">
-          <Card className="text-center" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-sm opacity-90">Total Cobranzas</div>
-          </Card>
-        </div>
-        <div className="col-12 md:col-3">
-          <Card className="text-center" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
-            <div className="text-2xl font-bold">{formatMonto({ monto: stats.totalAmount })}</div>
-            <div className="text-sm opacity-90">Monto Total</div>
-          </Card>
-        </div>
-        <div className="col-12 md:col-3">
-          <Card className="text-center" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
-            <div className="text-2xl font-bold">{stats.loadedCount}</div>
-            <div className="text-sm opacity-90">Cargados</div>
-          </Card>
-        </div>
-        <div className="col-12 md:col-3">
-          <Card className="text-center" style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', color: 'white' }}>
-            <div className="text-2xl font-bold">{stats.notLoadedCount}</div>
-            <div className="text-sm opacity-90">Pendientes</div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Controles de vista */}
-      <div className="flex flex-column md:flex-row justify-content-between align-items-center mb-3 gap-2">
-        <div className="text-center md:text-left">
-          <h2 className="m-0 text-lg md:text-xl" style={{ color: "#1f2937" }}>
-            {showOnlyMyCobros ? "Mis Cobranzas" : "Lista de Cobranzas"}
-          </h2>
-          <p className="mt-1 mb-0 text-sm" style={{ color: "#6b7280" }}>
-            {showOnlyMyCobros 
-              ? `${stats.total} cobranzas realizadas por ${user?.name}` 
-              : `${stats.total} cobranzas registradas`
-            }
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap justify-content-center">
-          {showOnlyMyCobros && (
-            <Button 
-              label="Volver" 
-              icon="pi pi-arrow-left" 
-              className="p-button-secondary p-button-sm"
-              onClick={() => onNavigateToDashboard && onNavigateToDashboard()}
-            />
-          )}
-          <Button 
-            label={viewMode === 'compact' ? 'Vista Detallada' : 'Vista Compacta'}
-            icon={viewMode === 'compact' ? 'pi pi-list' : 'pi pi-th-large'}
-            className="p-button-outlined p-button-sm"
-            onClick={() => setViewMode(viewMode === 'compact' ? 'detailed' : 'compact')}
-          />
-          <Button 
-            label={groupByDate ? 'Sin Agrupar' : 'Agrupar por Fecha'}
-            icon={groupByDate ? 'pi pi-calendar-times' : 'pi pi-calendar'}
-            className="p-button-outlined p-button-sm"
-            onClick={() => setGroupByDate(!groupByDate)}
-          />
-          <Button 
-            label="Filtros" 
-            icon={filtersVisible ? "pi pi-chevron-up" : "pi pi-filter"} 
-            className="p-button-outlined p-button-sm"
-            onClick={() => setFiltersVisible(!filtersVisible)}
-          />
-        </div>
-      </div>
-
-      {/* Filtros desplegables */}
-      {filtersVisible && (
-        <Card className="p-mb-3 p-shadow-2" style={{ borderRadius: 8, background: '#f8fafc' }}>
-          <div className="grid">
-            <div className="col-12 md:col-6 lg:col-3">
-              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                Fecha específica
-              </label>
-              <Calendar 
-                value={filters.fecha.value} 
-                onChange={(e) => setFilters({...filters, fecha: {...filters.fecha, value: e.value}})}
-                dateFormat="dd/mm/yy" 
-                showIcon 
-                placeholder="Selecciona fecha"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                Cobrador
-              </label>
-              <Dropdown 
-                value={filters.cobrador.value} 
-                options={cobradores} 
-                onChange={(e) => setFilters({...filters, cobrador: {...filters.cobrador, value: e.value}})}
-                placeholder="Selecciona cobrador"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                Método de pago
-              </label>
-              <Dropdown 
-                value={filters.forma.value} 
-                options={formasDeCobro} 
-                onChange={(e) => setFilters({...filters, forma: {...filters.forma, value: e.value}})}
-                placeholder="Selecciona método"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                Cliente
-              </label>
-              <InputText 
-                value={filters.cliente.value || ''} 
-                onChange={(e) => setFilters({...filters, cliente: {...filters.cliente, value: e.target.value}})}
-                placeholder="Buscar por cliente"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-            <div className="col-12 md:col-6 lg:col-3">
-              <label className="block mb-1 text-sm font-medium" style={{ color: "#374151" }}>
-                Estado de carga
-              </label>
-              <Dropdown 
-                value={filters.cargado.value} 
-                options={estadoCarga} 
-                onChange={(e) => setFilters({...filters, cargado: {...filters.cargado, value: e.value}})}
-                placeholder="Selecciona estado"
-                className="w-full"
-                style={{ borderRadius: "8px" }}
-              />
-            </div>
-          </div>
-          <div className="flex justify-content-end mt-3">
-            <Button 
-              label="Limpiar filtros" 
-              icon="pi pi-times" 
-              className="p-button-outlined p-button-sm"
-              onClick={clearFilters}
-            />
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-
   return (
-    <div className="p-2 px-3 md:p-3 lg:p-4" style={{ width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+    <div className="p-4">
       <Toast ref={toast} />
       <ConfirmDialog />
       
-      {/* Header con botón actualizar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0, color: "#1f2937" }}>Lista de Cobranzas</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Lista de Cobranzas</h1>
+        <div className="flex gap-2">
+          <Button
+            label={showFiltros ? "Ocultar Filtros" : "Mostrar Filtros"}
+            icon={showFiltros ? "pi pi-eye-slash" : "pi pi-filter"}
+            onClick={() => setShowFiltros(!showFiltros)}
+            className="p-button-outlined p-button-sm"
+          />
+          {(filtroCliente || filtroFechaDesde || filtroFechaHasta) && (
+            <Button
+              label="Limpiar Filtros"
+              icon="pi pi-times"
+              onClick={limpiarFiltros}
+              className="p-button-secondary p-button-sm"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* SECCIÓN DE FILTROS - Menú desplegable */}
+      {showFiltros && (
+        <Card className="mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Filtro por Cliente */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Cliente</label>
+                          <Dropdown
+              value={filtroCliente}
+              options={clientes}
+              onChange={(e) => setFiltroCliente(e.value)}
+              placeholder="Seleccionar cliente"
+              showClear
+              className="w-full"
+            />
+            </div>
+
+            {/* Filtro por Fecha Desde */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Fecha Desde</label>
+              <Calendar 
+                value={filtroFechaDesde}
+                onChange={(e) => setFiltroFechaDesde(e.value)}
+                showIcon 
+                placeholder="Seleccionar fecha"
+                className="w-full"
+              />
+            </div>
+
+            {/* Filtro por Fecha Hasta */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Fecha Hasta</label>
+              <Calendar
+                value={filtroFechaHasta}
+                onChange={(e) => setFiltroFechaHasta(e.value)}
+                showIcon
+                placeholder="Seleccionar fecha"
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* RESUMEN DE FILTROS */}
+          <div className="mt-3 text-sm text-gray-600">
+            Mostrando {cobranzasFiltradas.length} de {cobros.length} cobranzas
+            {(filtroCliente || filtroFechaDesde || filtroFechaHasta) && (
+              <span className="ml-2 text-blue-600">
+                (filtros activos)
+              </span>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* 🆕 Botón actualizar solo para admin */}
+      {user.role === "admin" && (
         <Button 
           label="Actualizar" 
           icon="pi pi-refresh" 
           onClick={() => fetchCobranzas(true)} 
-          className="p-button-sm p-button-info" 
+          className="p-button-sm p-button-info mb-4" 
         />
-      </div>
-
-      {/* Estadísticas discretas */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '16px', 
-        marginBottom: '16px', 
-        padding: '8px 12px', 
-        background: '#f8fafc', 
-        borderRadius: '6px',
-        border: '1px solid #e2e8f0',
-        fontSize: '0.875rem'
-      }}>
-        <span style={{ color: '#6b7280' }}>
-          <strong style={{ color: '#1f2937' }}>{stats.total}</strong> total
-        </span>
-        <span style={{ color: '#6b7280' }}>
-          <strong style={{ color: '#059669' }}>{stats.loadedCount}</strong> cargados
-        </span>
-        <span style={{ color: '#6b7280' }}>
-          <strong style={{ color: '#dc2626' }}>{stats.notLoadedCount}</strong> pendientes
-        </span>
-        <span style={{ color: '#6b7280' }}>
-          <strong style={{ color: '#1f2937' }}>{formatMonto({ monto: stats.totalAmount })}</strong> total
-        </span>
-      </div>
-
-      {/* Lista de cobros agrupados por fecha */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-            <div className="pi pi-spin pi-spinner" style={{ fontSize: '1.5rem' }}></div>
-            <span>Cargando cobranzas...</span>
-          </div>
-        </div>
-      ) : cobros.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
-          No hay cobranzas registradas.
-        </div>
-      ) : (
-        <div>
-          {Object.entries(groupedCobros).map(([fecha, cobrosDelDia]) => {
-            const cargados = cobrosDelDia.filter(c => c.cargado);
-            const noCargados = cobrosDelDia.filter(c => !c.cargado);
-            const totalDelDia = cobrosDelDia.reduce((sum, c) => sum + (c.monto || 0), 0);
-            
-            return (
-              <Card key={fecha} className="mb-3" style={{ borderRadius: 8 }}>
-                {/* Header del día */}
-                <div className="flex justify-content-between align-items-center mb-2 p-2" style={{ 
-                  background: '#f8fafc', 
-                  borderRadius: '6px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  <div>
-                    <h4 className="m-0" style={{ color: '#1f2937', fontSize: '1rem', fontWeight: '600' }}>
-                      {fecha}
-                    </h4>
-                    <p className="m-0 mt-1" style={{ color: '#6b7280', fontSize: '0.75rem' }}>
-                      {cobrosDelDia.length} cobranzas • {formatMonto({ monto: totalDelDia })}
-                    </p>
-                  </div>
-                  <Tag 
-                    value={`${cargados.length}/${cobrosDelDia.length}`}
-                    severity={cargados.length === cobrosDelDia.length ? 'success' : 'warning'}
-                    style={{ fontSize: '0.7rem', fontWeight: '600' }}
-                  />
-                </div>
-
-                {/* Cobros Cargados */}
-                {cargados.length > 0 && (
-                  <div className="mb-3">
-                    <div className="flex align-items-center gap-2 mb-2">
-                      <Tag value="Cargados" severity="success" style={{ fontSize: '0.7rem' }} />
-                      <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                        {cargados.length} cobranza{cargados.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div className="cobros-cargados">
-                      {cargados.map((cobro, index) => (
-                        <div key={cobro.id} className="cobro-item" style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          borderBottom: index < cargados.length - 1 ? '1px solid #f1f5f9' : 'none',
-                          background: '#f0fdf4',
-                          fontSize: '0.875rem',
-                          borderRadius: '4px',
-                          marginBottom: '4px'
-                        }}>
-                          <div className="flex-1" style={{ minWidth: '80px' }}>
-                            <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px' }}>
-                              {getRazonSocial(cobro.cliente)}
-                            </div>
-                            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                              {cobro.cobrador} • {cobro.forma}
-                            </div>
-                          </div>
-                          <div className="text-right" style={{ minWidth: '80px', marginRight: '8px' }}>
-                            <div style={{ fontWeight: '600', color: '#1f2937' }}>
-                              {formatMonto(cobro)}
-                            </div>
-                          </div>
-                          <div className="flex align-items-center gap-1" style={{ minWidth: '60px' }}>
-                            <Tag 
-                              value="Sí" 
-                              severity="success" 
-                              style={{ fontSize: '0.6rem', padding: '1px 4px' }}
-                            />
-                            {user?.role === "admin" && (
-                              <Button
-                                icon="pi pi-times"
-                                className="p-button-rounded p-button-text p-button-danger p-button-sm"
-                                style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, fontSize: '0.6rem' }}
-                                size="small"
-                                loading={updatingId === cobro.id}
-                                onClick={() => {
-                                  confirmDialog({
-                                    message: '¿Marcar como NO cargado?',
-                                    header: 'Confirmar cambio',
-                                    icon: 'pi pi-exclamation-triangle',
-                                    accept: () => updateCargadoStatus(cobro.id, false)
-                                  });
-                                }}
-                                tooltip="Marcar como no cargado"
-                                tooltipOptions={{ position: "top" }}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Cobros No Cargados */}
-                {noCargados.length > 0 && (
-                  <div>
-                    <div className="flex align-items-center gap-2 mb-2">
-                      <Tag value="Pendientes" severity="danger" style={{ fontSize: '0.7rem' }} />
-                      <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                        {noCargados.length} cobranza{noCargados.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div className="cobros-pendientes">
-                      {noCargados.map((cobro, index) => (
-                        <div key={cobro.id} className="cobro-item" style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          borderBottom: index < noCargados.length - 1 ? '1px solid #f1f5f9' : 'none',
-                          background: '#fef2f2',
-                          fontSize: '0.875rem',
-                          borderRadius: '4px',
-                          marginBottom: '4px'
-                        }}>
-                          <div className="flex-1" style={{ minWidth: '80px' }}>
-                            <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '2px' }}>
-                              {getRazonSocial(cobro.cliente)}
-                            </div>
-                            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                              {cobro.cobrador} • {cobro.forma}
-                            </div>
-                          </div>
-                          <div className="text-right" style={{ minWidth: '80px', marginRight: '8px' }}>
-                            <div style={{ fontWeight: '600', color: '#1f2937' }}>
-                              {formatMonto(cobro)}
-                            </div>
-                          </div>
-                          <div className="flex align-items-center gap-1" style={{ minWidth: '60px' }}>
-                            <Tag 
-                              value="No" 
-                              severity="danger" 
-                              style={{ fontSize: '0.6rem', padding: '1px 4px' }}
-                            />
-                            {user?.role === "admin" && (
-                              <Button
-                                icon="pi pi-check"
-                                className="p-button-rounded p-button-text p-button-success p-button-sm"
-                                style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, fontSize: '0.6rem' }}
-                                size="small"
-                                loading={updatingId === cobro.id}
-                                onClick={() => updateCargadoStatus(cobro.id, true)}
-                                tooltip="Marcar como cargado"
-                                tooltipOptions={{ position: "top" }}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
       )}
 
-      {/* Estilos responsive */}
-      <style>{`
-        @media (max-width: 768px) {
-          .cobro-item {
-            flex-direction: column;
-            align-items: flex-start !important;
-            gap: 8px;
-          }
-          .cobro-item .flex-1 {
-            min-width: 100% !important;
-          }
-          .cobro-item .text-right {
-            min-width: 100% !important;
-            margin-right: 0 !important;
-            text-align: left !important;
-          }
-          .cobro-item .flex.align-items-center {
-            min-width: 100% !important;
-            justify-content: space-between;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .grid .col-6 {
-            padding: 0.25rem;
-          }
-          .grid .col-6 .p-card {
-            padding: 0.5rem !important;
-          }
-          .grid .col-6 .text-xl {
-            font-size: 1rem !important;
-          }
-          .grid .col-6 .text-xs {
-            font-size: 0.6rem !important;
-          }
-        }
-      `}</style>
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <ProgressSpinner />
+        </div>
+      ) : (
+        <DataTable 
+          value={cobranzasFiltradas} // 🆕 Usar datos filtrados
+          paginator 
+          rows={10}
+          rowsPerPageOptions={[10, 20, 50]}
+          className="p-datatable-sm"
+          emptyMessage="No hay cobranzas para mostrar"
+        >
+          <Column field="fecha" header="Fecha" sortable>
+            {(rowData) => (
+              <span>
+                {rowData.fecha || '-'}
+              </span>
+            )}
+          </Column>
+          
+          <Column field="cliente" header="Cliente" sortable>
+            {(rowData) => (
+              <span>{getRazonSocial(rowData.cliente)}</span>
+            )}
+          </Column>
+          
+          <Column field="monto" header="Monto" sortable
+            body={(rowData) => {
+              return (
+                <span className="font-semibold">
+                  {formatMonto(rowData.monto)}
+                </span>
+              );
+            }}
+          />
+          
+          <Column field="cobrador" header="Cobrador" sortable>
+            {(rowData) => (
+              <span>{rowData.cobrador || '-'}</span>
+            )}
+          </Column>
+          
+          <Column field="forma" header="Forma de Pago" sortable>
+            {(rowData) => (
+              <span>{rowData.forma || '-'}</span>
+            )}
+          </Column>
+          
+          <Column field="cargado" header="Estado" sortable
+            body={(rowData) => {
+              const valor = rowData.cargado ? "Cargado" : "No cargado";
+              const severity = rowData.cargado ? "success" : "danger";
+              return (
+                <Tag 
+                  value={valor}
+                  severity={severity}
+                />
+              );
+            }}
+          />
+          
+          <Column header="Acciones" style={{ width: '100px' }}
+            body={(rowData) => {
+              return (
+                <div className="flex gap-1">
+                  {user?.role === "admin" && (
+                    <>
+                      <Button
+                        icon={rowData.cargado ? "pi pi-times" : "pi pi-check"}
+                        className={`p-button-sm p-button-text ${rowData.cargado ? 'p-button-danger' : 'p-button-success'}`}
+                        loading={updatingId === rowData.id}
+                        onClick={() => {
+                          if (rowData.cargado) {
+                            confirmDialog({
+                              message: '¿Marcar como NO cargado?',
+                              header: 'Confirmar cambio',
+                              icon: 'pi pi-exclamation-triangle',
+                              accept: () => updateCargadoStatus(rowData.id, false)
+                            });
+                          } else {
+                            updateCargadoStatus(rowData.id, true);
+                          }
+                        }}
+                        tooltip={rowData.cargado ? "Marcar como no cargado" : "Marcar como cargado"}
+                      />
+                      <Button
+                        icon="pi pi-trash"
+                        className="p-button-sm p-button-text p-button-danger"
+                        loading={updatingId === rowData.id}
+                        onClick={() => {
+                          confirmDialog({
+                            message: '¿Estás seguro de que quieres eliminar esta cobranza?',
+                            header: 'Confirmar eliminación',
+                            icon: 'pi pi-exclamation-triangle',
+                            accept: () => deleteCobro(rowData.id)
+                          });
+                        }}
+                        tooltip="Eliminar cobranza"
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            }}
+          />
+        </DataTable>
+      )}
+
+
     </div>
   );
 }

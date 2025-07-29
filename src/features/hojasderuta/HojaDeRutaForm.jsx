@@ -15,13 +15,19 @@ const RESPONSABLES = [
   { label: 'German', value: 'German' }
 ];
 
-export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, onSave, edicion = false, hojaId, hojaData, facturasDisponibles = [] }) {
+export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, onSave, edicion = false, hojaId, hojaData, facturasDisponibles = [], user }) {
   // Si es edición, inicializar con los datos de la hoja
   const [fecha, setFecha] = useState(edicion && hojaData ? hojaData.fecha?.toDate ? hojaData.fecha.toDate() : hojaData.fecha : new Date());
   const [responsable, setResponsable] = useState(edicion && hojaData ? hojaData.responsable : null);
   const [ordenPedidos, setOrdenPedidos] = useState(edicion && hojaData ? [...(hojaData.pedidos || [])] : [...pedidosSeleccionados]);
   const [guardando, setGuardando] = useState(false);
   const [mostrarSelectorFacturas, setMostrarSelectorFacturas] = useState(false);
+
+  // 🆕 Verificar si el usuario es admin
+  const esAdmin = user?.role === 'admin';
+  
+  // 🆕 Verificar si el usuario es vendedor (Guille o Santi)
+  const esVendedor = user?.role === 'Guille' || user?.role === 'Santi';
 
   useEffect(() => {
     if (edicion && hojaData) {
@@ -63,7 +69,8 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
       cliente: factura.client?.name || factura.id,
       fecha: { toDate: () => new Date(factura.date) },
       items: factura.items || [],
-      estadoFactura: factura.status
+      estadoFactura: factura.status,
+      total: factura.total || 0 // 🆕 Agregar el total de la factura
     };
     setOrdenPedidos(prev => [...prev, nuevoPedido]);
     setMostrarSelectorFacturas(false);
@@ -77,13 +84,15 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
     setGuardando(true);
     const datosAGuardar = {
       fecha: Timestamp.fromDate(fecha),
+      fechaCreacion: Timestamp.now(), // 🆕 Agregar fecha de creación
       responsable: responsable || ordenPedidos[0]?.cobrador || '',
       pedidos: ordenPedidos.map(p => ({
         id: p.id,
         cliente: p.cliente,
         detalle: p.detalle || p.items || [],
         estado: p.estadoFactura || p.estado || '',
-        entregado: p.entregado || false // 🆕 Mantener estado de entrega
+        entregado: p.entregado || false, // 🆕 Mantener estado de entrega
+        total: p.total || 0 // 🆕 Guardar el total de la factura
       })),
       estado: hojaData?.estado || 'pendiente',
       creadoEn: hojaData?.creadoEn || Timestamp.now()
@@ -113,31 +122,46 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
         modal
       >
         <div className="p-fluid" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label>Fecha</label>
-            <Calendar value={fecha} onChange={e => setFecha(e.value)} showIcon dateFormat="dd/mm/yy" />
+          <div className="grid">
+            <div className="col-12 md:col-6">
+              <label className="block text-900 font-medium mb-2">Fecha</label>
+              <Calendar 
+                value={fecha} 
+                onChange={(e) => setFecha(e.value)} 
+                dateFormat="dd/mm/yy"
+                showIcon
+                className="w-full"
+              />
+            </div>
+            <div className="col-12 md:col-6">
+              <label className="block text-900 font-medium mb-2">Responsable</label>
+              <Dropdown
+                value={responsable}
+                options={RESPONSABLES}
+                onChange={(e) => setResponsable(e.value)}
+                placeholder="Selecciona un responsable"
+                className="w-full"
+                disabled={!esAdmin} // 🆕 Solo admin puede cambiar responsable
+              />
+            </div>
           </div>
-          <div>
-            <label>Responsable</label>
-            <Dropdown value={responsable} options={RESPONSABLES} onChange={e => setResponsable(e.value)} placeholder="Selecciona responsable" />
-          </div>
-          
-          {/* 🆕 Sección de pedidos mejorada */}
-          <div>
-            <div className="flex justify-content-between align-items-center mb-2">
-              <label>Pedidos ({ordenPedidos.length})</label>
-              {edicion && facturasParaAgregar.length > 0 && (
+
+          <div className="mt-4">
+            <div className="flex justify-content-between align-items-center mb-3">
+              <label className="block text-900 font-medium">Pedidos ({ordenPedidos.length})</label>
+              {edicion && esAdmin && ( // 🆕 Solo admin puede agregar facturas en edición
                 <Button
                   label="+ Agregar Factura"
                   icon="pi pi-plus"
-                  className="p-button-sm"
+                  className="p-button-success p-button-sm"
                   onClick={() => setMostrarSelectorFacturas(true)}
+                  disabled={facturasParaAgregar.length === 0}
                 />
               )}
             </div>
             
             {ordenPedidos.length === 0 ? (
-              <div className="p-3 border-round surface-100 text-center">
+              <div className="text-center p-4 border-round surface-100">
                 <p className="text-gray-500">No hay pedidos seleccionados</p>
               </div>
             ) : (
@@ -149,21 +173,25 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
                       {pedido.entregado && <span className="text-green-600 ml-1">✅</span>}
                     </span>
                     <div className="flex gap-1">
-                      <Button
-                        icon="pi pi-arrow-up"
-                        className="p-button-text p-button-sm"
-                        onClick={() => moverPedido(idx, -1)}
-                        disabled={idx === 0}
-                        tooltip="Mover arriba"
-                      />
-                      <Button
-                        icon="pi pi-arrow-down"
-                        className="p-button-text p-button-sm"
-                        onClick={() => moverPedido(idx, 1)}
-                        disabled={idx === ordenPedidos.length - 1}
-                        tooltip="Mover abajo"
-                      />
-                      {edicion && (
+                      {(esAdmin || esVendedor) && ( // 🆕 Admin y vendedores pueden cambiar orden
+                        <>
+                          <Button
+                            icon="pi pi-arrow-up"
+                            className="p-button-text p-button-sm"
+                            onClick={() => moverPedido(idx, -1)}
+                            disabled={idx === 0}
+                            tooltip="Mover arriba"
+                          />
+                          <Button
+                            icon="pi pi-arrow-down"
+                            className="p-button-text p-button-sm"
+                            onClick={() => moverPedido(idx, 1)}
+                            disabled={idx === ordenPedidos.length - 1}
+                            tooltip="Mover abajo"
+                          />
+                        </>
+                      )}
+                      {edicion && esAdmin && ( // 🆕 Solo admin puede eliminar pedidos
                         <Button
                           icon="pi pi-trash"
                           className="p-button-danger p-button-sm"
@@ -185,7 +213,7 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
               icon="pi pi-save" 
               onClick={handleGuardar} 
               loading={guardando} 
-              disabled={!fecha || !responsable || ordenPedidos.length === 0} 
+              disabled={!fecha || (!responsable && esAdmin) || ordenPedidos.length === 0} 
             />
           </div>
         </div>

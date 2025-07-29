@@ -178,11 +178,11 @@ export default function VisitasDashboard({ user }) {
         const sellerId = getSellerId();
         
         // Si es admin, no filtrar por vendedorId
-        const url = esAdmin 
-          ? '/api/visitas'
-          : `/api/visitas?vendedorId=${sellerId}`;
+        const urlVisitas = esAdmin
+          ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
+          : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
         
-        const res = await fetch(url);
+        const res = await fetch(urlVisitas);
         if (!res.ok) throw new Error('Error al cargar visitas');
         const data = await res.json();
         
@@ -397,8 +397,8 @@ export default function VisitasDashboard({ user }) {
       // Recargar visitas
       const sellerId = getSellerId();
       const urlVisitas = esAdmin 
-        ? '/api/visitas'
-        : `/api/visitas?vendedorId=${sellerId}`;
+        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
+        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
       const resVisitas = await fetch(urlVisitas);
       const dataVisitas = await resVisitas.json();
       setVisitas(dataVisitas);
@@ -436,8 +436,8 @@ export default function VisitasDashboard({ user }) {
       // Recargar visitas
       const sellerId = getSellerId();
       const urlVisitas = esAdmin 
-        ? '/api/visitas'
-        : `/api/visitas?vendedorId=${sellerId}`;
+        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
+        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
       const resVisitas = await fetch(urlVisitas);
       const dataVisitas = await resVisitas.json();
       setVisitas(dataVisitas);
@@ -541,9 +541,10 @@ export default function VisitasDashboard({ user }) {
       });
 
       // Recargar visitas
+      const sellerId = getSellerId();
       const urlVisitas = esAdmin 
-        ? '/api/visitas'
-        : `/api/visitas?vendedorId=${getSellerId()}`;
+        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
+        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
       const resVisitas = await fetch(urlVisitas);
       const dataVisitas = await resVisitas.json();
       setVisitas(dataVisitas);
@@ -583,9 +584,10 @@ export default function VisitasDashboard({ user }) {
       setProgramas(dataProgramas);
 
       // Recargar visitas
+      const sellerId = getSellerId();
       const urlVisitas = esAdmin 
-        ? '/api/visitas'
-        : `/api/visitas?vendedorId=${getSellerId()}`;
+        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
+        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
       const resVisitas = await fetch(urlVisitas);
       const dataVisitas = await resVisitas.json();
       setVisitas(dataVisitas);

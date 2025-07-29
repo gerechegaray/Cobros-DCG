@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { getAlegraInvoices } from '../../services/alegra';
@@ -10,7 +10,10 @@ import { InputText } from 'primereact/inputtext';
 import { Calendar } from 'primereact/calendar';
 import { Dropdown } from 'primereact/dropdown';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { Tag } from 'primereact/tag';
 import HojaDeRutaForm from '../hojasderuta/HojaDeRutaForm';
+import { Card } from 'primereact/card';
+import { getClientesCatalogo } from '../../services/firebase.js';
 
 const COBRADORES = [
   { label: "Mariano", value: "Mariano" },
@@ -21,7 +24,7 @@ const COBRADORES = [
   { label: "German", value: "German" }
 ];
 
-const FacturasAlegra = () => {
+const FacturasAlegra = ({ user }) => {
   const [facturas, setFacturas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,17 +34,158 @@ const FacturasAlegra = () => {
   const [expandedRows, setExpandedRows] = useState({});
   const [edicionHoja, setEdicionHoja] = useState({ visible: false, hojaId: null, hojaData: null });
   const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [modalEdicionVisible, setModalEdicionVisible] = useState(false);
+  const [hojaEnEdicion, setHojaEnEdicion] = useState(null);
+  const [facturasDisponiblesParaEdicion, setFacturasDisponiblesParaEdicion] = useState([]);
+  const [facturasSeleccionadasParaEdicion, setFacturasSeleccionadasParaEdicion] = useState([]);
 
-  // 🆕 Función para determinar el estado de una factura (MOVIDA ARRIBA)
+  // 🆕 Estados para filtros
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState(null);
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState(null);
+  const [filtroCliente, setFiltroCliente] = useState(null);
+  const [facturasFiltradas, setFacturasFiltradas] = useState([]);
+  const [showFiltros, setShowFiltros] = useState(false);
+  const [clientes, setClientes] = useState([]);
+  const [activeTab, setActiveTab] = useState('todos');
+
+  // 🆕 Función para aplicar filtros a facturas de Alegra
+  const aplicarFiltros = () => {
+    let filtradas = [...facturas];
+
+    // Filtro por fecha desde
+    if (filtroFechaDesde) {
+      filtradas = filtradas.filter(factura => {
+        // Convertir la fecha de la factura a Date para comparación
+        let fechaFactura = null;
+        if (factura.date) {
+          if (typeof factura.date === 'string') {
+            // Formato de Alegra: "2025-07-29T00:00:00.000Z"
+            fechaFactura = new Date(factura.date);
+          } else if (typeof factura.date === 'object') {
+            fechaFactura = new Date(factura.date);
+          }
+        }
+        
+        if (!fechaFactura || isNaN(fechaFactura.getTime())) {
+          return false;
+        }
+        
+        // Comparar fechas usando strings YYYY-MM-DD para evitar problemas de zona horaria
+        const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
+        const fechaDesdeStr = filtroFechaDesde.toISOString().split('T')[0];
+        
+        return fechaFacturaStr >= fechaDesdeStr;
+      });
+    }
+
+    // Filtro por fecha hasta
+    if (filtroFechaHasta) {
+      filtradas = filtradas.filter(factura => {
+        // Convertir la fecha de la factura a Date para comparación
+        let fechaFactura = null;
+        if (factura.date) {
+          if (typeof factura.date === 'string') {
+            // Formato de Alegra: "2025-07-29T00:00:00.000Z"
+            fechaFactura = new Date(factura.date);
+          } else if (typeof factura.date === 'object') {
+            fechaFactura = new Date(factura.date);
+          }
+        }
+        
+        if (!fechaFactura || isNaN(fechaFactura.getTime())) {
+          return false;
+        }
+        
+        // Comparar fechas usando strings YYYY-MM-DD para evitar problemas de zona horaria
+        const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
+        const fechaHastaStr = filtroFechaHasta.toISOString().split('T')[0];
+        
+        return fechaFacturaStr <= fechaHastaStr;
+      });
+    }
+
+    // Filtro por cliente
+    if (filtroCliente) {
+      filtradas = filtradas.filter(factura => {
+        const nombreCliente = factura.client?.name || factura.client?.nombre || factura.client?.id || '';
+        return nombreCliente.toLowerCase().includes(filtroCliente.toLowerCase());
+      });
+    }
+
+    setFacturasFiltradas(filtradas);
+  };
+
+  // 🆕 Función para limpiar filtros
+  const limpiarFiltros = () => {
+    setFiltroFechaDesde(null);
+    setFiltroFechaHasta(null);
+    setFiltroCliente(null);
+    setFacturasFiltradas(facturas);
+  };
+
+  // 🆕 Función para cargar clientes con cache y filtro por rol
+  const cargarClientes = async () => {
+    try {
+      const data = await getClientesCatalogo();
+      let clientesFiltrados = data;
+      if (user.role !== 'admin') {
+        const sellerId = user.role === 'Guille' ? "1" : "2";
+        clientesFiltrados = data.filter(cliente => {
+          if (cliente.seller && cliente.seller.id) {
+            return cliente.seller.id === sellerId;
+          }
+          return false;
+        });
+      }
+      const clientesOrdenados = clientesFiltrados.sort((a, b) => {
+        const nombreA = (a.name || a.nombre || a['Razón Social'] || '').toLowerCase();
+        const nombreB = (b.name || b.nombre || b['Razón Social'] || '').toLowerCase();
+        return nombreA.localeCompare(nombreB);
+      });
+      setClientes(clientesOrdenados);
+    } catch (error) {
+      // Error cargando clientes
+    }
+  };
+
+  // 🆕 Aplicar filtros cuando cambien
+  useEffect(() => {
+    aplicarFiltros();
+  }, [facturas, filtroFechaDesde, filtroFechaHasta, filtroCliente]);
+
+  // 🆕 Cargar clientes cuando cambie el usuario
+  useEffect(() => {
+    if (user?.role) {
+      cargarClientes();
+    }
+  }, [user]);
+
+  // 🆕 Limpiar selección cuando cambie de pestaña
+  useEffect(() => {
+    if (activeTab !== 'pendiente') {
+      setSelectedFacturas([]);
+    }
+  }, [activeTab]);
+
+  // 🆕 Verificar si el usuario es admin
+  const esAdmin = user?.role === 'admin';
+  
+  // 🆕 Verificar si el usuario es vendedor (Guille o Santi)
+  const esVendedor = user?.role === 'Guille' || user?.role === 'Santi';
+
+  // 🆕 Función para determinar el estado de una factura
   const obtenerEstadoFactura = (facturaId) => {
     // Buscar en todas las hojas de ruta
     for (const hoja of hojasDeRuta) {
-      const pedido = hoja.pedidos?.find(p => p.id === facturaId);
-      if (pedido) {
-        if (pedido.entregado) {
-          return { estado: 'entregado', color: 'success', icon: 'pi pi-check-circle' };
-        } else {
-          return { estado: 'en_reparto', color: 'warning', icon: 'pi pi-truck' };
+      // Verificar que pedidos sea un array
+      if (hoja.pedidos && Array.isArray(hoja.pedidos)) {
+        const pedido = hoja.pedidos.find(p => p.id === facturaId);
+        if (pedido) {
+          if (pedido.entregado) {
+            return { estado: 'entregado', color: 'success', icon: 'pi pi-check-circle' };
+          } else {
+            return { estado: 'en_reparto', color: 'warning', icon: 'pi pi-truck' };
+          }
         }
       }
     }
@@ -49,11 +193,13 @@ const FacturasAlegra = () => {
   };
 
   // 🆕 Función para filtrar facturas por estado
-  const facturasFiltradas = facturas.filter(factura => {
-    if (filtroEstado === 'todos') return true;
-    const estadoInfo = obtenerEstadoFactura(factura.id);
-    return estadoInfo.estado === filtroEstado;
-  });
+  const facturasFiltradasPorEstado = useMemo(() => {
+    return facturasFiltradas.filter(factura => {
+      if (activeTab === 'todos') return true;
+      const estadoInfo = obtenerEstadoFactura(factura.id);
+      return estadoInfo.estado === activeTab;
+    });
+  }, [facturasFiltradas, activeTab, hojasDeRuta]);
 
   // 🆕 Función para verificar si una factura puede ser seleccionada
   const puedeSeleccionarFactura = (facturaId) => {
@@ -61,17 +207,99 @@ const FacturasAlegra = () => {
     return estadoInfo.estado === 'pendiente';
   };
 
+  // 🆕 Función para manejar selección de facturas (solo pendientes)
+  const handleFacturaSelection = (factura) => {
+    if (!puedeSeleccionarFactura(factura.id)) {
+      return; // No permitir seleccionar facturas que no están pendientes
+    }
+    
+    const isSelected = selectedFacturas.some(f => f.id === factura.id);
+    if (isSelected) {
+      setSelectedFacturas(selectedFacturas.filter(f => f.id !== factura.id));
+    } else {
+      setSelectedFacturas([...selectedFacturas, factura]);
+    }
+  };
+
+  // 🆕 Función para manejar selección de facturas en modal de edición
+  const handleFacturaSelectionEdicion = (factura) => {
+    const isSelected = facturasSeleccionadasParaEdicion.some(f => f.id === factura.id);
+    if (isSelected) {
+      setFacturasSeleccionadasParaEdicion(facturasSeleccionadasParaEdicion.filter(f => f.id !== factura.id));
+    } else {
+      setFacturasSeleccionadasParaEdicion([...facturasSeleccionadasParaEdicion, factura]);
+    }
+  };
+
+  // 🆕 Función para agregar facturas a la hoja de ruta
+  const agregarFacturasAHoja = async () => {
+    if (!hojaEnEdicion || facturasSeleccionadasParaEdicion.length === 0) {
+      alert('Selecciona al menos una factura para agregar.');
+      return;
+    }
+
+    try {
+      const pedidosActuales = hojaEnEdicion.pedidos || [];
+      const nuevosPedidos = facturasSeleccionadasParaEdicion.map(factura => ({
+        id: factura.id,
+        entregado: false,
+        orden: pedidosActuales.length + facturasSeleccionadasParaEdicion.indexOf(factura) + 1
+      }));
+
+      const pedidosActualizados = [...pedidosActuales, ...nuevosPedidos];
+
+      await updateDoc(doc(db, 'hojasDeRuta', hojaEnEdicion.id), {
+        pedidos: pedidosActualizados
+      });
+
+      setModalEdicionVisible(false);
+      setHojaEnEdicion(null);
+      setFacturasSeleccionadasParaEdicion([]);
+      setFacturasDisponiblesParaEdicion([]);
+    } catch (error) {
+      alert('Error al agregar facturas a la hoja de ruta');
+    }
+  };
+
+  // 🆕 Función para eliminar factura de la hoja de ruta
+  const eliminarFacturaDeHoja = async (facturaId) => {
+    if (!hojaEnEdicion) return;
+
+    try {
+      const pedidosActualizados = hojaEnEdicion.pedidos.filter(p => p.id !== facturaId);
+      
+      await updateDoc(doc(db, 'hojasDeRuta', hojaEnEdicion.id), {
+        pedidos: pedidosActualizados
+      });
+
+      // Actualizar el estado local
+      setHojaEnEdicion({
+        ...hojaEnEdicion,
+        pedidos: pedidosActualizados
+      });
+    } catch (error) {
+      alert('Error al eliminar factura de la hoja de ruta');
+    }
+  };
+
   useEffect(() => {
+    // 🆕 Solo admin puede ver las facturas de Alegra
+    if (!esAdmin) {
+      setLoading(false);
+      return;
+    }
+    
     getAlegraInvoices()
       .then(data => {
         setFacturas(data);
+        setFacturasFiltradas(data); // Inicializar facturas filtradas
         setLoading(false);
       })
       .catch(err => {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [esAdmin]);
 
   // Obtener hojas de ruta pendientes desde Firestore
   useEffect(() => {
@@ -80,28 +308,39 @@ const FacturasAlegra = () => {
       const data = [];
       querySnapshot.forEach((doc) => {
         const hoja = { id: doc.id, ...doc.data() };
-        if (hoja.estado === 'pendiente') data.push(hoja);
+        if (hoja.estado === 'pendiente') {
+          // 🆕 Filtrar por responsable según el rol del usuario
+          if (esAdmin) {
+            // Admin ve todas las hojas de ruta
+            data.push(hoja);
+          } else if (esVendedor) {
+            // Vendedores solo ven hojas de ruta donde son responsables
+            if (hoja.responsable === user.role) {
+              data.push(hoja);
+            }
+          }
+        }
       });
-      setHojasDeRuta(data);
+      // 🆕 Limpiar datos antes de establecer el estado
+      const datosLimpios = limpiarDatosParaRender(data);
+      setHojasDeRuta(datosLimpios);
     });
     return () => unsubscribe();
-  }, []);
+  }, [user, esAdmin, esVendedor]);
 
   const handleAbrirModal = () => {
-    console.log('[FacturasAlegra] Handler abrir modal. selectedFacturas:', selectedFacturas);
     if (selectedFacturas.length === 0) {
       alert('Selecciona al menos una factura.');
       return;
     }
     setModalVisible(true);
-    console.log('[FacturasAlegra] Modal debería abrirse.');
   };
 
   // 🆕 Función para marcar pedido como entregado
   const marcarEntregado = async (hojaId, pedidoId) => {
     try {
       const hoja = hojasDeRuta.find(h => h.id === hojaId);
-      if (!hoja) return;
+      if (!hoja || !hoja.pedidos || !Array.isArray(hoja.pedidos)) return;
 
       const pedidosActualizados = hoja.pedidos.map(pedido => {
         if (pedido.id === pedidoId) {
@@ -123,7 +362,7 @@ const FacturasAlegra = () => {
   const cambiarOrdenPedido = async (hojaId, pedidoId, direccion) => {
     try {
       const hoja = hojasDeRuta.find(h => h.id === hojaId);
-      if (!hoja) return;
+      if (!hoja || !hoja.pedidos || !Array.isArray(hoja.pedidos)) return;
 
       const pedidos = [...hoja.pedidos];
       const indexActual = pedidos.findIndex(p => p.id === pedidoId);
@@ -168,51 +407,144 @@ const FacturasAlegra = () => {
 
   // 🆕 Función para editar hoja de ruta
   const editarHojaRuta = (hoja) => {
-    setEdicionHoja({
-      visible: true,
-      hojaId: hoja.id,
-      hojaData: hoja
+    setHojaEnEdicion(hoja);
+    
+    // Obtener facturas disponibles (solo pendientes que no están en esta hoja)
+    const facturasDisponibles = facturas.filter(factura => {
+      const estadoInfo = obtenerEstadoFactura(factura.id);
+      // Solo facturas pendientes que no están en esta hoja
+      return estadoInfo.estado === 'pendiente' && 
+             !hoja.pedidos?.some(p => p.id === factura.id);
     });
+    
+    setFacturasDisponiblesParaEdicion(facturasDisponibles);
+    setFacturasSeleccionadasParaEdicion([]);
+    setModalEdicionVisible(true);
   };
 
   // 🆕 Función para formatear moneda
   const formatearMoneda = (valor) => {
-    if (!valor) return '$0';
+    if (!valor || isNaN(valor)) return "$0";
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      currency: 'ARS'
     }).format(valor);
+  };
+
+  // 🆕 Función para formatear fechas en formato DD/MM/YY
+  const formatFecha = (fecha) => {
+    if (!fecha) return '-';
+    
+    try {
+      let fechaObj = null;
+      
+      // Si es un objeto de Firestore Timestamp con _seconds
+      if (fecha && typeof fecha === 'object' && fecha._seconds !== undefined) {
+        fechaObj = new Date(fecha._seconds * 1000);
+      }
+      // Si es un objeto de Firestore Timestamp con seconds
+      else if (fecha && typeof fecha === 'object' && fecha.seconds !== undefined) {
+        fechaObj = new Date(fecha.seconds * 1000);
+      }
+      // Si es un objeto de Firestore con toDate()
+      else if (fecha && typeof fecha === 'object' && typeof fecha.toDate === 'function') {
+        fechaObj = fecha.toDate();
+      }
+      // Si es una fecha normal
+      else if (fecha instanceof Date) {
+        fechaObj = fecha;
+      }
+      // Si es un string o número
+      else if (typeof fecha === 'string' || typeof fecha === 'number') {
+        fechaObj = new Date(fecha);
+      }
+      
+      if (fechaObj && !isNaN(fechaObj.getTime())) {
+        // Formato DD/MM/YY
+        const dia = fechaObj.getDate().toString().padStart(2, '0');
+        const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
+        const año = fechaObj.getFullYear().toString().slice(-2); // Solo los últimos 2 dígitos
+        return `${dia}/${mes}/${año}`;
+      }
+      
+      return '-';
+    } catch (error) {
+      console.error('Error formateando fecha:', error, fecha);
+      return '-';
+    }
+  };
+
+  // 🆕 Función para limpiar datos antes de renderizar
+  const limpiarDatosParaRender = (datos) => {
+    return datos.map(hoja => {
+      const hojaLimpia = { ...hoja };
+      
+      // Asegurarse de que todos los campos sean strings o números
+      Object.keys(hojaLimpia).forEach(key => {
+        const valor = hojaLimpia[key];
+        
+        // Si es null o undefined, convertirlo a string
+        if (valor === null || valor === undefined) {
+          hojaLimpia[key] = '-';
+          return;
+        }
+        
+        // Si ya es string o número, dejarlo como está
+        if (typeof valor === 'string' || typeof valor === 'number' || typeof valor === 'boolean') {
+          return;
+        }
+        
+        // Si es un objeto, convertirlo
+        if (typeof valor === 'object') {
+          
+          // Si es un timestamp de Firestore, convertirlo a string con formato unificado
+          if (valor._seconds !== undefined || valor.seconds !== undefined || typeof valor.toDate === 'function') {
+            hojaLimpia[key] = formatFecha(valor);
+          } else if (key === 'pedidos' && Array.isArray(valor)) {
+            // Preservar arrays de pedidos como arrays
+            hojaLimpia[key] = valor;
+          } else {
+            // Para cualquier otro objeto, convertirlo a string
+            hojaLimpia[key] = JSON.stringify(valor);
+          }
+        }
+      });
+      
+      return hojaLimpia;
+    });
   };
 
   // 🆕 Función para calcular total de facturas en una hoja de ruta
   const calcularTotalHojaRuta = (pedidos) => {
     if (!pedidos || !Array.isArray(pedidos)) return 0;
     return pedidos.reduce((total, pedido) => {
-      // Buscar la factura correspondiente para obtener el total
+      // 🆕 Buscar en facturas si están disponibles (admin) o usar total guardado
       const factura = facturas.find(f => f.id === pedido.id);
-      return total + (factura?.total || 0);
+      const pedidoTotal = factura?.total || pedido.total || 0;
+      return total + pedidoTotal;
     }, 0);
   };
 
   // 🆕 Función para obtener detalles completos de productos agrupados por cliente
   const obtenerDetalleProductos = (pedidos) => {
-    if (!pedidos || !Array.isArray(pedidos)) return [];
+    if (!pedidos || !Array.isArray(pedidos)) return {};
     
     const productosPorCliente = {};
     
     pedidos.forEach(pedido => {
+      // 🆕 Buscar en facturas si están disponibles (admin) o usar datos guardados
       const factura = facturas.find(f => f.id === pedido.id);
-      if (factura?.items && Array.isArray(factura.items)) {
+      const items = factura?.items || pedido.detalle || [];
+      
+      if (items && Array.isArray(items)) {
         if (!productosPorCliente[pedido.cliente]) {
           productosPorCliente[pedido.cliente] = [];
         }
         
-        factura.items.forEach(item => {
+        items.forEach(item => {
           productosPorCliente[pedido.cliente].push({
-            producto: item.name || 'Producto',
-            cantidad: item.quantity || 1
+            producto: item.name || item.producto || 'Producto',
+            cantidad: item.quantity || item.cantidad || 1
           });
         });
       }
@@ -249,14 +581,44 @@ const FacturasAlegra = () => {
     );
   };
 
+  // 🆕 Función para renderizar las acciones
+  const renderAcciones = (rowData) => {
+    if (esAdmin) {
+      return (
+        <div className="flex gap-1">
+          <Button
+            icon="pi pi-pencil"
+            className="p-button-sm p-button-text"
+            onClick={() => editarHojaRuta(rowData)}
+            tooltip="Editar"
+          />
+          <Button
+            icon="pi pi-trash"
+            className="p-button-sm p-button-text p-button-danger"
+            onClick={() => confirmarEliminacion(rowData.id)}
+            tooltip="Eliminar"
+          />
+        </div>
+      );
+    } else {
+      return <span style={{ color: 'gray', fontSize: '12px' }}>-</span>;
+    }
+  };
+
   // 🆕 Función para renderizar el contenido expandido
   const renderExpandedContent = (rowData) => {
+    console.log('[FacturasAlegra] Renderizando contenido expandido:', rowData);
+    console.log('[FacturasAlegra] Pedidos:', rowData.pedidos);
+    console.log('[FacturasAlegra] Facturas disponibles:', facturas.length);
+    
     const productosPorCliente = obtenerDetalleProductos(rowData.pedidos);
+    console.log('[FacturasAlegra] Productos por cliente:', productosPorCliente);
     
     if (Object.keys(productosPorCliente).length === 0) {
       return (
         <div className="p-3">
           <p className="text-gray-500">No hay productos disponibles para mostrar.</p>
+          <p className="text-sm text-gray-400">Debug: {JSON.stringify(rowData.pedidos?.slice(0, 2))}</p>
         </div>
       );
     }
@@ -291,12 +653,33 @@ const FacturasAlegra = () => {
                   <span className="font-bold">{index + 1}.</span> {pedido.cliente}
                   {pedido.entregado && <span className="text-green-600 ml-1">✅ Entregado</span>}
                 </span>
-                <Button
-                  icon={pedido.entregado ? "pi pi-times" : "pi pi-check"}
-                  className={`p-button-sm ${pedido.entregado ? 'p-button-danger' : 'p-button-success'}`}
-                  onClick={() => marcarEntregado(rowData.id, pedido.id)}
-                  tooltip={pedido.entregado ? "Marcar como no entregado" : "Marcar como entregado"}
-                />
+                <div className="flex gap-1">
+                  {/* 🆕 Controles de orden para vendedores */}
+                  {esVendedor && (
+                    <>
+                      <Button
+                        icon="pi pi-arrow-up"
+                        className="p-button-text p-button-sm"
+                        onClick={() => cambiarOrdenPedido(rowData.id, pedido.id, -1)}
+                        disabled={index === 0}
+                        tooltip="Mover arriba"
+                      />
+                      <Button
+                        icon="pi pi-arrow-down"
+                        className="p-button-text p-button-sm"
+                        onClick={() => cambiarOrdenPedido(rowData.id, pedido.id, 1)}
+                        disabled={index === rowData.pedidos.length - 1}
+                        tooltip="Mover abajo"
+                      />
+                    </>
+                  )}
+                  <Button
+                    icon={pedido.entregado ? "pi pi-times" : "pi pi-check"}
+                    className={`p-button-sm ${pedido.entregado ? 'p-button-danger' : 'p-button-success'}`}
+                    onClick={() => marcarEntregado(rowData.id, pedido.id)}
+                    tooltip={pedido.entregado ? "Marcar como no entregado" : "Marcar como entregado"}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -332,187 +715,424 @@ const FacturasAlegra = () => {
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
 
   return (
-    <div>
-      <ConfirmDialog />
-      <h2>Facturas de Venta (Alegra)</h2>
-      
-      {/* 🆕 Filtros por estado */}
-      <div className="flex align-items-center gap-3 mb-3">
-        <span className="font-semibold">Filtrar por estado:</span>
-        <Button
-          label="Todas"
-          className={`p-button-sm ${filtroEstado === 'todos' ? 'p-button-primary' : 'p-button-outlined'}`}
-          onClick={() => setFiltroEstado('todos')}
-        />
-        <Button
-          label="Pendientes"
-          className={`p-button-sm ${filtroEstado === 'pendiente' ? 'p-button-primary' : 'p-button-outlined'}`}
-          onClick={() => setFiltroEstado('pendiente')}
-        />
-        <Button
-          label="En Reparto"
-          className={`p-button-sm ${filtroEstado === 'en_reparto' ? 'p-button-primary' : 'p-button-outlined'}`}
-          onClick={() => setFiltroEstado('en_reparto')}
-        />
-        <Button
-          label="Entregadas"
-          className={`p-button-sm ${filtroEstado === 'entregado' ? 'p-button-primary' : 'p-button-outlined'}`}
-          onClick={() => setFiltroEstado('entregado')}
-        />
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Envíos</h1>
       </div>
 
-      <Button
-        label="+ Crear hoja de ruta con seleccionadas"
-        icon="pi pi-plus"
-        className="p-button-success p-mb-3"
-        disabled={selectedFacturas.length === 0}
-        onClick={handleAbrirModal}
-      />
-      <DataTable
-        value={facturasFiltradas}
-        paginator
-        rows={10}
-        responsiveLayout="scroll"
-        selection={selectedFacturas}
-        onSelectionChange={e => {
-          // 🆕 Solo permitir seleccionar facturas pendientes
-          const facturasPendientes = e.value.filter(f => puedeSeleccionarFactura(f.id));
-          setSelectedFacturas(facturasPendientes);
-          console.log('[FacturasAlegra] onSelectionChange:', facturasPendientes);
-        }}
-        dataKey="id"
-        selectionMode="multiple"
-        emptyMessage="No hay facturas con el estado seleccionado"
-      >
-        <Column 
-          selectionMode="multiple" 
-          headerStyle={{ width: '3em' }}
-          body={(rowData) => (
-            <input 
-              type="checkbox" 
-              checked={selectedFacturas.some(f => f.id === rowData.id)}
-              onChange={(e) => {
-                if (e.target.checked && puedeSeleccionarFactura(rowData.id)) {
-                  setSelectedFacturas(prev => [...prev, rowData]);
-                } else if (!e.target.checked) {
-                  setSelectedFacturas(prev => prev.filter(f => f.id !== rowData.id));
-                }
-              }}
-              disabled={!puedeSeleccionarFactura(rowData.id)}
+      {/* BOTONES DE FILTROS */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex gap-2">
+          <Button
+            label={showFiltros ? "Ocultar Filtros" : "Mostrar Filtros"}
+            icon={showFiltros ? "pi pi-eye-slash" : "pi pi-filter"}
+            onClick={() => setShowFiltros(!showFiltros)}
+            className="p-button-outlined p-button-sm"
+          />
+          {(filtroCliente || filtroFechaDesde || filtroFechaHasta) && (
+            <Button
+              label="Limpiar Filtros"
+              icon="pi pi-times"
+              onClick={limpiarFiltros}
+              className="p-button-secondary p-button-sm"
             />
           )}
-        />
-        <Column field="id" header="ID" />
-        <Column field="date" header="Fecha" />
-        <Column field="client.name" header="Cliente" />
-        <Column 
-          field="total" 
-          header="Total" 
-          body={(rowData) => formatearMoneda(rowData.total)}
-        />
-        <Column 
-          field="status" 
-          header="Estado" 
-          body={renderEstadoFactura}
-        />
-      </DataTable>
-      {/* Modal con el formulario modular para hoja de ruta */}
-      {modalVisible && (
-        (() => { console.log('[FacturasAlegra] Renderizando HojaDeRutaForm, modalVisible:', modalVisible, 'selectedFacturas:', selectedFacturas); return null; })() ||
-        <HojaDeRutaForm
-          visible={modalVisible}
-          onHide={() => setModalVisible(false)}
-          pedidosSeleccionados={selectedFacturas.map(f => ({
-            id: f.id,
-            cliente: f.client?.name || f.id,
-            fecha: { toDate: () => new Date(f.date) },
-            items: f.items || [],
-            estadoFactura: f.status
-          }))}
-          onSave={() => {
-            setSelectedFacturas([]);
-            setModalVisible(false);
-          }}
-        />
+        </div>
+      </div>
+
+      {/* SECCIÓN DE FILTROS (DESPLEGABLE) */}
+      {showFiltros && (
+        <Card className="mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Filtro por Cliente */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Cliente</label>
+              <Dropdown
+                value={filtroCliente}
+                options={clientes.map(c => ({
+                  label: c.name || c.nombre || c['Razón Social'] || c.id || '(Sin nombre)',
+                  value: c.name || c.nombre || c['Razón Social'] || c.id
+                }))}
+                onChange={(e) => setFiltroCliente(e.value)}
+                placeholder="Seleccionar cliente"
+                showClear
+                filter
+                filterPlaceholder="Buscar cliente..."
+                className="w-full"
+              />
+            </div>
+
+            {/* Filtro por Fecha Desde */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Fecha Desde</label>
+              <Calendar
+                value={filtroFechaDesde}
+                onChange={(e) => setFiltroFechaDesde(e.value)}
+                showIcon
+                placeholder="Seleccionar fecha"
+                className="w-full"
+              />
+            </div>
+
+            {/* Filtro por Fecha Hasta */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Fecha Hasta</label>
+              <Calendar
+                value={filtroFechaHasta}
+                onChange={(e) => setFiltroFechaHasta(e.value)}
+                showIcon
+                placeholder="Seleccionar fecha"
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* RESUMEN DE FILTROS */}
+          <div className="mt-3 text-sm text-gray-600">
+            Mostrando {facturasFiltradasPorEstado.length} de {facturas.length} facturas
+            {(filtroCliente || filtroFechaDesde || filtroFechaHasta) && (
+              <span className="ml-2 text-blue-600">
+                (filtros activos)
+              </span>
+            )}
+            {activeTab !== 'todos' && (
+              <span className="ml-2 text-green-600">
+                (pestaña: {activeTab === 'pendiente' ? 'Pendientes' : activeTab === 'en_reparto' ? 'En Reparto' : 'Entregadas'})
+              </span>
+            )}
+          </div>
+        </Card>
       )}
-      {/* Modal para editar hoja de ruta */}
-      {edicionHoja.visible && (
-        <HojaDeRutaForm
-          visible={edicionHoja.visible}
-          onHide={() => setEdicionHoja({ visible: false, hojaId: null, hojaData: null })}
-          edicion={true}
-          hojaId={edicionHoja.hojaId}
-          hojaData={edicionHoja.hojaData}
-          pedidosSeleccionados={[]}
-          facturasDisponibles={facturas}
-          onSave={() => {
-            setEdicionHoja({ visible: false, hojaId: null, hojaData: null });
-          }}
-        />
+
+      {/* Lista de Facturas (solo para admin) */}
+      {esAdmin && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-3">Facturas Disponibles</h3>
+          
+          {/* PESTAÑAS */}
+          <div className="flex mb-4 border-b border-gray-200">
+            <Button
+              label="Todos"
+              className={`p-button-text ${activeTab === 'todos' ? 'p-button-primary border-bottom-2 border-primary' : ''}`}
+              onClick={() => setActiveTab('todos')}
+            />
+            <Button
+              label="Pendientes"
+              className={`p-button-text ${activeTab === 'pendiente' ? 'p-button-primary border-bottom-2 border-primary' : ''}`}
+              onClick={() => setActiveTab('pendiente')}
+            />
+            <Button
+              label="En Reparto"
+              className={`p-button-text ${activeTab === 'en_reparto' ? 'p-button-primary border-bottom-2 border-primary' : ''}`}
+              onClick={() => setActiveTab('en_reparto')}
+            />
+            <Button
+              label="Entregadas"
+              className={`p-button-text ${activeTab === 'entregado' ? 'p-button-primary border-bottom-2 border-primary' : ''}`}
+              onClick={() => setActiveTab('entregado')}
+            />
+          </div>
+
+          {/* BOTÓN CREAR HOJA DE RUTA (solo para pendientes) */}
+          {activeTab === 'pendiente' && selectedFacturas.length > 0 && (
+            <div className="mb-4">
+              <Button
+                label={`Crear Hoja de Ruta (${selectedFacturas.length} facturas seleccionadas)`}
+                icon="pi pi-plus"
+                onClick={handleAbrirModal}
+                className="p-button-success"
+              />
+            </div>
+          )}
+
+          <DataTable 
+            value={facturasFiltradasPorEstado} 
+            dataKey="id" 
+            paginator 
+            rows={10}
+            emptyMessage="No hay facturas disponibles"
+            className="p-datatable-sm"
+            selection={activeTab === 'pendiente' ? selectedFacturas : null}
+            onSelectionChange={(e) => {
+              if (activeTab === 'pendiente') {
+                setSelectedFacturas(e.value);
+              }
+            }}
+            selectionMode={activeTab === 'pendiente' ? 'multiple' : null}
+          >
+            {activeTab === 'pendiente' && (
+              <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+            )}
+            <Column field="id" header="ID" />
+            <Column 
+              field="date" 
+              header="Fecha" 
+              body={(rowData) => formatFecha(rowData.date)}
+            />
+            <Column 
+              field="client.name" 
+              header="Cliente" 
+              body={(rowData) => rowData.client?.name || rowData.client?.nombre || rowData.client?.id || '-'}
+            />
+            <Column 
+              field="total" 
+              header="Total" 
+              body={(rowData) => formatearMoneda(rowData.total)}
+            />
+            <Column 
+              field="status" 
+              header="Estado" 
+              body={renderEstadoFactura}
+            />
+          </DataTable>
+        </div>
       )}
-      {/* Lista de hojas de ruta pendientes */}
-      <div style={{ marginTop: 32 }}>
-        <h3>Hojas de Ruta Pendientes</h3>
+
+      {/* Hojas de Ruta */}
+      <div className="mb-6">
+        <h3>{esAdmin ? 'Hojas de Ruta Pendientes' : 'Mis Hojas de Ruta Pendientes'}</h3>
         <DataTable 
           value={hojasDeRuta} 
           dataKey="id" 
           paginator 
-          rows={5} 
-          responsiveLayout="stack" 
-          emptyMessage="No hay hojas de ruta pendientes." 
-          className="p-datatable-sm p-fluid p-mt-3"
+          rows={10}
+          emptyMessage={esAdmin ? "No hay hojas de ruta creadas" : "No tienes hojas de ruta asignadas"}
+          className="p-datatable-sm"
           expandedRows={expandedRows}
           onRowToggle={(e) => setExpandedRows(e.data)}
           rowExpansionTemplate={renderExpandedContent}
         >
-          <Column expander={true} style={{ width: '3rem' }} />
-          <Column 
-            field="fecha" 
-            header="Fecha" 
-            body={row => row.fecha?.toDate ? row.fecha.toDate().toLocaleDateString('es-AR') : ''} 
-          />
+          <Column expander style={{ width: '3rem' }} />
           <Column field="responsable" header="Responsable" />
-          <Column 
-            field="pedidos" 
-            header="Clientes y Totales" 
-            body={row => mostrarClientesConTotales(row.pedidos)}
-            style={{ minWidth: '300px' }}
+          <Column field="fecha" header="Fecha Asignación" 
+            body={(rowData) => {
+              // Si ya es un string formateado, devolverlo directamente
+              if (typeof rowData.fecha === 'string') {
+                return rowData.fecha;
+              }
+              // Si es un timestamp, formatearlo
+              return formatFecha(rowData.fecha);
+            }}
           />
           <Column 
-            field="pedidos" 
-            header="Total Hoja" 
-            body={row => formatearMoneda(calcularTotalHojaRuta(row.pedidos))}
-            style={{ textAlign: 'right' }}
+            field="total" 
+            header="Total" 
+            body={(rowData) => formatearMoneda(calcularTotalHojaRuta(rowData.pedidos))}
           />
+          <Column header="Acciones" style={{ width: '150px' }} body={renderAcciones} />
           <Column 
-            field="pedidos" 
-            header="Seguimiento" 
-            body={renderSeguimientoSimplificado}
-            style={{ minWidth: '200px' }}
+            header="Estado Entregas" 
+            body={(rowData) => {
+              const totalPedidos = rowData.pedidos?.length || 0;
+              const entregados = rowData.pedidos?.filter(p => p.entregado).length || 0;
+              const porcentaje = totalPedidos > 0 ? Math.round((entregados / totalPedidos) * 100) : 0;
+              
+              return (
+                <div className="flex align-items-center gap-2">
+                  <span className="text-sm font-semibold">
+                    {entregados}/{totalPedidos} entregados
+                  </span>
+                  {totalPedidos > 0 && (
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${porcentaje}%` }}
+                      />
+                    </div>
+                  )}
+                  {entregados === totalPedidos && totalPedidos > 0 && (
+                    <span className="text-green-600 text-lg">✅</span>
+                  )}
+                </div>
+              );
+            }}
           />
-          <Column 
-            field="estado" 
-            header="Acciones" 
-            body={row => (
-              <div className="flex gap-1">
-                <Button
-                  icon="pi pi-pencil"
-                  className="p-button-info p-button-sm"
-                  onClick={() => editarHojaRuta(row)}
-                  tooltip="Editar hoja de ruta"
+          {!esAdmin && (
+            <Column header="Estado" style={{ width: '100px' }}>
+              {(rowData) => (
+                <Tag 
+                  value={rowData.estado || 'pendiente'} 
+                  severity={rowData.estado === 'completado' ? 'success' : 'warning'}
                 />
-                <Button
-                  icon="pi pi-trash"
-                  className="p-button-danger p-button-sm"
-                  onClick={() => confirmarEliminacion(row.id)}
-                  tooltip="Eliminar hoja de ruta"
-                />
-              </div>
-            )}
-            style={{ width: '120px' }}
-          />
+              )}
+            </Column>
+          )}
         </DataTable>
       </div>
+
+      {/* Formulario de Hoja de Ruta */}
+      <HojaDeRutaForm
+        visible={modalVisible}
+        onHide={() => {
+          setModalVisible(false);
+        }}
+        onSave={(hojaDeRuta) => {
+          setModalVisible(false);
+          // No need to fetchHojasDeRuta here, as it's not directly tied to this modal's state
+          // The useEffect for hojasDeRuta already handles updates
+        }}
+        pedidosSeleccionados={selectedFacturas.map(f => ({
+          id: f.id,
+          cliente: f.client?.name || f.id,
+          fecha: { toDate: () => new Date(f.date) },
+          items: f.items || [],
+          estadoFactura: f.status,
+          total: f.total || 0 // 🆕 Agregar el total de la factura
+        }))}
+        user={user}
+      />
+
+      {/* Modal de Edición de Hoja de Ruta */}
+      <Dialog 
+        visible={modalEdicionVisible} 
+        onHide={() => {
+          setModalEdicionVisible(false);
+          setHojaEnEdicion(null);
+          setFacturasSeleccionadasParaEdicion([]);
+          setFacturasDisponiblesParaEdicion([]);
+        }}
+        header={`Editar Hoja de Ruta - ${hojaEnEdicion?.responsable || ''}`}
+        style={{ width: '90vw', maxWidth: '1000px' }}
+        modal
+      >
+        {hojaEnEdicion && (
+          <div className="space-y-6">
+            {/* INFORMACIÓN DE LA HOJA */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-semibold mb-2">Información de la Hoja de Ruta</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <strong>Responsable:</strong> {hojaEnEdicion.responsable}
+                </div>
+                <div>
+                  <strong>Fecha Creación:</strong> {formatFecha(hojaEnEdicion.fechaCreacion)}
+                </div>
+                <div>
+                  <strong>Total Actual:</strong> {formatearMoneda(calcularTotalHojaRuta(hojaEnEdicion.pedidos))}
+                </div>
+                <div>
+                  <strong>Pedidos Actuales:</strong> {hojaEnEdicion.pedidos?.length || 0}
+                </div>
+              </div>
+            </div>
+
+            {/* PEDIDOS ACTUALES */}
+            <div>
+              <h4 className="font-semibold mb-3">Pedidos Actuales</h4>
+              <DataTable 
+                value={hojaEnEdicion.pedidos || []} 
+                dataKey="id" 
+                className="p-datatable-sm"
+                emptyMessage="No hay pedidos en esta hoja de ruta"
+              >
+                <Column 
+                  field="cliente" 
+                  header="Cliente" 
+                  body={(rowData) => rowData.cliente || 'Cliente no disponible'}
+                />
+                <Column 
+                  field="entregado" 
+                  header="Estado" 
+                  body={(rowData) => (
+                    <Tag 
+                      value={rowData.entregado ? 'Entregado' : 'Pendiente'} 
+                      severity={rowData.entregado ? 'success' : 'warning'}
+                    />
+                  )}
+                />
+                <Column 
+                  header="Acciones" 
+                  body={(rowData) => (
+                    <Button
+                      icon="pi pi-trash"
+                      className="p-button-sm p-button-text p-button-danger"
+                      onClick={() => eliminarFacturaDeHoja(rowData.id)}
+                      tooltip="Eliminar de la hoja"
+                    />
+                  )}
+                />
+              </DataTable>
+            </div>
+
+            {/* AGREGAR NUEVOS PEDIDOS */}
+            <div>
+              <h4 className="font-semibold mb-3">Agregar Nuevos Pedidos</h4>
+              <DataTable 
+                value={facturasDisponiblesParaEdicion} 
+                dataKey="id" 
+                className="p-datatable-sm"
+                selection={facturasSeleccionadasParaEdicion}
+                onSelectionChange={(e) => setFacturasSeleccionadasParaEdicion(e.value)}
+                selectionMode="multiple"
+                emptyMessage="No hay facturas pendientes disponibles"
+              >
+                <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+                <Column field="id" header="ID" />
+                <Column 
+                  field="date" 
+                  header="Fecha" 
+                  body={(rowData) => formatFecha(rowData.date)}
+                />
+                <Column 
+                  field="client.name" 
+                  header="Cliente" 
+                  body={(rowData) => rowData.client?.name || rowData.client?.nombre || rowData.client?.id || '-'}
+                />
+                <Column 
+                  field="total" 
+                  header="Total" 
+                  body={(rowData) => formatearMoneda(rowData.total)}
+                />
+              </DataTable>
+            </div>
+
+            {/* BOTONES */}
+            <div className="flex justify-end gap-2">
+              <Button
+                label="Cancelar"
+                icon="pi pi-times"
+                onClick={() => {
+                  setModalEdicionVisible(false);
+                  setHojaEnEdicion(null);
+                  setFacturasSeleccionadasParaEdicion([]);
+                  setFacturasDisponiblesParaEdicion([]);
+                }}
+                className="p-button-secondary"
+              />
+              <Button
+                label={`Agregar ${facturasSeleccionadasParaEdicion.length} Facturas`}
+                icon="pi pi-plus"
+                onClick={agregarFacturasAHoja}
+                disabled={facturasSeleccionadasParaEdicion.length === 0}
+                className="p-button-success"
+              />
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Formulario de Edición */}
+      <Dialog 
+        visible={edicionHoja.visible} 
+        onHide={() => setEdicionHoja({ visible: false, hojaId: null, hojaData: null })}
+        header="Editar Hoja de Ruta"
+        style={{ width: '90vw', maxWidth: '800px' }}
+        modal
+      >
+        <HojaDeRutaForm
+          hojaDeRuta={edicionHoja.hojaData}
+          onSave={(hojaDeRuta) => {
+            setEdicionHoja({ visible: false, hojaId: null, hojaData: null });
+            // No need to fetchHojasDeRuta here, as it's not directly tied to this modal's state
+            // The useEffect for hojasDeRuta already handles updates
+          }}
+          onCancel={() => setEdicionHoja({ visible: false, hojaId: null, hojaData: null })}
+          user={user}
+        />
+      </Dialog>
+
+      {/* ConfirmDialog para eliminación */}
+      <ConfirmDialog />
     </div>
   );
 };
