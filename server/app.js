@@ -19,6 +19,82 @@ if (!global._firebaseAdminInitialized) {
 }
 const adminDb = getFirestore();
 
+// 🆕 CACHE COMPARTIDO - Configuración
+const cacheCompartido = {
+  clientes: null,
+  productos: null,
+  ultimaActualizacion: {
+    clientes: null,
+    productos: null
+  },
+  ttl: {
+    clientes: 7 * 24 * 60 * 60 * 1000,    // 7 días
+    productos: 12 * 60 * 60 * 1000         // 12 horas
+  }
+};
+
+// 🆕 Función para verificar si el cache expiró
+function cacheExpiro(tipo) {
+  if (!cacheCompartido.ultimaActualizacion[tipo]) return true;
+  
+  const ahora = Date.now();
+  const tiempoTranscurrido = ahora - cacheCompartido.ultimaActualizacion[tipo];
+  return tiempoTranscurrido > cacheCompartido.ttl[tipo];
+}
+
+// 🆕 Función para obtener tiempo transcurrido en formato legible
+function getTiempoTranscurrido(timestamp) {
+  const ahora = Date.now();
+  const diferencia = ahora - timestamp;
+  
+  const minutos = Math.floor(diferencia / (1000 * 60));
+  const horas = Math.floor(diferencia / (1000 * 60 * 60));
+  const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+  
+  if (dias > 0) return `${dias} día(s)`;
+  if (horas > 0) return `${horas} hora(s)`;
+  return `${minutos} minuto(s)`;
+}
+
+// 🆕 Función para obtener estado del cache
+function getEstadoCache() {
+  const ahora = Date.now();
+  const estado = {};
+  
+  ['clientes', 'productos'].forEach(tipo => {
+    if (cacheCompartido[tipo]) {
+      const tiempoTranscurrido = ahora - cacheCompartido.ultimaActualizacion[tipo];
+      const tiempoRestante = cacheCompartido.ttl[tipo] - tiempoTranscurrido;
+      const expiraEn = getTiempoTranscurrido(ahora - tiempoRestante);
+      
+      estado[tipo] = {
+        tieneDatos: true,
+        ultimaActualizacion: new Date(cacheCompartido.ultimaActualizacion[tipo]).toLocaleString(),
+        expiraEn: tiempoRestante > 0 ? expiraEn : 'EXPIRADO',
+        registros: cacheCompartido[tipo].length,
+        tiempoTranscurrido: getTiempoTranscurrido(cacheCompartido.ultimaActualizacion[tipo])
+      };
+    } else {
+      estado[tipo] = {
+        tieneDatos: false,
+        ultimaActualizacion: 'Nunca',
+        expiraEn: 'N/A',
+        registros: 0,
+        tiempoTranscurrido: 'N/A'
+      };
+    }
+  });
+  
+  return estado;
+}
+
+// 🆕 Función para invalidar cache
+function invalidarCache(tipo) {
+  cacheCompartido[tipo] = null;
+  cacheCompartido.ultimaActualizacion[tipo] = null;
+  console.log(`🗑️ Cache de ${tipo} invalidado manualmente`);
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -329,13 +405,35 @@ app.post("/api/sync-clientes-alegra", async (req, res) => {
 
 // Endpoint para consultar los clientes desde Firestore
 app.get("/api/clientes-firebase", async (req, res) => {
-  console.log('Entrando a /api/clientes-firebase');
+  console.log('🔄 Entrando a /api/clientes-firebase');
+  
   try {
+    // 🆕 Verificar cache compartido
+    if (cacheCompartido.clientes && !cacheExpiro('clientes')) {
+      console.log('📦 Sirviendo clientes desde cache compartido');
+      console.log(`👥 Dispositivos que usan este cache: múltiples`);
+      console.log(`⏰ Última actualización: ${getTiempoTranscurrido(cacheCompartido.ultimaActualizacion.clientes)}`);
+      console.log(`📊 Registros en cache: ${cacheCompartido.clientes.length}`);
+      
+      return res.json(cacheCompartido.clientes);
+    }
+    
+    // 🆕 Si no hay cache o expiró, cargar desde Firebase
+    console.log('🔄 Cache expirado o no existe, cargando clientes desde Firebase...');
     const snapshot = await adminDb.collection('clientesAlegra').get();
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // 🆕 Guardar en cache compartido
+    cacheCompartido.clientes = data;
+    cacheCompartido.ultimaActualizacion.clientes = Date.now();
+    
+    console.log(`✅ Cache compartido actualizado para todos los dispositivos`);
+    console.log(`📊 Registros cargados: ${data.length}`);
+    console.log(`⏰ Próxima actualización en: 7 días`);
+    
     res.json(data);
   } catch (error) {
-    console.error('Error en /api/clientes-firebase:', error);
+    console.error('❌ Error en /api/clientes-firebase:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -382,13 +480,35 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
 
 // Endpoint para consultar los productos desde Firestore
 app.get("/api/productos-firebase", async (req, res) => {
-  console.log('Entrando a /api/productos-firebase');
+  console.log('🔄 Entrando a /api/productos-firebase');
+  
   try {
+    // 🆕 Verificar cache compartido
+    if (cacheCompartido.productos && !cacheExpiro('productos')) {
+      console.log('📦 Sirviendo productos desde cache compartido');
+      console.log(`👥 Dispositivos que usan este cache: múltiples`);
+      console.log(`⏰ Última actualización: ${getTiempoTranscurrido(cacheCompartido.ultimaActualizacion.productos)}`);
+      console.log(`📊 Registros en cache: ${cacheCompartido.productos.length}`);
+      
+      return res.json(cacheCompartido.productos);
+    }
+    
+    // 🆕 Si no hay cache o expiró, cargar desde Firebase
+    console.log('🔄 Cache expirado o no existe, cargando productos desde Firebase...');
     const snapshot = await adminDb.collection('productosAlegra').get();
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // 🆕 Guardar en cache compartido
+    cacheCompartido.productos = data;
+    cacheCompartido.ultimaActualizacion.productos = Date.now();
+    
+    console.log(`✅ Cache compartido actualizado para todos los dispositivos`);
+    console.log(`📊 Registros cargados: ${data.length}`);
+    console.log(`⏰ Próxima actualización en: 12 horas`);
+    
     res.json(data);
   } catch (error) {
-    console.error('Error en /api/productos-firebase:', error);
+    console.error('❌ Error en /api/productos-firebase:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -526,6 +646,128 @@ app.post("/api/sync-estados-presupuestos", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// 🆕 Endpoint para obtener el estado del cache
+app.get("/api/cache/status", (req, res) => {
+  try {
+    const estado = getEstadoCache();
+    console.log('📊 Estado del cache consultado');
+    res.json({
+      success: true,
+      estado,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo estado del cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para invalidar cache manualmente
+app.post("/api/cache/invalidate", (req, res) => {
+  try {
+    const { tipo } = req.body; // 'clientes', 'productos', o 'todos'
+    
+    if (tipo === 'todos') {
+      invalidarCache('clientes');
+      invalidarCache('productos');
+      console.log('🗑️ Cache de clientes y productos invalidado');
+    } else if (tipo === 'clientes' || tipo === 'productos') {
+      invalidarCache(tipo);
+      console.log(`🗑️ Cache de ${tipo} invalidado`);
+    } else {
+      return res.status(400).json({ error: 'Tipo inválido. Use: clientes, productos, o todos' });
+    }
+    
+    res.json({
+      success: true,
+      message: `Cache de ${tipo} invalidado exitosamente`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error invalidando cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para forzar actualización de cache
+app.post("/api/cache/refresh", async (req, res) => {
+  try {
+    const { tipo } = req.body; // 'clientes', 'productos', o 'todos'
+    
+    console.log(`🔄 Forzando actualización de cache: ${tipo}`);
+    
+    if (tipo === 'todos' || tipo === 'clientes') {
+      invalidarCache('clientes');
+      // Forzar recarga de clientes
+      const snapshot = await adminDb.collection('clientesAlegra').get();
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cacheCompartido.clientes = data;
+      cacheCompartido.ultimaActualizacion.clientes = Date.now();
+      console.log(`✅ Cache de clientes actualizado: ${data.length} registros`);
+    }
+    
+    if (tipo === 'todos' || tipo === 'productos') {
+      invalidarCache('productos');
+      // Forzar recarga de productos
+      const snapshot = await adminDb.collection('productosAlegra').get();
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cacheCompartido.productos = data;
+      cacheCompartido.ultimaActualizacion.productos = Date.now();
+      console.log(`✅ Cache de productos actualizado: ${data.length} registros`);
+    }
+    
+    const estado = getEstadoCache();
+    res.json({
+      success: true,
+      message: `Cache de ${tipo} actualizado exitosamente`,
+      estado,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error actualizando cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para obtener estadísticas de uso del cache
+app.get("/api/cache/stats", (req, res) => {
+  try {
+    const estado = getEstadoCache();
+    const ahora = Date.now();
+    
+    const stats = {
+      clientes: {
+        ...estado.clientes,
+        ttl: '7 días',
+        proximaActualizacion: estado.clientes.tieneDatos ? 
+          new Date(cacheCompartido.ultimaActualizacion.clientes + cacheCompartido.ttl.clientes).toLocaleString() : 'N/A'
+      },
+      productos: {
+        ...estado.productos,
+        ttl: '12 horas',
+        proximaActualizacion: estado.productos.tieneDatos ? 
+          new Date(cacheCompartido.ultimaActualizacion.productos + cacheCompartido.ttl.productos).toLocaleString() : 'N/A'
+      },
+      configuracion: {
+        ttlClientes: '7 días',
+        ttlProductos: '12 horas',
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    console.log('📊 Estadísticas del cache consultadas');
+    res.json({
+      success: true,
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo estadísticas del cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

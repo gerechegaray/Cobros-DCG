@@ -14,6 +14,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import FacturasAlegra from "./features/facturas/FacturasAlegra";
 import Alerts from "./features/dashboard/Alerts";
+import CacheMonitor from "./components/CacheMonitor";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -77,13 +78,18 @@ function App() {
   const getMenuItems = () => {
     const baseItems = [
       { label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" },
-      { label: "Presupuestos", icon: "pi pi-file", path: "/presupuestos" },
+      { label: "Pedidos", icon: "pi pi-file", path: "/presupuestos" },
       { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
-      { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
-      { label: "Facturas", icon: "pi pi-file-o", path: "/facturas" },
-      { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" },
-      { label: "Clientes", icon: "pi pi-users", path: "/clientes" }
+      { label: "Clientes", icon: "pi pi-users", path: "/clientes" },
+      { label: "Envios", icon: "pi pi-file-o", path: "/facturas" },
+      { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
     ];
+
+    // 🆕 Agregar Monitor de Cache solo para admin
+    if (user && user.role === 'admin') {
+      baseItems.push({ label: "Monitor de Cache", icon: "pi pi-database", path: "/cache-monitor" });
+    }
+
     return baseItems;
   };
 
@@ -118,15 +124,19 @@ function App() {
             {user && (
               <>
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
-                <Route path="/cargar-cobro" element={<CobroForm user={user} />} />
-                <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
-                <Route path="/list" element={<CobrosList user={user} />} />
-                <Route path="/profile" element={<UserProfile user={user} onUserUpdate={handleUserUpdate} />} />
-                <Route path="/clientes" element={<SelectorCliente />} />
-                <Route path="/presupuestos/nuevo" element={<PresupuestoForm user={user} />} />
                 <Route path="/presupuestos" element={<PresupuestosList user={user} />} />
+                <Route path="/presupuestos/new" element={<PresupuestoForm user={user} />} />
+                <Route path="/list" element={<CobrosList user={user} />} />
+                <Route path="/list/new" element={<CobroForm user={user} />} />
+                <Route path="/clientes" element={<SelectorCliente />} />
+                <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
                 <Route path="/facturas" element={<FacturasAlegra user={user} />} />
-                <Route path="/alertas" element={<Alerts user={user} />} />
+                <Route path="/profile" element={<UserProfile user={user} />} />
+                <Route path="/cache-monitor" element={
+                  user && user.role === 'admin' ? 
+                  <CacheMonitor user={user} /> : 
+                  <Navigate to="/dashboard" replace />
+                } />
                 {/* Menú de Acceso Total: muestra todos los módulos juntos para pruebas */}
                 <Route path="/acceso-total" element={
                   <div style={{padding: 24}}>
@@ -141,6 +151,7 @@ function App() {
                     <SelectorCliente />
                     <PresupuestoForm user={user} />
                     <PresupuestosList user={user} />
+                    <CacheMonitor />
                   </div>
                 } />
               </>
