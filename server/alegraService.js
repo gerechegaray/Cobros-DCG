@@ -55,6 +55,8 @@ export async function getAlegraInvoices() {
       console.log(`🆕 Factura ${factura.id} sin fecha, excluida del filtro`);
       return false;
     }
+    //console log de prueba
+  
     
     // Convertir la fecha de la factura a objeto Date
     const fechaFactura = new Date(factura.date);
