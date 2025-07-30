@@ -7,14 +7,40 @@ dotenv.config();
 
 // Importo el servicio de Alegra
 import { getAlegraInvoices, getAlegraContacts, getAlegraItems } from "./alegraService.js";
-import { initializeApp, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Obtener la ruta del directorio actual
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Inicializar Firebase Admin si no está inicializado
 if (!global._firebaseAdminInitialized) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
+  try {
+    // Intentar cargar las credenciales desde el archivo
+    const serviceAccountPath = join(__dirname, 'firebase-gestion.json');
+    const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+    
+    initializeApp({
+      credential: cert(serviceAccount),
+    });
+    console.log('✅ Firebase Admin inicializado con credenciales de archivo');
+  } catch (error) {
+    console.error('❌ Error cargando credenciales de Firebase:', error);
+    // Fallback a applicationDefault si el archivo no está disponible
+    try {
+      initializeApp({
+        credential: applicationDefault(),
+      });
+      console.log('✅ Firebase Admin inicializado con applicationDefault');
+    } catch (fallbackError) {
+      console.error('❌ Error con applicationDefault:', fallbackError);
+      throw new Error('No se pudieron cargar las credenciales de Firebase');
+    }
+  }
   global._firebaseAdminInitialized = true;
 }
 const adminDb = getFirestore();
