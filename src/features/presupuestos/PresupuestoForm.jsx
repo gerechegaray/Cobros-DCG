@@ -7,6 +7,7 @@ import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { Calendar } from "primereact/calendar";
 import { useLocation } from "react-router-dom";
+import { api } from "../../services/api";
 
 function PresupuestoForm({ user, onPresupuestoCreado }) {
   const location = useLocation();
@@ -82,13 +83,11 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
     setActualizando(true);
     setError("");
     try {
-      const res = await fetch("/api/sync-clientes-alegra", { method: "POST" });
-      const data = await res.json();
+      const data = await api.syncClientesAlegra();
       if (data.success) {
         toast.current?.show({ severity: 'success', summary: 'Clientes actualizados', detail: `Se actualizaron ${data.total} clientes.` });
         // Refrescar lista de clientes
-        const resClientes = await fetch("/api/clientes-firebase");
-        const clientesData = await resClientes.json();
+        const clientesData = await api.getClientesFirebase();
         
         // Filtrar clientes según el rol del usuario
         const sellerId = getSellerId();
@@ -127,13 +126,11 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
     setActualizandoProductos(true);
     setError("");
     try {
-      const res = await fetch("/api/sync-productos-alegra", { method: "POST" });
-      const data = await res.json();
+      const data = await api.syncProductosAlegra();
       if (data.success) {
         toast.current?.show({ severity: 'success', summary: 'Productos actualizados', detail: `Se actualizaron ${data.total} productos.` });
         // Refrescar lista de productos
-        const resProductos = await fetch("/api/productos-firebase");
-        const productosData = await resProductos.json();
+        const productosData = await api.getProductosFirebase();
         setProductos(productosData);
       } else {
         setError(data.error || "Error al actualizar productos");
@@ -163,8 +160,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
     async function fetchData() {
       setLoading(true);
       try {
-        const resClientes = await fetch("/api/clientes-firebase");
-        const clientesData = await resClientes.json();
+        const clientesData = await api.getClientesFirebase();
         
         // Filtrar clientes según el rol del usuario
         const sellerId = getSellerId();
@@ -199,8 +195,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
       if (!clienteSeleccionado) return;
       setLoadingProductos(true);
       try {
-        const resProductos = await fetch("/api/productos-firebase");
-        const productosData = await resProductos.json();
+        const productosData = await api.getProductosFirebase();
         setProductos(productosData);
         setLoadingProductos(false);
       } catch (err) {
@@ -257,31 +252,22 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
     setEnviando(true);
     setError("");
     try {
-      const res = await fetch("/api/alegra/quotes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clienteId: clienteSeleccionado,
-          items: items.map(item => ({ ...item, price: item.price })),
-          observaciones,
-          usuario: user?.email || "",
-          fechaCreacion: fechaCreacion ? fechaCreacion.toISOString().slice(0, 10) : null,
-          vendedor: vendedorSeleccionado,
-          condicion,
-          dueDate: fechaVencimiento ? fechaVencimiento.toISOString().slice(0, 10) : null
-        })
+      const data = await api.createAlegraQuote({
+        clienteId: clienteSeleccionado,
+        items: items.map(item => ({ ...item, price: item.price })),
+        observaciones,
+        usuario: user?.email || "",
+        fechaCreacion: fechaCreacion ? fechaCreacion.toISOString().slice(0, 10) : null,
+        vendedor: vendedorSeleccionado,
+        condicion,
+        dueDate: fechaVencimiento ? fechaVencimiento.toISOString().slice(0, 10) : null
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Error al crear presupuesto");
-        toast.current?.show({ severity: 'error', summary: 'Error', detail: data.error || 'Error al crear presupuesto' });
-      } else {
-        toast.current?.show({ severity: 'success', summary: 'Presupuesto creado', detail: 'El presupuesto fue creado correctamente.' });
-        setItems([]);
-        setClienteSeleccionado(null);
-        setObservaciones("");
-        if (onPresupuestoCreado) onPresupuestoCreado(data.alegraQuote);
-      }
+      
+      toast.current?.show({ severity: 'success', summary: 'Presupuesto creado', detail: 'El presupuesto fue creado correctamente.' });
+      setItems([]);
+      setClienteSeleccionado(null);
+      setObservaciones("");
+      if (onPresupuestoCreado) onPresupuestoCreado(data.alegraQuote);
     } catch (err) {
       setError("Error de red al crear presupuesto");
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error de red al crear presupuesto' });

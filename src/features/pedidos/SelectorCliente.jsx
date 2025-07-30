@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { api } from "../../services/api";
 
 export default function SelectorCliente({ user }) {
   const [cliente, setCliente] = useState(null);
@@ -24,14 +25,7 @@ export default function SelectorCliente({ user }) {
       setError(null);
       try {
         console.log('[SelectorCliente] Iniciando fetch de clientes...');
-        const res = await fetch("/api/clientes-firebase");
-        console.log('[SelectorCliente] Response status:', res.status);
-        
-        if (!res.ok) {
-          throw new Error(`Error al obtener clientes: ${res.status} ${res.statusText}`);
-        }
-        
-        const data = await res.json();
+        const data = await api.getClientesFirebase();
         console.log('[SelectorCliente] Clientes obtenidos:', data.length);
         console.log('[SelectorCliente] Primer cliente:', data[0]);
         console.log('[SelectorCliente] Rol del usuario:', user?.role);

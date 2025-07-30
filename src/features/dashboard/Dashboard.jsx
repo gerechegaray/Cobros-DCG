@@ -6,6 +6,7 @@ import { ProgressBar } from "primereact/progressbar";
 import { Button } from "primereact/button";
 import Alerts from "./Alerts";
 import { useNavigate } from "react-router-dom";
+import { api } from "../../services/api";
 
 function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   const navigate = useNavigate();
@@ -199,12 +200,10 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       
       try {
         // 🆕 Obtener facturas de Alegra
-        const res = await fetch('/api/alegra/invoices');
-        const facturas = await res.json();
+        const facturas = await api.getAlegraInvoices();
         
         // 🆕 Obtener hojas de ruta para calcular estados
-        const hojasRes = await fetch('/api/hojas-de-ruta');
-        const hojasDeRuta = await hojasRes.json();
+        const hojasDeRuta = await api.getHojasDeRuta();
         
         // 🆕 Calcular estados según la lógica de la pantalla de Envíos
         let pendientes = 0;

@@ -13,6 +13,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { useRef } from "react";
 import PresupuestoForm from "./PresupuestoForm";
 import { getClientesCatalogo } from "../../services/firebase.js";
+import { api } from "../../services/api";
 
 function PresupuestosList({ user }) {
   const [presupuestos, setPresupuestos] = useState([]);
@@ -272,11 +273,9 @@ function PresupuestosList({ user }) {
   useEffect(() => {
     async function fetchCatalogos() {
       try {
-        const resClientes = await fetch("/api/clientes-firebase");
-        const clientesData = await resClientes.json();
+        const clientesData = await api.getClientesFirebase();
         setClientes(clientesData);
-        const resProductos = await fetch("/api/productos-firebase");
-        const productosData = await resProductos.json();
+        const productosData = await api.getProductosFirebase();
         setProductos(productosData);
       } catch {}
     }
@@ -288,8 +287,7 @@ function PresupuestosList({ user }) {
     async function fetchPresupuestos() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/presupuestos?email=${encodeURIComponent(user.email)}&role=${encodeURIComponent(user.role)}`);
-        let data = await res.json();
+        const data = await api.getPresupuestos(user.email, user.role);
         
         // Limpiar datos antes de establecer el estado
         const datosLimpios = limpiarDatosParaRender(data);
@@ -472,29 +470,25 @@ function PresupuestosList({ user }) {
 
   const cambiarEstado = async () => {
     if (!presupuestoDetalle) return;
-    await fetch(`/api/presupuestos/${presupuestoDetalle.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado: nuevoEstado })
-    });
+    await api.updatePresupuesto(presupuestoDetalle.id, { estado: nuevoEstado });
     setPresupuestos(prev => prev.map(p => p.id === presupuestoDetalle.id ? { ...p, estado: nuevoEstado } : p));
     setModalVisible(false);
   };
 
   // Eliminar presupuesto
   const eliminarPresupuesto = async (id) => {
-    await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' });
+    await api.deletePresupuesto(id);
     setPresupuestos(prev => prev.filter(p => p.id !== id));
   };
 
   // Sincronizar estados manualmente
   const sincronizarEstados = async () => {
-    await fetch('/api/sync-estados-presupuestos', { method: 'POST' });
+    await api.syncEstadosPresupuestos();
     // Refrescar lista
     if (user?.email && user?.role) {
       setLoading(true);
-      const res = await fetch(`/api/presupuestos?email=${encodeURIComponent(user.email)}&role=${encodeURIComponent(user.role)}`);
-      setPresupuestos(await res.json());
+      const data = await api.getPresupuestos(user.email, user.role);
+      setPresupuestos(data);
       setLoading(false);
     }
   };

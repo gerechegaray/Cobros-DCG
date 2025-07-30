@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
+import { api } from "../services/api";
 
 export default function ClienteDropdown({ value, onChange, user }) {
   const [clientes, setClientes] = useState([]);
@@ -20,14 +21,8 @@ export default function ClienteDropdown({ value, onChange, user }) {
       setError(null);
       try {
         console.log('[ClienteDropdown] Iniciando fetch de clientes...');
-        const res = await fetch("/api/clientes-firebase");
-        console.log('[ClienteDropdown] Response status:', res.status);
-        
-        if (!res.ok) {
-          throw new Error(`Error al obtener clientes: ${res.status} ${res.statusText}`);
-        }
-        
-        const data = await res.json();
+        const data = await api.getClientesFirebase();
+        console.log('[ClienteDropdown] Clientes obtenidos:', data.length);
         console.log('[ClienteDropdown] Clientes obtenidos:', data.length);
         console.log('[ClienteDropdown] Primer cliente:', data[0]);
         

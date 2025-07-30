@@ -4,6 +4,7 @@ import { Button } from 'primereact/button';
 import { ProgressBar } from 'primereact/progressbar';
 import { Toast } from 'primereact/toast';
 import { useRef } from 'react';
+import { api } from '../services/api';
 
 function CacheMonitor() {
   const [estado, setEstado] = useState(null);
@@ -14,8 +15,7 @@ function CacheMonitor() {
   const cargarEstado = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/cache/status');
-      const data = await response.json();
+      const data = await api.getCacheStatus();
       
       // 🆕 Agregar estado del caché del frontend
       const estadoFrontend = obtenerEstadoCacheFrontend();
@@ -75,12 +75,7 @@ function CacheMonitor() {
 
   const invalidarCache = async (tipo) => {
     try {
-      const response = await fetch('/api/cache/invalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo })
-      });
-      const data = await response.json();
+      const data = await api.invalidateCache(tipo);
       
       if (data.success) {
         toast.current?.show({
@@ -102,12 +97,7 @@ function CacheMonitor() {
   const refrescarCache = async (tipo) => {
     setRefreshing(true);
     try {
-      const response = await fetch('/api/cache/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo })
-      });
-      const data = await response.json();
+      const data = await api.refreshCache(tipo);
       
       if (data.success) {
         toast.current?.show({

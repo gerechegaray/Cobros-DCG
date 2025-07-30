@@ -14,6 +14,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { Checkbox } from "primereact/checkbox";
 import { Tag } from 'primereact/tag';
 import { InputText } from 'primereact/inputtext';
+import { api } from '../../services/api';
 
 export default function VisitasDashboard({ user }) {
   const [visitas, setVisitas] = useState([]);
@@ -308,9 +309,7 @@ export default function VisitasDashboard({ user }) {
   useEffect(() => {
     const cargarClientes = async () => {
       try {
-        const res = await fetch('/api/clientes-firebase');
-        if (!res.ok) throw new Error('Error al cargar clientes');
-        const data = await res.json();
+        const data = await api.getClientesFirebase();
         
         // Solo admin puede ver todos los clientes para crear programas
         if (esAdmin) {
@@ -349,16 +348,7 @@ export default function VisitasDashboard({ user }) {
   useEffect(() => {
     const cargarProgramas = async () => {
       try {
-        const sellerId = getSellerId();
-        
-        // Si es admin, no filtrar por vendedorId
-        const url = esAdmin 
-          ? '/api/visitas-programadas'
-          : `/api/visitas-programadas?vendedorId=${sellerId}`;
-        
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Error al cargar programas');
-        const data = await res.json();
+        const data = await api.getVisitasProgramadas();
         setProgramas(data);
       } catch (error) {
         console.error('Error cargando programas:', error);
@@ -386,13 +376,9 @@ export default function VisitasDashboard({ user }) {
         const sellerId = getSellerId();
         
         // Si es admin, no filtrar por vendedorId
-        const urlVisitas = esAdmin
-          ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
-          : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
-        
-        const res = await fetch(urlVisitas);
-        if (!res.ok) throw new Error('Error al cargar visitas');
-        const data = await res.json();
+        const data = esAdmin
+          ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
+          : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
         
         setVisitas(data);
       } catch (error) {
@@ -584,19 +570,11 @@ export default function VisitasDashboard({ user }) {
   // Guardar reporte
   const guardarReporte = async () => {
     try {
-      const res = await fetch(`/api/visitas/${visitaSeleccionada.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          estado: reporteVisita.estado,
-          resultado: reporteVisita.resultado,
-          comentario: reporteVisita.comentario
-        })
+      await api.updateVisita(visitaSeleccionada.id, {
+        estado: reporteVisita.estado,
+        resultado: reporteVisita.resultado,
+        comentario: reporteVisita.comentario
       });
-
-      if (!res.ok) throw new Error('Error al guardar reporte');
 
       toast.current.show({
         severity: 'success',
@@ -607,11 +585,9 @@ export default function VisitasDashboard({ user }) {
       setMostrarReporte(false);
       // Recargar visitas
       const sellerId = getSellerId();
-      const urlVisitas = esAdmin 
-        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
-        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
-      const resVisitas = await fetch(urlVisitas);
-      const dataVisitas = await resVisitas.json();
+      const dataVisitas = esAdmin 
+        ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
+        : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
       setVisitas(dataVisitas);
     } catch (error) {
       console.error('Error guardando reporte:', error);
@@ -648,24 +624,16 @@ export default function VisitasDashboard({ user }) {
       await guardarReporte();
 
       // Crear nueva visita para la fecha seleccionada
-      const res = await fetch('/api/visitas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          clienteId: visitaSeleccionada.clienteId,
-          clienteNombre: visitaSeleccionada.clienteNombre,
-          vendedorId: visitaSeleccionada.vendedorId,
-          fecha: fechaReprogramar,
-          horario: visitaSeleccionada.horario,
-          estado: 'pendiente',
-          resultado: null,
-          comentario: `Reprogramada desde ${visitaSeleccionada.fecha}`
-        })
+      await api.createVisita({
+        clienteId: visitaSeleccionada.clienteId,
+        clienteNombre: visitaSeleccionada.clienteNombre,
+        vendedorId: visitaSeleccionada.vendedorId,
+        fecha: fechaReprogramar,
+        horario: visitaSeleccionada.horario,
+        estado: 'pendiente',
+        resultado: null,
+        comentario: `Reprogramada desde ${visitaSeleccionada.fecha}`
       });
-
-      if (!res.ok) throw new Error('Error al reprogramar visita');
 
       toast.current.show({
         severity: 'success',
@@ -677,11 +645,9 @@ export default function VisitasDashboard({ user }) {
       setMostrarReporte(false);
       // Recargar visitas
       const sellerId = getSellerId();
-      const urlVisitas = esAdmin 
-        ? '/api/visitas-cache'
-        : `/api/visitas-cache?vendedorId=${sellerId}`;
-      const resVisitas = await fetch(urlVisitas);
-      const dataVisitas = await resVisitas.json();
+      const dataVisitas = esAdmin 
+        ? await api.getVisitasCache()
+        : await api.getVisitasCache(sellerId);
       setVisitas(dataVisitas);
     } catch (error) {
       console.error('Error reprogramando visita:', error);
@@ -696,17 +662,9 @@ export default function VisitasDashboard({ user }) {
   // Cancelar visita (solo admin)
   const cancelarVisita = async (visitaId) => {
     try {
-      const res = await fetch(`/api/visitas/${visitaId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          estado: 'no_realizada'
-        })
+      await api.updateVisita(visitaId, {
+        estado: 'no_realizada'
       });
-
-      if (!res.ok) throw new Error('Error al cancelar visita');
 
       toast.current.show({
         severity: 'success',
@@ -716,11 +674,9 @@ export default function VisitasDashboard({ user }) {
 
       // Recargar visitas
       const sellerId = getSellerId();
-      const urlVisitas = esAdmin 
-        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
-        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
-      const resVisitas = await fetch(urlVisitas);
-      const dataVisitas = await resVisitas.json();
+      const dataVisitas = esAdmin 
+        ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
+        : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
       setVisitas(dataVisitas);
     } catch (error) {
       console.error('Error cancelando visita:', error);
@@ -745,17 +701,7 @@ export default function VisitasDashboard({ user }) {
         return;
       }
 
-      const res = await fetch('/api/visitas-programadas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(nuevoPrograma)
-      });
-
-      if (!res.ok) throw new Error('Error al crear programa');
-
-      const result = await res.json();
+      const result = await api.createVisitaProgramada(nuevoPrograma);
 
       toast.current?.show({
         severity: 'success',
@@ -776,11 +722,7 @@ export default function VisitasDashboard({ user }) {
       });
 
       // Recargar programas
-      const urlProgramas = esAdmin 
-        ? '/api/visitas-programadas'
-        : `/api/visitas-programadas?vendedorId=${getSellerId()}`;
-      const resProgramas = await fetch(urlProgramas);
-      const dataProgramas = await resProgramas.json();
+      const dataProgramas = await api.getVisitasProgramadas();
       setProgramas(dataProgramas);
     } catch (error) {
       console.error('Error guardando programa:', error);
@@ -799,17 +741,7 @@ export default function VisitasDashboard({ user }) {
       const fechaFin = new Date();
       fechaFin.setDate(fechaFin.getDate() + 30); // Generar para el próximo mes
 
-      const res = await fetch('/api/visitas/generar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          fechaInicio: fechaInicio.toISOString().split('T')[0],
-          fechaFin: fechaFin.toISOString().split('T')[0],
-          vendedorId: esAdmin ? null : getSellerId()
-        })
-      });
+      await api.generarVisitas();
 
       if (!res.ok) throw new Error('Error al generar visitas');
 
@@ -842,13 +774,7 @@ export default function VisitasDashboard({ user }) {
   // Eliminar programa y todas sus visitas
   const eliminarPrograma = async (programaId) => {
     try {
-      const res = await fetch(`/api/visitas-programadas/${programaId}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) throw new Error('Error al eliminar programa');
-
-      const result = await res.json();
+      const result = await api.deleteVisitaProgramada(programaId);
 
       toast.current?.show({
         severity: 'success',
@@ -857,20 +783,14 @@ export default function VisitasDashboard({ user }) {
       });
 
       // Recargar programas
-      const urlProgramas = esAdmin 
-        ? '/api/visitas-programadas'
-        : `/api/visitas-programadas?vendedorId=${getSellerId()}`;
-      const resProgramas = await fetch(urlProgramas);
-      const dataProgramas = await resProgramas.json();
+      const dataProgramas = await api.getVisitasProgramadas();
       setProgramas(dataProgramas);
 
       // Recargar visitas
       const sellerId = getSellerId();
-      const urlVisitas = esAdmin 
-        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
-        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
-      const resVisitas = await fetch(urlVisitas);
-      const dataVisitas = await resVisitas.json();
+      const dataVisitas = esAdmin 
+        ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
+        : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
       setVisitas(dataVisitas);
     } catch (error) {
       console.error('Error eliminando programa:', error);
@@ -924,20 +844,10 @@ export default function VisitasDashboard({ user }) {
         return;
       }
 
-      const res = await fetch(`/api/visitas-programadas/${programaAEditar.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...programaEditado,
-          fechaActualizacion: new Date()
-        })
+      await api.updateVisitaProgramada(programaAEditar.id, {
+        ...programaEditado,
+        fechaActualizacion: new Date()
       });
-
-      if (!res.ok) throw new Error('Error al actualizar programa');
-
-      const result = await res.json();
 
       toast.current?.show({
         severity: 'success',
@@ -959,11 +869,7 @@ export default function VisitasDashboard({ user }) {
       });
 
       // Recargar programas
-      const urlProgramas = esAdmin 
-        ? '/api/visitas-programadas'
-        : `/api/visitas-programadas?vendedorId=${getSellerId()}`;
-      const resProgramas = await fetch(urlProgramas);
-      const dataProgramas = await resProgramas.json();
+      const dataProgramas = await api.getVisitasProgramadas();
       setProgramas(dataProgramas);
     } catch (error) {
       console.error('Error actualizando programa:', error);

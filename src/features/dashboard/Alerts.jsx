@@ -5,6 +5,7 @@ import { collection, query, getDocs } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
 import { Badge } from "primereact/badge";
+import { api } from "../../services/api";
 
 function Alerts({ user, onNavigateToMyCobros }) {
   const navigate = useNavigate();
@@ -68,8 +69,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
       try {
         const sellerId = user.role === "Guille" ? 1 : 2;
         // 🆕 Usar endpoint con caché
-        const res = await fetch(`/api/visitas-cache?vendedorId=${sellerId}`);
-        const visitas = await res.json();
+        const visitas = await api.getVisitasCache(sellerId);
         
         const hoy = new Date().toISOString().split('T')[0];
         const visitasDelDia = visitas.filter(v => v.fecha === hoy && v.estado === 'pendiente');
