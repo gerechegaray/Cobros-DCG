@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'https://backend-react-1kcz.onrender.com'
+      '/api': 'https://cobros-dcg.onrender.com'
     }
   }
 });
