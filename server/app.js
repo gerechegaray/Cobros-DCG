@@ -17,11 +17,19 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// 🆕 Debug: Verificar variables de entorno
+console.log('🔍 Debug - Variables de entorno Firebase:');
+console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✅ Configurado' : '❌ No configurado');
+console.log('FIREBASE_PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? '✅ Configurado' : '❌ No configurado');
+console.log('FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? '✅ Configurado' : '❌ No configurado');
+console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configurado' : '❌ No configurado');
+
         // Inicializar Firebase Admin si no está inicializado
         if (!global._firebaseAdminInitialized) {
           try {
             // Intentar usar variables de entorno primero
             if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+              console.log('🔄 Intentando inicializar Firebase con variables de entorno...');
               const serviceAccount = {
                 type: "service_account",
                 project_id: process.env.FIREBASE_PROJECT_ID || "planilla-cobranzas",
@@ -41,6 +49,7 @@ const __dirname = dirname(__filename);
               });
               console.log('✅ Firebase Admin inicializado con variables de entorno');
             } else {
+              console.log('🔄 Variables de entorno no disponibles, intentando con archivo...');
               // Fallback: intentar cargar las credenciales desde el archivo
               const serviceAccountPath = join(__dirname, 'firebase-gestion.json');
               const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
@@ -54,6 +63,7 @@ const __dirname = dirname(__filename);
             console.error('❌ Error cargando credenciales de Firebase:', error);
             // Fallback a applicationDefault si el archivo no está disponible
             try {
+              console.log('🔄 Intentando con applicationDefault...');
               initializeApp({
                 credential: applicationDefault(),
               });
