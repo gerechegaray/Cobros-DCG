@@ -128,7 +128,7 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
               <Calendar 
                 value={fecha} 
                 onChange={(e) => setFecha(e.value)} 
-                dateFormat="dd/mm/yy"
+                dateFormat="dd/mm/yyyy"
                 showIcon
                 className="w-full"
               />

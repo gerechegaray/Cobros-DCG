@@ -200,7 +200,7 @@ function CobroForm({ user }) {
               <Calendar 
                 value={fecha} 
                 onChange={(e) => setFecha(e.value)} 
-                dateFormat="dd/mm/yy" 
+                dateFormat="dd/mm/yyyy" 
                 showIcon 
                 className="p-fluid"
                 placeholder="Selecciona la fecha"

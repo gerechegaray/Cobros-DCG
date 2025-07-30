@@ -51,13 +51,13 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
   };
   const fechaVencimiento = calcularFechaVencimiento();
 
-  // Utilidad para mostrar fecha en formato DD/MM/YY
+  // Utilidad para mostrar fecha en formato DD/MM/YYYY
   const formatFecha = (date) => {
     if (!date) return '';
     const d = new Date(date);
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = String(d.getFullYear()).slice(-2);
+    const year = String(d.getFullYear());
     return `${day}/${month}/${year}`;
   };
 
@@ -376,7 +376,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
       </div>
       <div className="p-field" style={{ marginTop: 10 }}>
         <label>Fecha de creación</label>
-        <Calendar value={fechaCreacion} onChange={e => setFechaCreacion(e.value)} dateFormat="dd/mm/yy" showIcon showButtonBar />
+                    <Calendar value={fechaCreacion} onChange={e => setFechaCreacion(e.value)} dateFormat="dd/mm/yyyy" showIcon showButtonBar />
         <small>({formatFecha(fechaCreacion)})</small>
       </div>
       <div className="p-field" style={{ marginTop: 10 }}>
@@ -385,7 +385,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
       </div>
       <div className="p-field" style={{ marginTop: 10 }}>
         <label>Fecha de vencimiento</label>
-        <Calendar value={fechaVencimiento} dateFormat="dd/mm/yy" showIcon disabled style={{ width: 200 }} />
+                    <Calendar value={fechaVencimiento} dateFormat="dd/mm/yyyy" showIcon disabled style={{ width: 200 }} />
         <small>({formatFecha(fechaVencimiento)})</small>
       </div>
       <div className="p-field" style={{ marginTop: 10 }}>

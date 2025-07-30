@@ -298,23 +298,30 @@ app.get("/api/presupuestos", async (req, res) => {
     const { email, role } = req.query;
     console.log(`Filtrando presupuestos para email: ${email}, role: ${role}`);
     
-    let query = adminDb.collection('presupuestos').orderBy('fechaCreacion', 'desc');
+    // 🆕 Calcular fecha límite (7 días atrás desde hoy)
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - 7);
+    console.log(`🆕 Filtro de fecha: solo presupuestos desde ${fechaLimite.toISOString()}`);
+    
+    let query = adminDb.collection('presupuestos')
+      .where('fechaCreacion', '>=', fechaLimite) // 🆕 Filtrar por fecha
+      .orderBy('fechaCreacion', 'desc');
     let snapshot;
     
     if (role === 'admin') {
-      // Admin ve todos los presupuestos
-      console.log('Admin: mostrando todos los presupuestos');
+      // Admin ve todos los presupuestos (pero con filtro de fecha)
+      console.log('Admin: mostrando presupuestos de los últimos 7 días');
       snapshot = await query.get();
     } else {
-      // Vendedores (Guille, Santi) ven solo sus presupuestos por rol
-      console.log(`Vendedor ${role}: filtrando por rol`);
+      // Vendedores (Guille, Santi) ven solo sus presupuestos por rol (con filtro de fecha)
+      console.log(`Vendedor ${role}: filtrando por rol y fecha`);
       snapshot = await query.get();
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       // Debug: mostrar todos los presupuestos y sus usuarios
-      console.log('Todos los presupuestos:');
+      console.log('Todos los presupuestos (con filtro de fecha):');
       data.forEach(p => {
-        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}`);
+        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}, Fecha: ${p.fechaCreacion}`);
       });
       
       // Filtrado SOLO por rol/vendedor, no por email
@@ -331,14 +338,14 @@ app.get("/api/presupuestos", async (req, res) => {
       console.log(`Presupuestos filtrados para ${role}: ${filtrados.length} de ${data.length} total`);
       console.log('Presupuestos filtrados:');
       filtrados.forEach(p => {
-        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}`);
+        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}, Fecha: ${p.fechaCreacion}`);
       });
       
       return res.json(filtrados);
     }
     
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    console.log(`Presupuestos para admin: ${data.length} total`);
+    console.log(`Presupuestos para admin (últimos 7 días): ${data.length} total`);
     res.json(data);
   } catch (error) {
     console.error('Error en /api/presupuestos:', error);

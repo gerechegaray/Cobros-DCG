@@ -32,6 +32,8 @@ function PresupuestosList({ user }) {
   const [editingPresupuesto, setEditingPresupuesto] = useState(null);
   const [activeTab, setActiveTab] = useState('todos'); // Estado para pestañas
   const [showFiltros, setShowFiltros] = useState(false); // Estado para mostrar/ocultar filtros
+  const [isMobile, setIsMobile] = useState(false); // 🆕 Estado para detectar móvil
+  const [expandedCards, setExpandedCards] = useState(new Set()); // 🆕 Estado para cards expandidos
   const toast = useRef(null);
 
   const estados = [
@@ -39,6 +41,232 @@ function PresupuestosList({ user }) {
     { label: "Facturado", value: "facturado" }
   ];
   const navigate = useNavigate();
+
+  // 🆕 Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 🆕 Función para alternar expansión de cards
+  const toggleCardExpansion = (presupuestoId) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(presupuestoId)) {
+        newSet.delete(presupuestoId);
+      } else {
+        newSet.add(presupuestoId);
+      }
+      return newSet;
+    });
+  };
+
+  // 🆕 Función para manejar acciones en móvil
+  const handleMobileAction = (action, presupuesto) => {
+    switch (action) {
+      case 'ver':
+        abrirDetalle(presupuesto);
+        break;
+      case 'editar':
+        setEditingPresupuesto(presupuesto);
+        setShowForm(true);
+        break;
+      case 'eliminar':
+        if (window.confirm('¿Estás seguro de que quieres eliminar este presupuesto?')) {
+          eliminarPresupuesto(presupuesto.id);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // 🆕 Componente Card para móvil
+  const MobileCard = ({ presupuesto }) => {
+    const isExpanded = expandedCards.has(presupuesto.id);
+    
+    // Calcular total de productos
+    const getTotalProductos = () => {
+      let itemsArray = null;
+      if (Array.isArray(presupuesto.items)) {
+        itemsArray = presupuesto.items;
+      } else if (typeof presupuesto.items === 'string') {
+        try {
+          itemsArray = JSON.parse(presupuesto.items);
+        } catch (error) {
+          return 0;
+        }
+      } else if (presupuesto.items && typeof presupuesto.items === 'object') {
+        itemsArray = Object.entries(presupuesto.items).map(([key, item]) => item);
+      }
+      return Array.isArray(itemsArray) ? itemsArray.length : 0;
+    };
+
+    // Calcular total monetario
+    const getTotalMonetario = () => {
+      let itemsArray = null;
+      if (Array.isArray(presupuesto.items)) {
+        itemsArray = presupuesto.items;
+      } else if (typeof presupuesto.items === 'string') {
+        try {
+          itemsArray = JSON.parse(presupuesto.items);
+        } catch (error) {
+          return 0;
+        }
+      } else if (presupuesto.items && typeof presupuesto.items === 'object') {
+        itemsArray = Object.entries(presupuesto.items).map(([key, item]) => item);
+      }
+      
+      if (!Array.isArray(itemsArray)) return 0;
+      
+      return itemsArray.reduce((total, item) => {
+        const prod = productos.find(p => p.id == item.producto);
+        const precio = getPrecioGeneral(prod);
+        const subtotal = item.cantidad * precio * (1 - (item.bonificacion || 0) / 100);
+        return total + subtotal;
+      }, 0);
+    };
+
+    // Obtener icono y color del estado
+    const getEstadoInfo = () => {
+      switch (presupuesto.estado) {
+        case 'facturado':
+          return { icon: '✅', color: 'text-green-600', label: 'Facturado' };
+        case 'pendiente-alegra':
+          return { icon: '⏳', color: 'text-yellow-600', label: 'Pendiente' };
+        default:
+          return { icon: '📋', color: 'text-blue-600', label: 'Sin facturar' };
+      }
+    };
+
+    const estadoInfo = getEstadoInfo();
+
+    return (
+      <Card className="mb-3 shadow-sm border-1 border-gray-200">
+        {/* Estado Cerrado */}
+        <div className="flex justify-between items-center">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm text-gray-500">📅 {formatFecha(presupuesto.fechaCreacion)}</span>
+              <span className={`text-sm font-medium ${estadoInfo.color}`}>
+                {estadoInfo.icon} {estadoInfo.label}
+              </span>
+            </div>
+            <div className="font-medium text-gray-900">
+              🏢 {getClienteNombre(presupuesto.clienteId)}
+            </div>
+            <div className="text-sm text-gray-600">
+              💰 ${getTotalMonetario().toLocaleString('es-AR')}
+            </div>
+          </div>
+          <Button
+            icon={isExpanded ? "pi pi-chevron-up" : "pi pi-chevron-down"}
+            className="p-button-text p-button-sm"
+            onClick={() => toggleCardExpansion(presupuesto.id)}
+          />
+        </div>
+
+        {/* Estado Expandido */}
+        {isExpanded && (
+          <div className="pt-3 border-t border-gray-200 space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">👤 Vendedor:</span>
+                <div className="font-medium">{getVendedorNombre(presupuesto.vendedor)}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">🛒 Productos:</span>
+                <div className="font-medium">{getTotalProductos()} items</div>
+              </div>
+            </div>
+            
+            {presupuesto.observaciones && (
+              <div>
+                <span className="text-gray-500 text-sm">📝 Observaciones:</span>
+                <div className="text-sm text-gray-700 mt-1">{presupuesto.observaciones}</div>
+              </div>
+            )}
+
+            {/* Botones de acción */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                label="Ver detalles"
+                icon="pi pi-eye"
+                className="p-button-sm p-button-outlined"
+                onClick={() => handleMobileAction('ver', presupuesto)}
+              />
+              <Button
+                label="Editar"
+                icon="pi pi-pencil"
+                className="p-button-sm p-button-outlined"
+                onClick={() => handleMobileAction('editar', presupuesto)}
+              />
+              {user.role === 'admin' && (
+                <Button
+                  label="Eliminar"
+                  icon="pi pi-trash"
+                  className="p-button-sm p-button-danger p-button-outlined"
+                  onClick={() => handleMobileAction('eliminar', presupuesto)}
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+    );
+  };
+
+  // 🆕 Componente Layout para móvil
+  const MobileLayout = () => (
+    <div className="space-y-2">
+      {presupuestosFiltrados.map((presupuesto) => (
+        <MobileCard key={presupuesto.id} presupuesto={presupuesto} />
+      ))}
+    </div>
+  );
+
+  // 🆕 Componente Layout para desktop
+  const DesktopLayout = () => (
+    <DataTable 
+      value={presupuestosFiltrados}
+      paginator 
+      rows={10}
+      rowsPerPageOptions={[10, 20, 50]}
+      className="p-datatable-sm"
+      emptyMessage="No hay pedidos para mostrar"
+    >
+      <Column field="fechaCreacion" header="Fecha" body={row => {
+        const camposFecha = ['fechaCreacion', 'fecha', 'timestamp', 'date', 'createdAt', 'fechaCreacionTimestamp'];
+        let fecha = null;
+        
+        for (const campo of camposFecha) {
+          if (row[campo]) {
+            fecha = row[campo];
+            break;
+          }
+        }
+        
+        return formatFecha(fecha);
+      }} />
+      <Column field="clienteId" header="Cliente" body={row => getClienteNombre(row.clienteId)} />
+      <Column field="estado" header="Estado" body={row => {
+         let label = row.estado === 'facturado' ? 'Facturada' : 'Sin facturar';
+         let severity = row.estado === 'facturado' ? 'success' : (row.estado === 'pendiente-alegra' ? 'warning' : 'info');
+         return <Tag value={label} severity={severity} />;
+        }} />
+      <Column field="vendedor" header="Usuario" body={row => getVendedorNombre(row.vendedor)} />
+      <Column header="Acciones" body={row => <Button label="Ver" icon="pi pi-eye" className="p-button-text" onClick={() => abrirDetalle(row)} />} />
+      {user.role === 'admin' && (
+        <Column header="Eliminar" body={row => <Button icon="pi pi-trash" className="p-button-danger p-button-text" onClick={() => eliminarPresupuesto(row.id)} />} />
+      )}
+    </DataTable>
+  );
 
   // Cargar clientes y productos de Firestore para mostrar nombres
   useEffect(() => {
@@ -271,7 +499,7 @@ function PresupuestosList({ user }) {
     }
   };
 
-  // Utilidad para formatear fecha en formato DD/MM/YY
+  // Utilidad para formatear fecha en formato DD/MM/YYYY
   const formatFecha = (fecha) => {
     if (!fecha) return '-';
     
@@ -312,10 +540,10 @@ function PresupuestosList({ user }) {
       }
       
       if (fechaObj && !isNaN(fechaObj.getTime())) {
-        // Formato DD/MM/YY
+        // Formato DD/MM/YYYY
         const dia = fechaObj.getDate().toString().padStart(2, '0');
         const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
-        const año = fechaObj.getFullYear().toString().slice(-2); // Solo los últimos 2 dígitos
+        const año = fechaObj.getFullYear().toString(); // Año completo con 4 dígitos
         const resultado = `${dia}/${mes}/${año}`;
         return resultado;
       }
@@ -367,14 +595,28 @@ function PresupuestosList({ user }) {
     <div className="p-4">
       <Toast ref={toast} />
       
+      {/* Header con acciones */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Lista de Pedidos</h1>
-        <Button 
-          label="+ Nuevo Pedido" 
-          icon="pi pi-plus" 
-          onClick={() => setShowForm(true)}
-          className="p-button-success"
-        />
+        <div>
+          <h2 className="text-2xl font-bold">Presupuestos - {user.role}</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            📅 Solo se muestran presupuestos de los últimos 7 días
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            label="Nuevo Presupuesto" 
+            icon="pi pi-plus" 
+            severity="success"
+            onClick={() => setShowForm(true)}
+          />
+          <Button 
+            label="Sincronizar Estados" 
+            icon="pi pi-refresh" 
+            severity="info"
+            onClick={sincronizarEstados}
+          />
+        </div>
       </div>
 
       {/* PESTAÑAS */}
@@ -445,6 +687,7 @@ function PresupuestosList({ user }) {
                 value={filtroFechaDesde}
                 onChange={(e) => setFiltroFechaDesde(e.value)}
                 showIcon
+                dateFormat="dd/mm/yyyy"
                 placeholder="Seleccionar fecha"
                 className="w-full"
               />
@@ -457,6 +700,7 @@ function PresupuestosList({ user }) {
                 value={filtroFechaHasta}
                 onChange={(e) => setFiltroFechaHasta(e.value)}
                 showIcon
+                dateFormat="dd/mm/yyyy"
                 placeholder="Seleccionar fecha"
                 className="w-full"
               />
@@ -481,40 +725,11 @@ function PresupuestosList({ user }) {
         </div>
       ) : (
         <>
-          <DataTable 
-            value={presupuestosFiltrados} // 🆕 Usar datos filtrados
-            paginator 
-            rows={10}
-            rowsPerPageOptions={[10, 20, 50]}
-            className="p-datatable-sm"
-            emptyMessage="No hay pedidos para mostrar"
-          >
-            <Column field="fechaCreacion" header="Fecha" body={row => {
-              // Buscar fecha en múltiples campos posibles
-              const camposFecha = ['fechaCreacion', 'fecha', 'timestamp', 'date', 'createdAt', 'fechaCreacionTimestamp'];
-              let fecha = null;
-              
-              for (const campo of camposFecha) {
-                if (row[campo]) {
-                  fecha = row[campo];
-                  break;
-                }
-              }
-              
-              return formatFecha(fecha);
-            }} />
-            <Column field="clienteId" header="Cliente" body={row => getClienteNombre(row.clienteId)} />
-            <Column field="estado" header="Estado" body={row => {
-               let label = row.estado === 'facturado' ? 'Facturada' : 'Sin facturar';
-               let severity = row.estado === 'facturado' ? 'success' : (row.estado === 'pendiente-alegra' ? 'warning' : 'info');
-               return <Tag value={label} severity={severity} />;
-              }} />
-            <Column field="vendedor" header="Usuario" body={row => getVendedorNombre(row.vendedor)} />
-            <Column header="Acciones" body={row => <Button label="Ver" icon="pi pi-eye" className="p-button-text" onClick={() => abrirDetalle(row)} />} />
-            {user.role === 'admin' && (
-              <Column header="Eliminar" body={row => <Button icon="pi pi-trash" className="p-button-danger p-button-text" onClick={() => eliminarPresupuesto(row.id)} />} />
-            )}
-          </DataTable>
+          {isMobile ? (
+            <MobileLayout />
+          ) : (
+            <DesktopLayout />
+          )}
 
           <Dialog header="Detalle de Presupuesto" visible={modalVisible} style={{ width: '500px' }} onHide={() => setModalVisible(false)}>
             {detalle && (
@@ -525,9 +740,34 @@ function PresupuestosList({ user }) {
                 <p><b>Observaciones:</b> {detalle.observaciones || '-'}</p>
                 <p><b>Productos:</b></p>
                 <ul>
-                  {detalle.items.map((item, idx) => (
-                    <li key={idx}>{getProductoNombre(item.producto)} - Cantidad: {item.cantidad}</li>
-                  ))}
+                  {(() => {
+                    let itemsArray = null;
+                    
+                    // Si items es un array, usarlo directamente
+                    if (Array.isArray(detalle.items)) {
+                      itemsArray = detalle.items;
+                    }
+                    // Si items es un string JSON, parsearlo
+                    else if (typeof detalle.items === 'string') {
+                      try {
+                        itemsArray = JSON.parse(detalle.items);
+                      } catch (error) {
+                        console.error('Error parsing items JSON:', error);
+                      }
+                    }
+                    // Si items es un objeto, convertirlo a array
+                    else if (detalle.items && typeof detalle.items === 'object') {
+                      itemsArray = Object.entries(detalle.items).map(([key, item]) => item);
+                    }
+                    
+                    if (Array.isArray(itemsArray) && itemsArray.length > 0) {
+                      return itemsArray.map((item, idx) => (
+                        <li key={idx}>{getProductoNombre(item.producto)} - Cantidad: {item.cantidad}</li>
+                      ));
+                    } else {
+                      return <li>No hay productos disponibles o la estructura de datos no es válida</li>;
+                    }
+                  })()}
                 </ul>
               </div>
             )}
@@ -557,16 +797,41 @@ function PresupuestosList({ user }) {
                 <div style={{ marginTop: 10 }}>
                   <b>Productos:</b>
                   <ul>
-                    {presupuestoDetalle.items.map((item, idx) => {
-                      const prod = productos.find(p => p.id == item.producto);
-                      const precio = getPrecioGeneral(prod);
-                      const subtotal = item.cantidad * precio * (1 - (item.bonificacion || 0) / 100);
-                      return (
-                        <li key={idx}>
-                          {getProductoNombre(item.producto)} - Cantidad: {item.cantidad} - Bonificación: {item.bonificacion || 0}% - Precio: {precio.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })} - Subtotal: {subtotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                        </li>
-                      );
-                    })}
+                    {(() => {
+                      let itemsArray = null;
+                      
+                      // Si items es un array, usarlo directamente
+                      if (Array.isArray(presupuestoDetalle.items)) {
+                        itemsArray = presupuestoDetalle.items;
+                      }
+                      // Si items es un string JSON, parsearlo
+                      else if (typeof presupuestoDetalle.items === 'string') {
+                        try {
+                          itemsArray = JSON.parse(presupuestoDetalle.items);
+                        } catch (error) {
+                          console.error('Error parsing items JSON:', error);
+                        }
+                      }
+                      // Si items es un objeto, convertirlo a array
+                      else if (presupuestoDetalle.items && typeof presupuestoDetalle.items === 'object') {
+                        itemsArray = Object.entries(presupuestoDetalle.items).map(([key, item]) => item);
+                      }
+                      
+                      if (Array.isArray(itemsArray) && itemsArray.length > 0) {
+                        return itemsArray.map((item, idx) => {
+                          const prod = productos.find(p => p.id == item.producto);
+                          const precio = getPrecioGeneral(prod);
+                          const subtotal = item.cantidad * precio * (1 - (item.bonificacion || 0) / 100);
+                          return (
+                            <li key={idx}>
+                              {getProductoNombre(item.producto)} - Cantidad: {item.cantidad} - Bonificación: {item.bonificacion || 0}% - Precio: {precio.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })} - Subtotal: {subtotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                            </li>
+                          );
+                        });
+                      } else {
+                        return <li>No hay productos disponibles o la estructura de datos no es válida. Tipo de items: {typeof presupuestoDetalle.items}</li>;
+                      }
+                    })()}
                   </ul>
                 </div>
                 <div style={{ marginTop: 10 }}><b>Observaciones:</b> {presupuestoDetalle.observaciones}</div>

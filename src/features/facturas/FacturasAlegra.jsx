@@ -47,6 +47,454 @@ const FacturasAlegra = ({ user }) => {
   const [showFiltros, setShowFiltros] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [activeTab, setActiveTab] = useState('todos');
+  
+  // 🆕 Estados para responsive
+  const [isMobile, setIsMobile] = useState(false);
+  const [expandedCards, setExpandedCards] = useState(new Set());
+  const [expandedHojaCards, setExpandedHojaCards] = useState(new Set());
+  const [presupuestoDetalle, setPresupuestoDetalle] = useState(null);
+
+  // 🆕 Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 🆕 Función para alternar expansión de cards de facturas
+  const toggleFacturaCardExpansion = (facturaId) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(facturaId)) {
+        newSet.delete(facturaId);
+      } else {
+        newSet.add(facturaId);
+      }
+      return newSet;
+    });
+  };
+
+  // 🆕 Función para alternar expansión de cards de hojas de ruta
+  const toggleHojaCardExpansion = (hojaId) => {
+    setExpandedHojaCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(hojaId)) {
+        newSet.delete(hojaId);
+      } else {
+        newSet.add(hojaId);
+      }
+      return newSet;
+    });
+  };
+
+  // 🆕 Función para manejar selección de facturas en móvil
+  const handleMobileFacturaSelection = (factura) => {
+    if (activeTab !== 'pendiente') return;
+    
+    const isSelected = selectedFacturas.some(f => f.id === factura.id);
+    if (isSelected) {
+      setSelectedFacturas(prev => prev.filter(f => f.id !== factura.id));
+    } else {
+      setSelectedFacturas(prev => [...prev, factura]);
+    }
+  };
+
+  // 🆕 Componente Card para facturas en móvil
+  const MobileFacturaCard = ({ factura }) => {
+    const isExpanded = expandedCards.has(factura.id);
+    const isSelected = selectedFacturas.some(f => f.id === factura.id);
+    const canSelect = activeTab === 'pendiente';
+
+    // Obtener icono y color del estado
+    const getEstadoInfo = () => {
+      switch (factura.status) {
+        case 'paid':
+          return { icon: '✅', color: 'text-green-600', label: 'Pagada' };
+        case 'pending':
+          return { icon: '⏳', color: 'text-yellow-600', label: 'Pendiente' };
+        case 'overdue':
+          return { icon: '⚠️', color: 'text-red-600', label: 'Vencida' };
+        default:
+          return { icon: '📋', color: 'text-blue-600', label: 'Sin estado' };
+      }
+    };
+
+    const estadoInfo = getEstadoInfo();
+
+    return (
+      <Card className={`mb-3 shadow-sm border-1 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+        {/* Estado Cerrado */}
+        <div className="flex justify-between items-center">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm text-gray-500">📅 {formatFecha(factura.date)}</span>
+              <span className={`text-sm font-medium ${estadoInfo.color}`}>
+                {estadoInfo.icon} {estadoInfo.label}
+              </span>
+            </div>
+            <div className="font-medium text-gray-900">
+              🏢 {factura.client?.name || factura.client?.nombre || factura.client?.id || 'Cliente no disponible'}
+            </div>
+            <div className="text-sm text-gray-600">
+              💰 {formatearMoneda(factura.total)}
+            </div>
+            {canSelect && (
+              <div className="mt-2">
+                <Button
+                  label={isSelected ? "Deseleccionar" : "Seleccionar"}
+                  icon={isSelected ? "pi pi-check-circle" : "pi pi-circle"}
+                  className={`p-button-sm ${isSelected ? 'p-button-success' : 'p-button-outlined'}`}
+                  onClick={() => handleMobileFacturaSelection(factura)}
+                />
+              </div>
+            )}
+          </div>
+          <Button
+            icon={isExpanded ? "pi pi-chevron-up" : "pi pi-chevron-down"}
+            className="p-button-text p-button-sm"
+            onClick={() => toggleFacturaCardExpansion(factura.id)}
+          />
+        </div>
+
+        {/* Estado Expandido */}
+        {isExpanded && (
+          <div className="pt-3 border-t border-gray-200 space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">🆔 ID:</span>
+                <div className="font-medium">{factura.id}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">📊 Estado:</span>
+                <div className="font-medium">{estadoInfo.label}</div>
+              </div>
+            </div>
+            
+            {factura.items && factura.items.length > 0 && (
+              <div>
+                <span className="text-gray-500 text-sm">🛒 Productos:</span>
+                <div className="text-sm text-gray-700 mt-1">
+                  {factura.items.length} items
+                </div>
+              </div>
+            )}
+
+            {canSelect && (
+              <div className="pt-2">
+                <Button
+                  label={isSelected ? "Quitar de selección" : "Agregar a selección"}
+                  icon={isSelected ? "pi pi-minus" : "pi pi-plus"}
+                  className={`p-button-sm ${isSelected ? 'p-button-danger p-button-outlined' : 'p-button-success p-button-outlined'}`}
+                  onClick={() => handleMobileFacturaSelection(factura)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    );
+  };
+
+  // 🆕 Componente Card para hojas de ruta en móvil
+  const MobileHojaCard = ({ hoja }) => {
+    const isExpanded = expandedHojaCards.has(hoja.id);
+    const totalPedidos = hoja.pedidos?.length || 0;
+    const entregados = hoja.pedidos?.filter(p => p.entregado).length || 0;
+    const porcentaje = totalPedidos > 0 ? Math.round((entregados / totalPedidos) * 100) : 0;
+
+    return (
+      <Card className="mb-3 shadow-sm border-1 border-gray-200">
+        {/* Estado Cerrado */}
+        <div className="flex justify-between items-center">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm text-gray-500">📅 {formatFecha(hoja.fecha)}</span>
+              <span className="text-sm font-medium text-blue-600">
+                👤 {hoja.responsable}
+              </span>
+            </div>
+            <div className="font-medium text-gray-900">
+              💰 {formatearMoneda(calcularTotalHojaRuta(hoja.pedidos))}
+            </div>
+            <div className="text-sm text-gray-600">
+              📦 {entregados}/{totalPedidos} entregados
+            </div>
+            {totalPedidos > 0 && (
+              <div className="mt-1">
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${porcentaje}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <Button
+            icon={isExpanded ? "pi pi-chevron-up" : "pi pi-chevron-down"}
+            className="p-button-text p-button-sm"
+            onClick={() => toggleHojaCardExpansion(hoja.id)}
+          />
+        </div>
+
+        {/* Estado Expandido */}
+        {isExpanded && (
+          <div className="pt-3 border-t border-gray-200 space-y-3">
+            {/* Detalles de la hoja */}
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">📊 Progreso:</span>
+                <div className="font-medium">{porcentaje}% completado</div>
+              </div>
+              <div>
+                <span className="text-gray-500">📦 Total:</span>
+                <div className="font-medium">{totalPedidos} pedidos</div>
+              </div>
+            </div>
+
+            {/* Lista de pedidos */}
+            {hoja.pedidos && hoja.pedidos.length > 0 && (
+              <div>
+                <span className="text-gray-500 text-sm">📋 Pedidos:</span>
+                <div className="space-y-2 mt-2">
+                  {hoja.pedidos.map((pedido, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{pedido.cliente}</div>
+                        <div className="text-xs text-gray-500">
+                          {pedido.entregado ? '✅ Entregado' : '⏳ Pendiente'}
+                        </div>
+                      </div>
+                      {!pedido.entregado && (
+                        <Button
+                          icon="pi pi-check"
+                          className="p-button-sm p-button-success p-button-outlined"
+                          onClick={() => marcarEntregado(hoja.id, pedido.id)}
+                          tooltip="Marcar como entregado"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+                         {/* Botones de acción */}
+             <div className="flex gap-2 pt-2">
+               <Button
+                 label="Ver detalles"
+                 icon="pi pi-eye"
+                 className="p-button-sm p-button-outlined"
+                 onClick={() => {
+                   // Mostrar detalles en un modal para móvil
+                   console.log('=== DEBUG: Ver detalles de Hoja de Ruta ===');
+                   console.log('Hoja completa:', hoja);
+                   
+                   // Asegurar que pedidos sea un array
+                   let pedidosArray = [];
+                   if (hoja.pedidos && Array.isArray(hoja.pedidos)) {
+                     pedidosArray = hoja.pedidos;
+                   } else if (hoja.pedidos && typeof hoja.pedidos === 'string') {
+                     try {
+                       pedidosArray = JSON.parse(hoja.pedidos);
+                     } catch (e) {
+                       console.error('❌ Error parsing pedidos string:', e);
+                       pedidosArray = [];
+                     }
+                   }
+                   
+                   // Crear items para el modal usando la misma lógica que el desktop
+                   const productosPorCliente = obtenerDetalleProductos(pedidosArray);
+                   
+                   // Convertir productosPorCliente a items para el modal
+                   const items = [];
+                   Object.entries(productosPorCliente).forEach(([cliente, productos]) => {
+                     productos.forEach(producto => {
+                       items.push({
+                         producto: `${cliente} - ${producto.producto}`,
+                         cantidad: producto.cantidad || 1,
+                         bonificacion: 0,
+                         price: 0, // No tenemos el precio individual en esta estructura
+                         entregado: false // No tenemos el estado individual en esta estructura
+                       });
+                     });
+                   });
+                   
+                   const detalleData = {
+                     id: hoja.id,
+                     clienteId: 'Hoja de Ruta',
+                     vendedor: hoja.responsable || 'No especificado',
+                     fechaCreacion: hoja.fecha || new Date(),
+                     estado: 'en_reparto',
+                     items: items,
+                     pedidosOriginales: pedidosArray, // 🆕 Guardar los pedidos originales
+                     observaciones: `Hoja de Ruta - ${hoja.responsable || 'No especificado'} - ${pedidosArray.length} pedidos - Total: ${formatearMoneda(calcularTotalHojaRuta(pedidosArray))}`
+                   };
+                   
+                   console.log('=== FIN DEBUG ===');
+                   
+                   setModalVisible(true);
+                   setPresupuestoDetalle(detalleData);
+                 }}
+               />
+               {user.role === 'admin' && (
+                 <>
+                   <Button
+                     label="Editar"
+                     icon="pi pi-pencil"
+                     className="p-button-sm p-button-outlined"
+                     onClick={() => editarHojaRuta(hoja)}
+                   />
+                   <Button
+                     label="Eliminar"
+                     icon="pi pi-trash"
+                     className="p-button-sm p-button-danger p-button-outlined"
+                     onClick={() => confirmarEliminacion(hoja.id)}
+                   />
+                 </>
+               )}
+             </div>
+          </div>
+        )}
+      </Card>
+    );
+  };
+
+  // 🆕 Componente Layout para facturas en móvil
+  const MobileFacturasLayout = () => (
+    <div className="space-y-2">
+      {facturasFiltradasPorEstado.map((factura) => (
+        <MobileFacturaCard key={factura.id} factura={factura} />
+      ))}
+    </div>
+  );
+
+  // 🆕 Componente Layout para hojas de ruta en móvil
+  const MobileHojasLayout = () => (
+    <div className="space-y-2">
+      {hojasDeRuta.map((hoja) => (
+        <MobileHojaCard key={hoja.id} hoja={hoja} />
+      ))}
+    </div>
+  );
+
+  // 🆕 Componente Layout para facturas en desktop
+  const DesktopFacturasLayout = () => (
+    <DataTable 
+      value={facturasFiltradasPorEstado} 
+      dataKey="id" 
+      paginator 
+      rows={10}
+      emptyMessage="No hay facturas disponibles"
+      className="p-datatable-sm"
+      selection={activeTab === 'pendiente' ? selectedFacturas : null}
+      onSelectionChange={(e) => {
+        if (activeTab === 'pendiente') {
+          setSelectedFacturas(e.value);
+        }
+      }}
+      selectionMode={activeTab === 'pendiente' ? 'multiple' : null}
+    >
+      {activeTab === 'pendiente' && (
+        <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+      )}
+      <Column field="id" header="ID" />
+      <Column 
+        field="date" 
+        header="Fecha" 
+        body={(rowData) => formatFecha(rowData.date)}
+      />
+      <Column 
+        field="client.name" 
+        header="Cliente" 
+        body={(rowData) => rowData.client?.name || rowData.client?.nombre || rowData.client?.id || '-'}
+      />
+      <Column 
+        field="total" 
+        header="Total" 
+        body={(rowData) => formatearMoneda(rowData.total)}
+      />
+      <Column 
+        field="status" 
+        header="Estado" 
+        body={renderEstadoFactura}
+      />
+    </DataTable>
+  );
+
+  // 🆕 Componente Layout para hojas de ruta en desktop
+  const DesktopHojasLayout = () => (
+    <DataTable 
+      value={hojasDeRuta} 
+      dataKey="id" 
+      paginator 
+      rows={10}
+      emptyMessage={esAdmin ? "No hay hojas de ruta creadas" : "No tienes hojas de ruta asignadas"}
+      className="p-datatable-sm"
+      expandedRows={expandedRows}
+      onRowToggle={(e) => setExpandedRows(e.data)}
+      rowExpansionTemplate={renderExpandedContent}
+    >
+      <Column expander style={{ width: '3rem' }} />
+      <Column field="responsable" header="Responsable" />
+      <Column field="fecha" header="Fecha Asignación" 
+        body={(rowData) => {
+          if (typeof rowData.fecha === 'string') {
+            return rowData.fecha;
+          }
+          return formatFecha(rowData.fecha);
+        }}
+      />
+      <Column 
+        field="total" 
+        header="Total" 
+        body={(rowData) => formatearMoneda(calcularTotalHojaRuta(rowData.pedidos))}
+      />
+      <Column header="Acciones" style={{ width: '150px' }} body={renderAcciones} />
+      <Column 
+        header="Estado Entregas" 
+        body={(rowData) => {
+          const totalPedidos = rowData.pedidos?.length || 0;
+          const entregados = rowData.pedidos?.filter(p => p.entregado).length || 0;
+          const porcentaje = totalPedidos > 0 ? Math.round((entregados / totalPedidos) * 100) : 0;
+          
+          return (
+            <div className="flex align-items-center gap-2">
+              <span className="text-sm font-semibold">
+                {entregados}/{totalPedidos} entregados
+              </span>
+              {totalPedidos > 0 && (
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${porcentaje}%` }}
+                  />
+                </div>
+              )}
+              {entregados === totalPedidos && totalPedidos > 0 && (
+                <span className="text-green-600 text-lg">✅</span>
+              )}
+            </div>
+          );
+        }}
+      />
+      {!esAdmin && (
+        <Column header="Estado" style={{ width: '100px' }}>
+          {(rowData) => (
+            <Tag 
+              value={rowData.estado || 'pendiente'} 
+              severity={rowData.estado === 'completado' ? 'success' : 'warning'}
+            />
+          )}
+        </Column>
+      )}
+    </DataTable>
+  );
 
   // 🆕 Función para aplicar filtros a facturas de Alegra
   const aplicarFiltros = () => {
@@ -70,9 +518,9 @@ const FacturasAlegra = ({ user }) => {
           return false;
         }
         
-        // Comparar fechas usando strings YYYY-MM-DD para evitar problemas de zona horaria
-        const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
-        const fechaDesdeStr = filtroFechaDesde.toISOString().split('T')[0];
+        // Construir fechas en formato YYYY-MM-DD manualmente para evitar problemas de zona horaria
+        const fechaFacturaStr = `${fechaFactura.getFullYear()}-${String(fechaFactura.getMonth() + 1).padStart(2, '0')}-${String(fechaFactura.getDate()).padStart(2, '0')}`;
+        const fechaDesdeStr = `${filtroFechaDesde.getFullYear()}-${String(filtroFechaDesde.getMonth() + 1).padStart(2, '0')}-${String(filtroFechaDesde.getDate()).padStart(2, '0')}`;
         
         return fechaFacturaStr >= fechaDesdeStr;
       });
@@ -96,9 +544,9 @@ const FacturasAlegra = ({ user }) => {
           return false;
         }
         
-        // Comparar fechas usando strings YYYY-MM-DD para evitar problemas de zona horaria
-        const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
-        const fechaHastaStr = filtroFechaHasta.toISOString().split('T')[0];
+        // Construir fechas en formato YYYY-MM-DD manualmente para evitar problemas de zona horaria
+        const fechaFacturaStr = `${fechaFactura.getFullYear()}-${String(fechaFactura.getMonth() + 1).padStart(2, '0')}-${String(fechaFactura.getDate()).padStart(2, '0')}`;
+        const fechaHastaStr = `${filtroFechaHasta.getFullYear()}-${String(filtroFechaHasta.getMonth() + 1).padStart(2, '0')}-${String(filtroFechaHasta.getDate()).padStart(2, '0')}`;
         
         return fechaFacturaStr <= fechaHastaStr;
       });
@@ -291,6 +739,13 @@ const FacturasAlegra = ({ user }) => {
     
     getAlegraInvoices()
       .then(data => {
+        console.log('🆕 Frontend: Facturas recibidas:', data.length);
+        if (data.length > 0) {
+          console.log('🆕 Frontend: Fechas de las primeras 3 facturas:');
+          data.slice(0, 3).forEach((factura, index) => {
+            console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+          });
+        }
         setFacturas(data);
         setFacturasFiltradas(data); // Inicializar facturas filtradas
         setLoading(false);
@@ -431,7 +886,7 @@ const FacturasAlegra = ({ user }) => {
     }).format(valor);
   };
 
-  // 🆕 Función para formatear fechas en formato DD/MM/YY
+  // 🆕 Función para formatear fechas en formato DD/MM/YYYY
   const formatFecha = (fecha) => {
     if (!fecha) return '-';
     
@@ -460,10 +915,10 @@ const FacturasAlegra = ({ user }) => {
       }
       
       if (fechaObj && !isNaN(fechaObj.getTime())) {
-        // Formato DD/MM/YY
+        // Formato DD/MM/YYYY
         const dia = fechaObj.getDate().toString().padStart(2, '0');
         const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
-        const año = fechaObj.getFullYear().toString().slice(-2); // Solo los últimos 2 dígitos
+        const año = fechaObj.getFullYear().toString(); // Año completo con 4 dígitos
         return `${dia}/${mes}/${año}`;
       }
       
@@ -769,6 +1224,7 @@ const FacturasAlegra = ({ user }) => {
                 value={filtroFechaDesde}
                 onChange={(e) => setFiltroFechaDesde(e.value)}
                 showIcon
+                dateFormat="dd/mm/yy"
                 placeholder="Seleccionar fecha"
                 className="w-full"
               />
@@ -781,6 +1237,7 @@ const FacturasAlegra = ({ user }) => {
                 value={filtroFechaHasta}
                 onChange={(e) => setFiltroFechaHasta(e.value)}
                 showIcon
+                dateFormat="dd/mm/yy"
                 placeholder="Seleccionar fecha"
                 className="w-full"
               />
@@ -807,7 +1264,12 @@ const FacturasAlegra = ({ user }) => {
       {/* Lista de Facturas (solo para admin) */}
       {esAdmin && (
         <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3">Facturas Disponibles</h3>
+          <div className="mb-3">
+            <h3 className="text-lg font-semibold">Facturas Disponibles</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              📅 Solo se muestran facturas de los últimos 7 días
+            </p>
+          </div>
           
           {/* PESTAÑAS */}
           <div className="flex mb-4 border-b border-gray-200">
@@ -845,119 +1307,22 @@ const FacturasAlegra = ({ user }) => {
             </div>
           )}
 
-          <DataTable 
-            value={facturasFiltradasPorEstado} 
-            dataKey="id" 
-            paginator 
-            rows={10}
-            emptyMessage="No hay facturas disponibles"
-            className="p-datatable-sm"
-            selection={activeTab === 'pendiente' ? selectedFacturas : null}
-            onSelectionChange={(e) => {
-              if (activeTab === 'pendiente') {
-                setSelectedFacturas(e.value);
-              }
-            }}
-            selectionMode={activeTab === 'pendiente' ? 'multiple' : null}
-          >
-            {activeTab === 'pendiente' && (
-              <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
-            )}
-            <Column field="id" header="ID" />
-            <Column 
-              field="date" 
-              header="Fecha" 
-              body={(rowData) => formatFecha(rowData.date)}
-            />
-            <Column 
-              field="client.name" 
-              header="Cliente" 
-              body={(rowData) => rowData.client?.name || rowData.client?.nombre || rowData.client?.id || '-'}
-            />
-            <Column 
-              field="total" 
-              header="Total" 
-              body={(rowData) => formatearMoneda(rowData.total)}
-            />
-            <Column 
-              field="status" 
-              header="Estado" 
-              body={renderEstadoFactura}
-            />
-          </DataTable>
+          {isMobile ? (
+            <MobileFacturasLayout />
+          ) : (
+            <DesktopFacturasLayout />
+          )}
         </div>
       )}
 
       {/* Hojas de Ruta */}
       <div className="mb-6">
         <h3>{esAdmin ? 'Hojas de Ruta Pendientes' : 'Mis Hojas de Ruta Pendientes'}</h3>
-        <DataTable 
-          value={hojasDeRuta} 
-          dataKey="id" 
-          paginator 
-          rows={10}
-          emptyMessage={esAdmin ? "No hay hojas de ruta creadas" : "No tienes hojas de ruta asignadas"}
-          className="p-datatable-sm"
-          expandedRows={expandedRows}
-          onRowToggle={(e) => setExpandedRows(e.data)}
-          rowExpansionTemplate={renderExpandedContent}
-        >
-          <Column expander style={{ width: '3rem' }} />
-          <Column field="responsable" header="Responsable" />
-          <Column field="fecha" header="Fecha Asignación" 
-            body={(rowData) => {
-              // Si ya es un string formateado, devolverlo directamente
-              if (typeof rowData.fecha === 'string') {
-                return rowData.fecha;
-              }
-              // Si es un timestamp, formatearlo
-              return formatFecha(rowData.fecha);
-            }}
-          />
-          <Column 
-            field="total" 
-            header="Total" 
-            body={(rowData) => formatearMoneda(calcularTotalHojaRuta(rowData.pedidos))}
-          />
-          <Column header="Acciones" style={{ width: '150px' }} body={renderAcciones} />
-          <Column 
-            header="Estado Entregas" 
-            body={(rowData) => {
-              const totalPedidos = rowData.pedidos?.length || 0;
-              const entregados = rowData.pedidos?.filter(p => p.entregado).length || 0;
-              const porcentaje = totalPedidos > 0 ? Math.round((entregados / totalPedidos) * 100) : 0;
-              
-              return (
-                <div className="flex align-items-center gap-2">
-                  <span className="text-sm font-semibold">
-                    {entregados}/{totalPedidos} entregados
-                  </span>
-                  {totalPedidos > 0 && (
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${porcentaje}%` }}
-                      />
-                    </div>
-                  )}
-                  {entregados === totalPedidos && totalPedidos > 0 && (
-                    <span className="text-green-600 text-lg">✅</span>
-                  )}
-                </div>
-              );
-            }}
-          />
-          {!esAdmin && (
-            <Column header="Estado" style={{ width: '100px' }}>
-              {(rowData) => (
-                <Tag 
-                  value={rowData.estado || 'pendiente'} 
-                  severity={rowData.estado === 'completado' ? 'success' : 'warning'}
-                />
-              )}
-            </Column>
-          )}
-        </DataTable>
+        {isMobile ? (
+          <MobileHojasLayout />
+        ) : (
+          <DesktopHojasLayout />
+        )}
       </div>
 
       {/* Formulario de Hoja de Ruta */}
@@ -1129,6 +1494,119 @@ const FacturasAlegra = ({ user }) => {
           onCancel={() => setEdicionHoja({ visible: false, hojaId: null, hojaData: null })}
           user={user}
         />
+      </Dialog>
+
+      {/* Modal para detalles de hoja de ruta en móvil */}
+      <Dialog 
+        header="Detalles de Hoja de Ruta" 
+        visible={modalVisible && presupuestoDetalle?.clienteId === 'Hoja de Ruta'} 
+        style={{ width: '90vw', maxWidth: '600px' }} 
+        onHide={() => {
+          console.log('Cerrando modal de detalles de hoja de ruta');
+          setModalVisible(false);
+          setPresupuestoDetalle(null);
+        }}
+        onShow={() => {
+          console.log('=== DEBUG: Modal abierto ===');
+          console.log('modalVisible:', modalVisible);
+          console.log('presupuestoDetalle:', presupuestoDetalle);
+          console.log('presupuestoDetalle.clienteId:', presupuestoDetalle?.clienteId);
+        }}
+      >
+        {presupuestoDetalle && presupuestoDetalle.clienteId === 'Hoja de Ruta' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">👤 Responsable:</span>
+                <div className="font-medium">{presupuestoDetalle.vendedor || 'No especificado'}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">📅 Fecha:</span>
+                <div className="font-medium">{formatFecha(presupuestoDetalle.fechaCreacion) || 'Fecha no disponible'}</div>
+              </div>
+            </div>
+            
+            <div>
+              <span className="text-gray-500 text-sm">📋 Productos por Cliente:</span>
+              <div className="mt-2 space-y-2">
+                {(() => {
+                  if (presupuestoDetalle.items && Array.isArray(presupuestoDetalle.items) && presupuestoDetalle.items.length > 0) {
+                    return presupuestoDetalle.items.map((item, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="font-medium">{item.producto || 'Producto no especificado'}</div>
+                            <div className="text-sm text-gray-500">
+                              Cantidad: {item.cantidad}
+                            </div>
+                          </div>
+                          <Tag 
+                            value="Producto" 
+                            severity="info"
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                    ));
+                  } else {
+                    return (
+                      <div className="p-3 bg-gray-50 rounded-lg text-center text-gray-500">
+                        {presupuestoDetalle.items ? 
+                          `No hay productos disponibles (${presupuestoDetalle.items.length} items encontrados pero vacíos)` : 
+                          'No hay productos disponibles (items es null/undefined)'
+                        }
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            </div>
+            
+            {/* 🆕 Sección de estado de entregas por cliente */}
+            <div>
+              <span className="text-gray-500 text-sm">🚚 Estado de Entregas:</span>
+              <div className="mt-2 space-y-2">
+                                                  {(() => {
+                   // Obtener los pedidos originales para mostrar el estado de entrega
+                   const pedidosOriginales = presupuestoDetalle.pedidosOriginales || [];
+                   
+                   if (pedidosOriginales && Array.isArray(pedidosOriginales) && pedidosOriginales.length > 0) {
+                    return pedidosOriginales.map((pedido, idx) => (
+                      <div key={idx} className="p-3 bg-blue-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="font-medium">{pedido.cliente || 'Cliente no especificado'}</div>
+                            <div className="text-sm text-gray-500">
+                              Pedido #{idx + 1}
+                            </div>
+                          </div>
+                          <Tag 
+                            value={pedido.entregado ? "Entregado" : "Pendiente"} 
+                            severity={pedido.entregado ? "success" : "warning"}
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                    ));
+                  } else {
+                    return (
+                      <div className="p-3 bg-blue-50 rounded-lg text-center text-gray-500">
+                        No hay información de estado de entregas disponible
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            </div>
+            
+            {presupuestoDetalle.observaciones && (
+              <div>
+                <span className="text-gray-500 text-sm">📝 Observaciones:</span>
+                <div className="text-sm text-gray-700 mt-1">{presupuestoDetalle.observaciones}</div>
+              </div>
+            )}
+          </div>
+        )}
       </Dialog>
 
       {/* ConfirmDialog para eliminación */}

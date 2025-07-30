@@ -5,13 +5,25 @@ import fetch from 'node-fetch';
 export async function getAlegraInvoices() {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
-  const url = 'https://api.alegra.com/api/v1/invoices';
+  
+  // 🆕 Calcular fecha límite (7 días atrás desde hoy)
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() - 7);
+  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+  
+  console.log(`🆕 Filtro de facturas: solo desde ${fechaLimiteStr} (últimos 7 días)`);
+  console.log(`🆕 Fecha actual: ${new Date().toISOString().split('T')[0]}`);
+  
+  // 🆕 Obtener todas las facturas sin filtro de fecha
+  const url = `https://api.alegra.com/api/v1/invoices`;
+  console.log('🆕 Obteniendo todas las facturas de Alegra...');
   const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
 
   // Logs de depuración
   console.log('EMAIL:', JSON.stringify(email));
   console.log('API KEY:', JSON.stringify(apiKey));
   console.log('Authorization header:', authorization);
+  console.log('URL:', url);
 
   const response = await fetch(url, {
     headers: {
@@ -27,7 +39,45 @@ export async function getAlegraInvoices() {
   }
 
   const data = await response.json();
-  return data;
+  console.log(`🆕 Total de facturas obtenidas de Alegra: ${data.length}`);
+  
+  // 🆕 Debug: mostrar las fechas de las primeras 5 facturas antes del filtro
+  if (data.length > 0) {
+    console.log('🆕 Fechas de las primeras 5 facturas (antes del filtro):');
+    data.slice(0, 5).forEach((factura, index) => {
+      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+    });
+  }
+  
+  // 🆕 Filtrar facturas de los últimos 7 días
+  const facturasFiltradas = data.filter(factura => {
+    if (!factura.date) {
+      console.log(`🆕 Factura ${factura.id} sin fecha, excluida del filtro`);
+      return false;
+    }
+    
+    // Convertir la fecha de la factura a objeto Date
+    const fechaFactura = new Date(factura.date);
+    const esReciente = fechaFactura >= fechaLimite;
+    
+    if (!esReciente) {
+      console.log(`🆕 Factura ${factura.id} del ${factura.date} excluida (más de 7 días)`);
+    }
+    
+    return esReciente;
+  });
+  
+  console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${data.length}`);
+  
+  // 🆕 Debug: mostrar las fechas de las primeras 3 facturas después del filtro
+  if (facturasFiltradas.length > 0) {
+    console.log('🆕 Fechas de las primeras 3 facturas (después del filtro):');
+    facturasFiltradas.slice(0, 3).forEach((factura, index) => {
+      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+    });
+  }
+  
+  return facturasFiltradas;
 }
 
 export async function getAlegraContacts() {

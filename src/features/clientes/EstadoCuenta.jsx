@@ -121,7 +121,11 @@ function EstadoCuenta({ user }) {
   const formatFecha = (fecha) => {
     if (!fecha) return "";
     const date = new Date(fecha);
-    return date.toLocaleDateString("es-AR");
+    return date.toLocaleDateString("es-AR", {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   const formatMonto = (monto) => {

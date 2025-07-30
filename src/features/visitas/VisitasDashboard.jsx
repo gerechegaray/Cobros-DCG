@@ -27,6 +27,11 @@ export default function VisitasDashboard({ user }) {
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   const [visitaSeleccionada, setVisitaSeleccionada] = useState(null);
   const [fechaReprogramar, setFechaReprogramar] = useState('');
+  
+  // 🆕 Estados para diseño responsive
+  const [isMobile, setIsMobile] = useState(false);
+  const [expandedCards, setExpandedCards] = useState(new Set());
+  
   // Estado para el nuevo programa
   const [nuevoPrograma, setNuevoPrograma] = useState({
     vendedorId: null,
@@ -62,8 +67,209 @@ export default function VisitasDashboard({ user }) {
     activo: true
   });
   
+  // Estado para controlar la visibilidad de programas de visitas
+  const [mostrarProgramas, setMostrarProgramas] = useState(false);
+  
   const navigate = useNavigate();
   const toast = useRef(null);
+
+  // 🆕 Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 🆕 Función para alternar expansión de tarjetas
+  const toggleCardExpansion = (visitaId) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(visitaId)) {
+        newSet.delete(visitaId);
+      } else {
+        newSet.add(visitaId);
+      }
+      return newSet;
+    });
+  };
+
+  // 🆕 Función para manejar acciones en móvil
+  const handleMobileAction = (action, visita) => {
+    switch (action) {
+      case 'reporte':
+        abrirReporte(visita);
+        break;
+      case 'estadoCuenta':
+        irAEstadoCuenta(visita);
+        break;
+      case 'cancelar':
+        if (window.confirm('¿Estás seguro de que quieres cancelar esta visita?')) {
+          cancelarVisita(visita.id);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // 🆕 Componente de tarjeta móvil para visitas
+  const MobileCard = ({ visita }) => {
+    const isExpanded = expandedCards.has(visita.id);
+    
+    return (
+      <Card className="mb-3 shadow-sm">
+        <div className="p-3">
+          {/* Estado cerrado */}
+          <div className="flex justify-between items-center">
+            <div className="flex-1">
+              <div className="font-medium text-gray-900">{visita.clienteNombre}</div>
+              <div className="text-sm text-gray-600">
+                {formatFechaVisita(visita.fecha)} - {visita.horario}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {renderEstado(visita)}
+              <Button
+                icon={isExpanded ? "pi pi-chevron-up" : "pi pi-chevron-down"}
+                className="p-button-rounded p-button-text p-button-sm"
+                onClick={() => toggleCardExpansion(visita.id)}
+              />
+            </div>
+          </div>
+          
+          {/* Estado expandido */}
+          {isExpanded && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="space-y-2">
+                {esAdmin && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Vendedor:</span>
+                    <span className="text-sm font-medium">
+                      {visita.vendedorId === 1 ? 'Guille' : visita.vendedorId === 2 ? 'Santi' : '-'}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Resultado:</span>
+                  <div>{renderResultado(visita)}</div>
+                </div>
+                
+                {visita.comentario && (
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-500">Observaciones:</span>
+                    <span className="text-sm text-gray-700 max-w-xs text-right">
+                      {visita.comentario.length > 50 
+                        ? `${visita.comentario.substring(0, 50)}...` 
+                        : visita.comentario
+                      }
+                    </span>
+                  </div>
+                )}
+                
+                {/* Botones de acción */}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    icon="pi pi-pencil"
+                    label="Reportar"
+                    size="small"
+                    severity="info"
+                    onClick={() => handleMobileAction('reporte', visita)}
+                    className="flex-1"
+                  />
+                  <Button
+                    icon="pi pi-credit-card"
+                    label="Estado Cuenta"
+                    size="small"
+                    severity="success"
+                    onClick={() => handleMobileAction('estadoCuenta', visita)}
+                    className="flex-1"
+                  />
+                  {esAdmin && (
+                    <Button
+                      icon="pi pi-times"
+                      label="Cancelar"
+                      size="small"
+                      severity="danger"
+                      onClick={() => handleMobileAction('cancelar', visita)}
+                      className="flex-1"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    );
+  };
+
+  // 🆕 Componente de layout móvil
+  const MobileLayout = () => (
+    <div className="space-y-4">
+      {visitasFiltradas.length > 0 ? (
+        visitasFiltradas.map(visita => (
+          <MobileCard key={visita.id} visita={visita} />
+        ))
+      ) : (
+        <Card className="text-center py-8">
+          <div className="text-gray-500">
+            <i className="pi pi-calendar-times text-4xl mb-2"></i>
+            <p>No hay visitas para esta fecha</p>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+
+  // 🆕 Componente de layout desktop
+  const DesktopLayout = () => (
+    <DataTable 
+      value={visitasFiltradas} 
+      paginator 
+      rows={10}
+      rowsPerPageOptions={[5, 10, 20]}
+      emptyMessage="No hay visitas para esta fecha"
+    >
+      <Column field="clienteNombre" header="Cliente" sortable />
+      {esAdmin && (
+        <Column 
+          field="vendedorId" 
+          header="Vendedor" 
+          body={(visita) => visita.vendedorId === 1 ? 'Guille' : visita.vendedorId === 2 ? 'Santi' : '-'}
+          sortable 
+        />
+      )}
+      <Column field="fecha" header="Fecha" sortable body={(visita) => formatFechaVisita(visita.fecha)} />
+      <Column field="horario" header="Horario" />
+      <Column field="estado" header="Estado" body={renderEstado} />
+      <Column field="resultado" header="Resultado" body={renderResultado} />
+      <Column 
+        field="comentario" 
+        header="Observaciones" 
+        body={(visita) => (
+          <div className="max-w-xs">
+            {visita.comentario ? (
+              <span className="text-sm text-gray-700" title={visita.comentario}>
+                {visita.comentario.length > 50 
+                  ? `${visita.comentario.substring(0, 50)}...` 
+                  : visita.comentario
+                }
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </div>
+        )}
+      />
+      <Column header="Acciones" body={renderAcciones} />
+    </DataTable>
+  );
 
   // Obtener el sellerId según el rol del usuario
   const getSellerId = () => {
@@ -210,14 +416,15 @@ export default function VisitasDashboard({ user }) {
   const visitasFiltradas = useMemo(() => {
     if (!filtroFecha) return visitas;
     
-    // Convertir la fecha del filtro a string YYYY-MM-DD
-    const fechaFiltroStr = filtroFecha.toISOString().split('T')[0];
+    // Convertir la fecha del filtro a string YYYY-MM-DD sin problemas de timezone
+    const fechaFiltro = new Date(filtroFecha);
+    const fechaFiltroStr = `${fechaFiltro.getFullYear()}-${String(fechaFiltro.getMonth() + 1).padStart(2, '0')}-${String(fechaFiltro.getDate()).padStart(2, '0')}`;
+    
+
     
     return visitas.filter(visita => {
-      // Convertir la fecha de la visita a string YYYY-MM-DD
+      // La fecha de la visita ya viene como string YYYY-MM-DD desde el backend
       const fechaVisitaStr = visita.fecha;
-      
-      console.log('Comparando fechas:', { fechaVisitaStr, fechaFiltroStr });
       
       return fechaVisitaStr === fechaFiltroStr;
     });
@@ -768,6 +975,51 @@ export default function VisitasDashboard({ user }) {
     }
   };
 
+  // Función para formatear fechas en formato DD/MM/YYYY
+  const formatFechaVisita = (fecha) => {
+    if (!fecha) return '-';
+    
+    try {
+      let fechaObj = null;
+      
+      // Si es un string en formato YYYY-MM-DD, convertirlo evitando problemas de timezone
+      if (typeof fecha === 'string' && fecha.includes('-')) {
+        const [year, month, day] = fecha.split('-').map(Number);
+        fechaObj = new Date(year, month - 1, day); // month - 1 porque los meses van de 0-11
+      }
+      // Si es un objeto de Firestore Timestamp con seconds
+      else if (fecha && typeof fecha === 'object' && fecha.seconds !== undefined) {
+        fechaObj = new Date(fecha.seconds * 1000);
+      }
+      // Si es un objeto de Firestore con toDate()
+      else if (fecha && typeof fecha === 'object' && typeof fecha.toDate === 'function') {
+        fechaObj = fecha.toDate();
+      }
+      // Si es una fecha normal
+      else if (fecha instanceof Date) {
+        fechaObj = fecha;
+      }
+      // Si es un string o número
+      else if (typeof fecha === 'string' || typeof fecha === 'number') {
+        fechaObj = new Date(fecha);
+      }
+      
+      if (fechaObj && !isNaN(fechaObj.getTime())) {
+        // Formato DD/MM/YYYY
+        const dia = fechaObj.getDate().toString().padStart(2, '0');
+        const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
+        const año = fechaObj.getFullYear().toString();
+        return `${dia}/${mes}/${año}`;
+      }
+      
+      // Si no se puede formatear, devolver un string por defecto
+      return 'Fecha inválida';
+    } catch (error) {
+      // Si hay error, devolver un string por defecto
+      return 'Error en fecha';
+    }
+  };
+
   // Navegar a la página de estado de cuenta del cliente
   const irAEstadoCuenta = (visita) => {
     // Buscar el cliente en la lista de clientes
@@ -856,95 +1108,116 @@ export default function VisitasDashboard({ user }) {
           value={filtroFecha} 
           onChange={(e) => setFiltroFecha(e.value)}
           showIcon
+          placeholder="Seleccionar fecha"
           dateFormat="dd/mm/yy"
         />
       </div>
 
-      {/* Tabla de programas de visitas (solo admin) */}
+      {/* Sección colapsable de programas de visitas (solo admin) */}
       {esAdmin && (
         <Card className="mb-4">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Programas de Visitas</h3>
-            <span className="text-sm text-gray-500">{programas.length} programas activos</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">{programas.length} programas activos</span>
+              <Button 
+                icon={mostrarProgramas ? "pi pi-chevron-up" : "pi pi-chevron-down"}
+                size="small"
+                severity="secondary"
+                onClick={() => setMostrarProgramas(!mostrarProgramas)}
+                tooltip={mostrarProgramas ? "Ocultar programas" : "Mostrar programas"}
+              />
+            </div>
           </div>
-          <DataTable 
-            value={programas} 
-            paginator 
-            rows={5}
-            rowsPerPageOptions={[5, 10]}
-            emptyMessage="No hay programas de visitas creados"
-          >
-            <Column field="clienteNombre" header="Cliente" sortable />
-            <Column 
-              field="vendedorId" 
-              header="Vendedor" 
-              body={(programa) => programa.vendedorId === 1 ? 'Guille' : 'Santi'}
-              sortable 
-            />
-            <Column 
-              field="frecuencia" 
-              header="Frecuencia" 
-              body={(programa) => {
-                const frecuencias = {
-                  'semanal': 'Semanal',
-                  'quincenal': 'Quincenal',
-                  'mensual': 'Mensual'
-                };
-                return frecuencias[programa.frecuencia] || programa.frecuencia;
-              }}
-              sortable 
-            />
-            <Column 
-              field="diaSemana" 
-              header="Día" 
-              body={(programa) => {
-                const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                return dias[programa.diaSemana] || programa.diaSemana;
-              }}
-              sortable 
-            />
-            <Column 
-              field="horario" 
-              header="Horario" 
-              body={(programa) => programa.horario === 'mañana' ? 'Mañana' : 'Tarde'}
-              sortable 
-            />
-            <Column 
-              field="activo" 
-              header="Estado" 
-              body={(programa) => (
-                <Tag 
-                  value={programa.activo ? 'Activo' : 'Inactivo'} 
-                  severity={programa.activo ? 'success' : 'danger'} 
-                />
-              )}
-              sortable 
-            />
-            <Column 
-              header="Acciones" 
-              body={(programa) => (
-                <div className="flex gap-2">
-                  <Button 
-                    icon="pi pi-pencil" 
-                    size="small" 
-                    severity="info"
-                    tooltip="Editar programa"
-                    onClick={() => abrirEditarPrograma(programa)}
+          
+          {mostrarProgramas && (
+            <div className="mt-4">
+              {programas.length > 0 ? (
+                <DataTable
+                  value={programas}
+                  paginator
+                  rows={5}
+                  rowsPerPageOptions={[5, 10]}
+                  emptyMessage="No hay programas de visitas creados"
+                >
+                  <Column field="clienteNombre" header="Cliente" sortable />
+                  <Column
+                    field="vendedorId"
+                    header="Vendedor"
+                    body={(programa) => programa.vendedorId === 1 ? 'Guille' : 'Santi'}
+                    sortable
                   />
-                  <Button 
-                    icon="pi pi-trash" 
-                    size="small" 
-                    severity="danger"
-                    tooltip="Eliminar programa"
-                    onClick={() => {
-                      setProgramaAEliminar(programa);
-                      setMostrarConfirmacionEliminar(true);
+                  <Column
+                    field="frecuencia"
+                    header="Frecuencia"
+                    body={(programa) => {
+                      const frecuencias = {
+                        'semanal': 'Semanal',
+                        'quincenal': 'Quincenal',
+                        'mensual': 'Mensual'
+                      };
+                      return frecuencias[programa.frecuencia] || programa.frecuencia;
                     }}
+                    sortable
                   />
+                  <Column
+                    field="diaSemana"
+                    header="Día"
+                    body={(programa) => {
+                      const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                      return dias[programa.diaSemana] || programa.diaSemana;
+                    }}
+                    sortable
+                  />
+                  <Column
+                    field="horario"
+                    header="Horario"
+                    body={(programa) => programa.horario === 'mañana' ? 'Mañana' : 'Tarde'}
+                    sortable
+                  />
+                  <Column
+                    field="activo"
+                    header="Estado"
+                    body={(programa) => (
+                      <Tag
+                        value={programa.activo ? 'Activo' : 'Inactivo'}
+                        severity={programa.activo ? 'success' : 'danger'}
+                      />
+                    )}
+                    sortable
+                  />
+                  <Column
+                    header="Acciones"
+                    body={(programa) => (
+                      <div className="flex gap-2">
+                        <Button
+                          icon="pi pi-pencil"
+                          size="small"
+                          severity="info"
+                          tooltip="Editar programa"
+                          onClick={() => abrirEditarPrograma(programa)}
+                        />
+                        <Button
+                          icon="pi pi-trash"
+                          size="small"
+                          severity="danger"
+                          tooltip="Eliminar programa"
+                          onClick={() => {
+                            setProgramaAEliminar(programa);
+                            setMostrarConfirmacionEliminar(true);
+                          }}
+                        />
+                      </div>
+                    )}
+                  />
+                </DataTable>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  No hay programas de visitas creados
                 </div>
               )}
-            />
-          </DataTable>
+            </div>
+          )}
         </Card>
       )}
 
@@ -954,38 +1227,11 @@ export default function VisitasDashboard({ user }) {
           <h3 className="text-lg font-semibold">Visitas Individuales</h3>
           <span className="text-sm text-gray-500">{visitasFiltradas.length} visitas para esta fecha</span>
         </div>
-        <DataTable 
-          value={visitasFiltradas} 
-          paginator 
-          rows={10}
-          rowsPerPageOptions={[5, 10, 20]}
-          emptyMessage="No hay visitas para esta fecha"
-        >
-          <Column field="clienteNombre" header="Cliente" sortable />
-          <Column field="fecha" header="Fecha" sortable />
-          <Column field="horario" header="Horario" />
-          <Column field="estado" header="Estado" body={renderEstado} />
-          <Column field="resultado" header="Resultado" body={renderResultado} />
-          <Column 
-            field="comentario" 
-            header="Observaciones" 
-            body={(visita) => (
-              <div className="max-w-xs">
-                {visita.comentario ? (
-                  <span className="text-sm text-gray-700" title={visita.comentario}>
-                    {visita.comentario.length > 50 
-                      ? `${visita.comentario.substring(0, 50)}...` 
-                      : visita.comentario
-                    }
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-400">-</span>
-                )}
-              </div>
-            )}
-          />
-          <Column header="Acciones" body={renderAcciones} />
-        </DataTable>
+        {isMobile ? (
+          <MobileLayout />
+        ) : (
+          <DesktopLayout />
+        )}
       </Card>
 
       {/* Modal para nuevo programa (solo admin) */}
@@ -1075,8 +1321,8 @@ export default function VisitasDashboard({ user }) {
                 value={nuevoPrograma.fechaInicio}
                 onChange={(e) => setNuevoPrograma({...nuevoPrograma, fechaInicio: e.value})}
                 showIcon
-                dateFormat="dd/mm/yy"
                 className="w-full"
+                dateFormat="dd/mm/yy"
               />
             </div>
           </div>
@@ -1198,11 +1444,11 @@ export default function VisitasDashboard({ user }) {
             <div>
               <label className="block text-sm font-medium mb-2">Fecha de inicio:</label>
               <Calendar 
-                value={new Date(programaEditado.fechaInicio)} 
-                onChange={(e) => setProgramaEditado({...programaEditado, fechaInicio: e.value.toISOString().split('T')[0]})}
+                value={programaEditado.fechaInicio ? new Date(programaEditado.fechaInicio + 'T00:00:00') : null} 
+                onChange={(e) => setProgramaEditado({...programaEditado, fechaInicio: e.value ? e.value.toISOString().split('T')[0] : ''})}
                 showIcon
-                dateFormat="dd/mm/yy"
                 className="w-full"
+                dateFormat="dd/mm/yy"
               />
             </div>
 
@@ -1334,7 +1580,7 @@ export default function VisitasDashboard({ user }) {
               <strong>Cliente:</strong> {visitaSeleccionada.clienteNombre}
             </div>
             <div>
-              <strong>Fecha:</strong> {visitaSeleccionada.fecha}
+              <strong>Fecha:</strong> {formatFechaVisita(visitaSeleccionada.fecha)}
             </div>
             <div>
               <strong>Horario:</strong> {visitaSeleccionada.horario}
@@ -1365,12 +1611,12 @@ export default function VisitasDashboard({ user }) {
           <div>
             <label className="block text-sm font-medium mb-2">Fecha para reprogramar:</label>
             <Calendar 
-              value={fechaReprogramar ? new Date(fechaReprogramar) : null}
+              value={fechaReprogramar ? new Date(fechaReprogramar + 'T00:00:00') : null}
               onChange={(e) => setFechaReprogramar(e.value.toISOString().split('T')[0])}
               showIcon
-              dateFormat="dd/mm/yy"
               minDate={new Date()}
               className="w-full"
+              dateFormat="dd/mm/yy"
             />
           </div>
           
