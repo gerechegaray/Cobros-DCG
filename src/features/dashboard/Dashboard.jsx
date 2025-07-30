@@ -162,9 +162,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       try {
         const sellerId = getSellerId();
         // 🆕 Usar endpoint con caché
-        const url = sellerId ? `/api/visitas-cache?vendedorId=${sellerId}` : '/api/visitas-cache';
-        const res = await fetch(url);
-        const visitas = await res.json();
+        const visitas = sellerId ? await api.getVisitasCache(sellerId) : await api.getVisitasCache();
         
         const hoy = new Date().toISOString().split('T')[0];
         
