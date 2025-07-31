@@ -96,6 +96,17 @@ function CobroForm({ user }) {
             value: c.name || c.nombre || c['Razón Social'] || c.id 
           }));
         setClientes(options);
+        
+        // 🆕 Si hay un cliente de navegación, seleccionarlo automáticamente
+        if (clienteNavegacion && options.length > 0) {
+          const clienteEncontrado = options.find(option => 
+            option.value === clienteNavegacion || 
+            option.label === clienteNavegacion
+          );
+          if (clienteEncontrado) {
+            setCliente(clienteEncontrado.value);
+          }
+        }
       } catch (error) {
         console.error('Error al obtener clientes de Firestore:', error);
       } finally {
@@ -103,7 +114,7 @@ function CobroForm({ user }) {
       }
     }
     fetchClientes();
-  }, [user]);
+  }, [user, clienteNavegacion]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

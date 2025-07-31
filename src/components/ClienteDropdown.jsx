@@ -61,7 +61,17 @@ export default function ClienteDropdown({ value, onChange, user }) {
     fetchClientes();
   }, [user]);
 
-  const clientesOrdenados = [...clientes].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  // 🆕 Ordenar clientes alfabéticamente y convertir a formato para dropdown
+  const clientesOrdenados = clientes
+    .sort((a, b) => {
+      const nombreA = a.name || a.nombre || a['Razón Social'] || '';
+      const nombreB = b.name || b.nombre || b['Razón Social'] || '';
+      return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
+    })
+    .map(cliente => ({
+      label: cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id || '(Sin nombre)',
+      value: cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id
+    }));
 
   if (error) {
     return (
@@ -76,11 +86,13 @@ export default function ClienteDropdown({ value, onChange, user }) {
       value={value}
       options={clientesOrdenados}
       onChange={onChange}
-      optionLabel="name"
+      optionLabel="label"
       placeholder="Selecciona un cliente"
       loading={loading}
-      style={{ minWidth: 250 }}
       filter
+      filterPlaceholder="Buscar cliente..."
+      showClear
+      style={{ minWidth: 250 }}
     />
   );
 } 

@@ -231,6 +231,20 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
         }
         
         setClientes(clientesFiltrados);
+        
+        // 🆕 Si hay un cliente inicial de navegación, seleccionarlo automáticamente
+        if (clienteInicial && clientesFiltrados.length > 0) {
+          const clienteEncontrado = clientesFiltrados.find(cliente => 
+            cliente.id === clienteInicial || 
+            cliente.name === clienteInicial ||
+            cliente.nombre === clienteInicial ||
+            cliente['Razón Social'] === clienteInicial
+          );
+          if (clienteEncontrado) {
+            setClienteSeleccionado(clienteEncontrado.id);
+          }
+        }
+        
         setLoading(false);
       } catch (err) {
         setError("Error al cargar clientes");
@@ -238,7 +252,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
       }
     }
     fetchData();
-  }, []);
+  }, [clienteInicial]);
 
   useEffect(() => {
     async function fetchProductos() {

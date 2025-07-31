@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Dropdown } from "primereact/dropdown";
 import { api } from "../../services/api";
 
 export default function SelectorCliente({ user }) {
@@ -54,7 +55,19 @@ export default function SelectorCliente({ user }) {
           console.log('[SelectorCliente] Usuario sin rol válido - no se muestran clientes');
         }
         
-        setClientes(clientesFiltrados);
+        // 🆕 Ordenar clientes alfabéticamente y convertir a formato para dropdown
+        const clientesOrdenados = clientesFiltrados
+          .sort((a, b) => {
+            const nombreA = a.name || a.nombre || a['Razón Social'] || '';
+            const nombreB = b.name || b.nombre || b['Razón Social'] || '';
+            return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
+          })
+          .map(cliente => ({
+            label: cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id || '(Sin nombre)',
+            value: cliente
+          }));
+        
+        setClientes(clientesOrdenados);
       } catch (e) {
         console.error('[SelectorCliente] Error al obtener clientes:', e);
         setError(e.message);
@@ -69,14 +82,16 @@ export default function SelectorCliente({ user }) {
   const handleCrearPedido = () => {
     if (cliente) {
       setLoading(true);
-      navigate("/presupuestos/new", { state: { cliente: cliente.id } });
+      // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
+      navigate("/presupuestos/new", { state: { cliente: cliente.value.name || cliente.value.nombre || cliente.value['Razón Social'] || cliente.value.id } });
     }
   };
 
   const handleCargarCobro = () => {
     if (cliente) {
       setLoading(true);
-      navigate("/list/new", { state: { cliente: cliente.id } });
+      // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
+      navigate("/list/new", { state: { cliente: cliente.value.name || cliente.value.nombre || cliente.value['Razón Social'] || cliente.value.id } });
     }
   };
 
@@ -115,22 +130,29 @@ export default function SelectorCliente({ user }) {
     <div style={{ maxWidth: 400, margin: "0 auto", padding: 32 }}>
       <h2 style={{ textAlign: "center" }}>Selecciona un cliente</h2>
       
-      {/* Dropdown simplificado */}
-      <select 
-        value={cliente ? cliente.id : ''} 
-        onChange={(e) => {
-          const selectedCliente = clientes.find(c => c.id === parseInt(e.target.value));
-          setCliente(selectedCliente);
-        }}
-        style={{ width: "100%", padding: "0.5rem", marginBottom: "1rem" }}
-      >
-        <option value="">Selecciona un cliente</option>
-        {clientes.map(cliente => (
-          <option key={cliente.id} value={cliente.id}>
-            {cliente.name}
-          </option>
-        ))}
-      </select>
+      {/* 🆕 Dropdown mejorado con búsqueda */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ 
+          display: "block", 
+          marginBottom: "0.5rem", 
+          fontWeight: "500", 
+          color: "#374151" 
+        }}>
+          Cliente
+        </label>
+        <Dropdown
+          value={cliente}
+          options={clientes}
+          onChange={(e) => setCliente(e.value)}
+          optionLabel="label"
+          placeholder="Selecciona un cliente"
+          filter
+          filterPlaceholder="Buscar cliente..."
+          showClear
+          className="w-full"
+          style={{ width: "100%" }}
+        />
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 24 }}>
         <Button
