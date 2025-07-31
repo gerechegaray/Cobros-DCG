@@ -23,9 +23,10 @@ export async function getAlegraInvoices() {
 // Obtener estado de cuenta de un cliente específico
 export async function getEstadoCuenta(clienteId) {
   console.log('[ALEGRA SERVICE] Consultando estado de cuenta para cliente:', clienteId);
-  const url = `/api/alegra/estado-cuenta/${clienteId}`;
-  console.log('[ALEGRA SERVICE] URL:', url);
-  console.log('[ALEGRA SERVICE] URL completa:', window.location.origin + url);
+  
+  // 🆕 Probar con URL directa al servidor de producción
+  const url = `https://cobros-dcg.onrender.com/api/alegra/estado-cuenta/${clienteId}`;
+  console.log('[ALEGRA SERVICE] URL directa:', url);
   
   try {
     const response = await fetch(url);
