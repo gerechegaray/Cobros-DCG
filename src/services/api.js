@@ -106,7 +106,10 @@ export const api = {
   }),
   deleteVisitaProgramada: (id) => apiRequest(`/api/visitas-programadas/${id}`, { method: 'DELETE' }),
   generarVisitas: () => apiRequest('/api/visitas/generar', { method: 'POST' }),
-  getVisitasCache: (vendedorId) => apiRequest(`/api/visitas-cache?vendedorId=${vendedorId}`),
+  getVisitasCache: (vendedorId) => {
+    const endpoint = vendedorId ? `/api/visitas-cache?vendedorId=${vendedorId}` : '/api/visitas-cache';
+    return apiRequest(endpoint);
+  },
 
   // Hojas de ruta
   getHojasDeRuta: () => apiRequest('/api/hojas-de-ruta'),
