@@ -400,6 +400,22 @@ export default function VisitasDashboard({ user }) {
 
   // Filtrar visitas por fecha
   const visitasFiltradas = useMemo(() => {
+    // 🆕 TEMPORAL: Mostrar todas las visitas sin filtro para debug
+    console.log('🆕 TEMPORAL: Mostrando todas las visitas sin filtro para debug');
+    console.log('🆕 Total visitas cargadas:', visitas.length);
+    
+    if (visitas.length > 0) {
+      console.log('🆕 Todas las visitas:');
+      visitas.forEach((v, index) => {
+        console.log(`  ${index + 1}. ID: ${v.id}, Fecha: ${v.fecha}, Cliente: ${v.clienteNombre}, Estado: ${v.estado}`);
+      });
+    }
+    
+    // 🆕 TEMPORAL: Devolver todas las visitas sin filtro
+    return visitas;
+    
+    // Código original comentado temporalmente
+    /*
     if (!filtroFecha) return visitas;
     
     // Convertir la fecha del filtro a string YYYY-MM-DD sin problemas de timezone
@@ -443,6 +459,7 @@ export default function VisitasDashboard({ user }) {
     }
     
     return visitasFiltradas;
+    */
   }, [visitas, filtroFecha]);
 
   // Filtrar clientes según el vendedor seleccionado (para nuevo programa)
