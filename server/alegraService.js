@@ -12,7 +12,13 @@ export async function getAlegraInvoices() {
   fechaLimite.setHours(0, 0, 0, 0); // Establecer a inicio del día
   const fechaLimiteStr = fechaLimite.toISOString().split('T')[0]; // Formato YYYY-MM-DD
   
+  // 🆕 Ajustar fecha límite para ser más tolerante con zona horaria (1 día menos)
+  const fechaLimiteAjustada = new Date(fechaLimite);
+  fechaLimiteAjustada.setDate(fechaLimiteAjustada.getDate() - 1);
+  const fechaLimiteAjustadaStr = fechaLimiteAjustada.toISOString().split('T')[0];
+  
   console.log(`🆕 Filtro de facturas: solo desde ${fechaLimiteStr} (últimos 7 días incluyendo hoy)`);
+  console.log(`🆕 Filtro ajustado para zona horaria: desde ${fechaLimiteAjustadaStr} (más tolerante)`);
   console.log(`🆕 Fecha actual: ${new Date().toISOString().split('T')[0]}`);
   console.log(`🆕 Fecha límite (objeto Date): ${fechaLimite.toISOString()}`);
   
@@ -106,8 +112,8 @@ export async function getAlegraInvoices() {
     todasLasFacturas.forEach((factura, index) => {
       const fechaFactura = new Date(factura.date);
       const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
-      const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
-      const esReciente = fechaFacturaStr >= fechaLimiteStr;
+      const fechaLimiteAjustadaStr = fechaLimiteAjustada.toISOString().split('T')[0];
+      const esReciente = fechaFacturaStr >= fechaLimiteAjustadaStr;
       console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Fecha (Date): ${fechaFactura.toISOString()}, Fecha (solo fecha): ${fechaFacturaStr}, Es reciente: ${esReciente}, Cliente: ${factura.client?.name || 'N/A'}`);
     });
   } else {
@@ -126,8 +132,8 @@ export async function getAlegraInvoices() {
     
     // 🆕 Comparar solo las fechas (sin tiempo) para evitar problemas de zona horaria
     const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
-    const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
-    const esReciente = fechaFacturaStr >= fechaLimiteStr;
+    const fechaLimiteAjustadaStr = fechaLimiteAjustada.toISOString().split('T')[0];
+    const esReciente = fechaFacturaStr >= fechaLimiteAjustadaStr;
     
     if (!esReciente) {
       console.log(`🆕 Factura ${factura.id} del ${factura.date} (${fechaFacturaStr}) excluida (más de 7 días)`);
@@ -140,16 +146,17 @@ export async function getAlegraInvoices() {
   
   console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${todasLasFacturas.length}`);
   
-  // 🆕 TEMPORAL: Devolver todas las facturas sin filtro para ver las fechas reales
-  console.log('🆕 TEMPORAL: Devolviendo todas las facturas sin filtro para verificar fechas de zona horaria');
-  console.log('🆕 Fechas de todas las facturas obtenidas:');
-  todasLasFacturas.forEach((factura, index) => {
-    console.log(`  ${index + 1}. ID: ${factura.id}, Fecha original: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
-  });
-  
-  return todasLasFacturas;
-  
   // 🆕 Debug: mostrar las fechas de las primeras 5 facturas después del filtro
+  if (facturasFiltradas.length > 0) {
+    console.log('🆕 Fechas de las primeras 5 facturas (después del filtro):');
+    facturasFiltradas.slice(0, 5).forEach((factura, index) => {
+      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+    });
+  } else {
+    console.log('🆕 No hay facturas que cumplan el criterio de 7 días');
+  }
+  
+  return facturasFiltradas;
 }
 
 export async function getAlegraContacts() {
