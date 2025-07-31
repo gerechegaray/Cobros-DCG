@@ -83,7 +83,7 @@ export default function SelectorCliente({ user }) {
     if (cliente) {
       setLoading(true);
       // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
-      navigate("/presupuestos/new", { state: { cliente: cliente.value.name || cliente.value.nombre || cliente.value['Razón Social'] || cliente.value.id } });
+      navigate("/presupuestos/new", { state: { cliente: cliente.label } });
     }
   };
 
@@ -91,14 +91,15 @@ export default function SelectorCliente({ user }) {
     if (cliente) {
       setLoading(true);
       // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
-      navigate("/list/new", { state: { cliente: cliente.value.name || cliente.value.nombre || cliente.value['Razón Social'] || cliente.value.id } });
+      navigate("/list/new", { state: { cliente: cliente.label } });
     }
   };
 
   const handleEstadoCuenta = () => {
     if (cliente) {
       setLoading(true);
-      navigate("/estado-cuenta", { state: { cliente: cliente } });
+      // 🆕 Pasar el cliente completo para el estado de cuenta
+      navigate("/estado-cuenta", { state: { cliente: cliente.value } });
     }
   };
 
