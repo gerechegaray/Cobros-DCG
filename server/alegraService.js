@@ -43,16 +43,18 @@ export async function getAlegraInvoices() {
   const data = await response.json();
   console.log(`🆕 Total de facturas obtenidas de Alegra: ${data.length}`);
   
-  // 🆕 Debug: mostrar las fechas de las primeras 10 facturas antes del filtro
+  // 🆕 Debug: mostrar TODAS las fechas de facturas antes del filtro
   if (data.length > 0) {
-    console.log('🆕 Fechas de las primeras 10 facturas (antes del filtro):');
-    data.slice(0, 10).forEach((factura, index) => {
+    console.log('🆕 TODAS las facturas obtenidas de Alegra (antes del filtro):');
+    data.forEach((factura, index) => {
       const fechaFactura = new Date(factura.date);
       const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
       const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
       const esReciente = fechaFacturaStr >= fechaLimiteStr;
       console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Fecha (Date): ${fechaFactura.toISOString()}, Fecha (solo fecha): ${fechaFacturaStr}, Es reciente: ${esReciente}, Cliente: ${factura.client?.name || 'N/A'}`);
     });
+  } else {
+    console.log('🆕 No se obtuvieron facturas de Alegra');
   }
   
   // 🆕 Filtrar facturas de los últimos 7 días
