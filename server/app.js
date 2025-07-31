@@ -246,8 +246,19 @@ app.post("/api/alegra/quotes", async (req, res) => {
         
         // Agregar bonificación si existe
         if (item.bonificacion && item.bonificacion > 0) {
-          itemData.discount = item.bonificacion;
+          itemData.discount = item.bonificacion.toString(); // Convertir a string
           itemData.discountType = 'percentage'; // Bonificación como porcentaje
+          console.log('🆕 Agregando bonificación al item:', {
+            producto: item.producto,
+            bonificacion: item.bonificacion,
+            discount: itemData.discount,
+            discountType: itemData.discountType
+          });
+        } else {
+          console.log('🆕 Item sin bonificación:', {
+            producto: item.producto,
+            bonificacion: item.bonificacion
+          });
         }
         
         return itemData;
@@ -336,8 +347,19 @@ app.post("/api/presupuestos", async (req, res) => {
           
           // Agregar bonificación si existe
           if (item.bonificacion && item.bonificacion > 0) {
-            itemData.discount = item.bonificacion;
+            itemData.discount = item.bonificacion.toString(); // Convertir a string
             itemData.discountType = 'percentage'; // Bonificación como porcentaje
+            console.log('🆕 Agregando bonificación al item (presupuestos):', {
+              producto: item.producto,
+              bonificacion: item.bonificacion,
+              discount: itemData.discount,
+              discountType: itemData.discountType
+            });
+          } else {
+            console.log('🆕 Item sin bonificación (presupuestos):', {
+              producto: item.producto,
+              bonificacion: item.bonificacion
+            });
           }
           
           return itemData;
