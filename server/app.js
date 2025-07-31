@@ -936,6 +936,42 @@ app.get("/api/visitas-cache", async (req, res) => {
   }
 });
 
+// 🆕 TEMPORARY DEBUG ENDPOINT - FORCE CACHE INVALIDATION AND DIRECT FIRESTORE QUERY
+app.get("/api/debug/visitas", async (req, res) => {
+  try {
+    console.log('🆕 DEBUG: Forzando invalidación de cache de visitas');
+    invalidarCache('visitas');
+
+    console.log('🆕 DEBUG: Consultando Firestore directamente');
+    const snapshot = await adminDb.collection('visitas').get();
+    const visitas = [];
+
+    snapshot.forEach(doc => {
+      visitas.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    console.log(`🆕 DEBUG: Visitas encontradas en Firestore: ${visitas.length}`);
+    if (visitas.length > 0) {
+      console.log('🆕 DEBUG: Detalles de las visitas:');
+      visitas.forEach((v, index) => {
+        console.log(`🆕   ${index + 1}. ID: ${v.id}, Cliente: ${v.clienteNombre}, Fecha: ${v.fecha}, Programa: ${v.programaId}`);
+      });
+    }
+
+    res.json({
+      cacheInvalidado: true,
+      visitasEncontradas: visitas.length,
+      visitas: visitas
+    });
+  } catch (error) {
+    console.error('🆕 DEBUG: Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 🆕 ENDPOINTS PARA VISITAS
 app.get("/api/visitas", async (req, res) => {
   try {
@@ -1162,6 +1198,42 @@ app.delete("/api/visitas-programadas/:id", async (req, res) => {
   } catch (error) {
     console.error("Error eliminando programa y visitas:", error);
     res.status(500).json({ error: "Error eliminando programa y visitas" });
+  }
+});
+
+// 🆕 ENDPOINT TEMPORAL PARA DEBUG - FORZAR INVALIDACIÓN DE CACHE
+app.get("/api/debug/visitas", async (req, res) => {
+  try {
+    console.log('🆕 DEBUG: Forzando invalidación de cache de visitas');
+    invalidarCache('visitas');
+    
+    console.log('🆕 DEBUG: Consultando Firestore directamente');
+    const snapshot = await adminDb.collection('visitas').get();
+    const visitas = [];
+    
+    snapshot.forEach(doc => {
+      visitas.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log(`🆕 DEBUG: Visitas encontradas en Firestore: ${visitas.length}`);
+    if (visitas.length > 0) {
+      console.log('🆕 DEBUG: Detalles de las visitas:');
+      visitas.forEach((v, index) => {
+        console.log(`🆕   ${index + 1}. ID: ${v.id}, Cliente: ${v.clienteNombre}, Fecha: ${v.fecha}, Programa: ${v.programaId}`);
+      });
+    }
+    
+    res.json({
+      cacheInvalidado: true,
+      visitasEncontradas: visitas.length,
+      visitas: visitas
+    });
+  } catch (error) {
+    console.error('🆕 DEBUG: Error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
