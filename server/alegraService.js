@@ -6,9 +6,9 @@ export async function getAlegraInvoices() {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
-  // 🆕 Calcular fecha límite (6 días atrás para incluir los últimos 7 días)
+  // 🆕 Calcular fecha límite (7 días atrás para incluir los últimos 7 días)
   const fechaLimite = new Date();
-  fechaLimite.setDate(fechaLimite.getDate() - 6); // Cambiado de -7 a -6
+  fechaLimite.setDate(fechaLimite.getDate() - 7); // Cambiado de -6 a -7
   fechaLimite.setHours(0, 0, 0, 0); // Establecer a inicio del día
   const fechaLimiteStr = fechaLimite.toISOString().split('T')[0]; // Formato YYYY-MM-DD
   
