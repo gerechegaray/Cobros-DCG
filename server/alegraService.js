@@ -16,39 +16,59 @@ export async function getAlegraInvoices() {
   console.log(`🆕 Fecha actual: ${new Date().toISOString().split('T')[0]}`);
   console.log(`🆕 Fecha límite (objeto Date): ${fechaLimite.toISOString()}`);
   
-  // 🆕 Obtener todas las facturas sin filtro de fecha
-  const url = `https://api.alegra.com/api/v1/invoices`;
-  console.log('🆕 Obteniendo todas las facturas de Alegra...');
-  const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
-
-  // Logs de depuración
-  console.log('EMAIL:', JSON.stringify(email));
-  console.log('API KEY:', JSON.stringify(apiKey));
-  console.log('Authorization header:', authorization);
-  console.log('URL:', url);
-
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/json',
-      authorization
+  // 🆕 Función para obtener facturas con paginación
+  const obtenerFacturasConPaginacion = async (start = 0, limit = 50) => {
+    const url = `https://api.alegra.com/api/v1/invoices?start=${start}&limit=${limit}`;
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Alegra API error:', response.status, errorText);
+      throw new Error('Error al obtener las facturas de Alegra');
     }
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Alegra API error:', response.status, errorText);
-    throw new Error('Error al obtener las facturas de Alegra');
+    
+    return await response.json();
+  };
+  
+  // 🆕 Obtener todas las facturas con paginación
+  console.log('🆕 Obteniendo todas las facturas de Alegra con paginación...');
+  
+  let todasLasFacturas = [];
+  let start = 0;
+  const limit = 50;
+  let hayMasFacturas = true;
+  
+  while (hayMasFacturas) {
+    console.log(`🆕 Obteniendo facturas desde ${start} con límite ${limit}...`);
+    const facturas = await obtenerFacturasConPaginacion(start, limit);
+    
+    if (facturas.length === 0) {
+      hayMasFacturas = false;
+    } else {
+      todasLasFacturas = todasLasFacturas.concat(facturas);
+      start += limit;
+      
+      // Si obtenemos menos facturas que el límite, significa que no hay más
+      if (facturas.length < limit) {
+        hayMasFacturas = false;
+      }
+    }
   }
-
-  const data = await response.json();
-  console.log(`🆕 Total de facturas obtenidas de Alegra: ${data.length}`);
-  console.log(`🆕 Status de respuesta: ${response.status}`);
-  console.log(`🆕 Headers de respuesta:`, response.headers);
+  
+  console.log(`🆕 Total de facturas obtenidas de Alegra: ${todasLasFacturas.length}`);
+  console.log(`🆕 Status de respuesta: 200`);
   
   // 🆕 Debug: mostrar TODAS las fechas de facturas antes del filtro
-  if (data.length > 0) {
+  if (todasLasFacturas.length > 0) {
     console.log('🆕 TODAS las facturas obtenidas de Alegra (antes del filtro):');
-    data.forEach((factura, index) => {
+    todasLasFacturas.forEach((factura, index) => {
       const fechaFactura = new Date(factura.date);
       const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
       const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
@@ -60,7 +80,7 @@ export async function getAlegraInvoices() {
   }
   
   // 🆕 Filtrar facturas de los últimos 7 días
-  const facturasFiltradas = data.filter(factura => {
+  const facturasFiltradas = todasLasFacturas.filter(factura => {
     if (!factura.date) {
       console.log(`🆕 Factura ${factura.id} sin fecha, excluida del filtro`);
       return false;
@@ -83,7 +103,7 @@ export async function getAlegraInvoices() {
     return esReciente;
   });
   
-  console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${data.length}`);
+  console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${todasLasFacturas.length}`);
   
   // 🆕 Debug: mostrar las fechas de las primeras 5 facturas después del filtro
   if (facturasFiltradas.length > 0) {
