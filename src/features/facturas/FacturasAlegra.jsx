@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
-import { getAlegraInvoices } from '../../services/alegra';
+import { api } from '../../services/api';
 import { Dialog } from 'primereact/dialog';
 import { db } from '../../services/firebase';
 import { collection, addDoc, query, onSnapshot, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
@@ -737,7 +737,7 @@ const FacturasAlegra = ({ user }) => {
       return;
     }
     
-    getAlegraInvoices()
+    api.getAlegraInvoices()
       .then(data => {
         console.log('🆕 Frontend: Facturas recibidas:', data.length);
         if (data.length > 0) {
