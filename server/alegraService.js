@@ -6,6 +6,11 @@ export async function getAlegraInvoices() {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
+  // Verificar que las credenciales estén configuradas
+  if (!email || !apiKey) {
+    throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
+  }
+  
   // 🆕 Calcular fecha límite (7 días atrás para incluir los últimos 7 días)
   const fechaLimite = new Date();
   fechaLimite.setDate(fechaLimite.getDate() - 7); // Cambiado de -6 a -7
@@ -23,7 +28,7 @@ export async function getAlegraInvoices() {
   console.log(`🆕 Fecha límite (objeto Date): ${fechaLimite.toISOString()}`);
   
   // 🆕 Función para obtener facturas con paginación
-  const obtenerFacturasConPaginacion = async (start = 0, limit = 50) => {
+  const obtenerFacturasConPaginacion = async (start = 0, limit = 30) => {
     // 🆕 Probar con diferentes parámetros para obtener más facturas
     const url = `https://api.alegra.com/api/v1/invoices?start=${start}&limit=${limit}&order_direction=DESC&order_field=date`;
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
@@ -51,13 +56,13 @@ export async function getAlegraInvoices() {
   
   let todasLasFacturas = [];
   let start = 0;
-  const limit = 50;
+  const limit = 30;
   let hayMasFacturas = true;
   
   // 🆕 Primero intentar obtener todas las facturas sin paginación
   try {
     console.log('🆕 Intentando obtener todas las facturas sin paginación...');
-    const urlSimple = `https://api.alegra.com/api/v1/invoices?limit=1000`;
+    const urlSimple = `https://api.alegra.com/api/v1/invoices?limit=30`;
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
     
     const responseSimple = await fetch(urlSimple, {
@@ -162,6 +167,12 @@ export async function getAlegraInvoices() {
 export async function getAlegraContacts() {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
+  
+  // Verificar que las credenciales estén configuradas
+  if (!email || !apiKey) {
+    throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
+  }
+  
   const url = 'https://api.alegra.com/api/v1/contacts';
   const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
   const response = await fetch(url, {
