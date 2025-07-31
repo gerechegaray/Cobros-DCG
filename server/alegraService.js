@@ -17,7 +17,7 @@ export async function getAlegraInvoices() {
   console.log(`🆕 Fecha límite (objeto Date): ${fechaLimite.toISOString()}`);
   
   // 🆕 Obtener todas las facturas sin filtro de fecha
-  const url = `https://api.alegra.com/api/v1/invoices?limit=100&start=0&status=open,closed`;
+  const url = `https://api.alegra.com/api/v1/invoices`;
   console.log('🆕 Obteniendo todas las facturas de Alegra...');
   const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
 
@@ -42,6 +42,8 @@ export async function getAlegraInvoices() {
 
   const data = await response.json();
   console.log(`🆕 Total de facturas obtenidas de Alegra: ${data.length}`);
+  console.log(`🆕 Status de respuesta: ${response.status}`);
+  console.log(`🆕 Headers de respuesta:`, response.headers);
   
   // 🆕 Debug: mostrar TODAS las fechas de facturas antes del filtro
   if (data.length > 0) {
