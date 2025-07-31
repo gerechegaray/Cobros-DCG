@@ -18,8 +18,11 @@ export async function getAlegraInvoices() {
   
   // 🆕 Función para obtener facturas con paginación
   const obtenerFacturasConPaginacion = async (start = 0, limit = 50) => {
-    const url = `https://api.alegra.com/api/v1/invoices?start=${start}&limit=${limit}`;
+    // 🆕 Probar con diferentes parámetros para obtener más facturas
+    const url = `https://api.alegra.com/api/v1/invoices?start=${start}&limit=${limit}&order_direction=DESC&order_field=date`;
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    
+    console.log(`🆕 Llamando a: ${url}`);
     
     const response = await fetch(url, {
       headers: {
@@ -45,19 +48,51 @@ export async function getAlegraInvoices() {
   const limit = 50;
   let hayMasFacturas = true;
   
-  while (hayMasFacturas) {
-    console.log(`🆕 Obteniendo facturas desde ${start} con límite ${limit}...`);
-    const facturas = await obtenerFacturasConPaginacion(start, limit);
+  // 🆕 Primero intentar obtener todas las facturas sin paginación
+  try {
+    console.log('🆕 Intentando obtener todas las facturas sin paginación...');
+    const urlSimple = `https://api.alegra.com/api/v1/invoices?limit=1000`;
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
     
-    if (facturas.length === 0) {
-      hayMasFacturas = false;
-    } else {
-      todasLasFacturas = todasLasFacturas.concat(facturas);
-      start += limit;
-      
-      // Si obtenemos menos facturas que el límite, significa que no hay más
-      if (facturas.length < limit) {
+    const responseSimple = await fetch(urlSimple, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    if (responseSimple.ok) {
+      const facturasSimples = await responseSimple.json();
+      console.log(`🆕 Facturas obtenidas sin paginación: ${facturasSimples.length}`);
+      if (facturasSimples.length > 1) {
+        todasLasFacturas = facturasSimples;
         hayMasFacturas = false;
+      }
+    }
+  } catch (error) {
+    console.log('🆕 Error obteniendo facturas sin paginación, continuando con paginación...');
+  }
+  
+  // 🆕 Si no se obtuvieron suficientes facturas, usar paginación
+  if (todasLasFacturas.length <= 1) {
+    console.log('🆕 Usando paginación para obtener más facturas...');
+    start = 0;
+    hayMasFacturas = true;
+    
+    while (hayMasFacturas) {
+      console.log(`🆕 Obteniendo facturas desde ${start} con límite ${limit}...`);
+      const facturas = await obtenerFacturasConPaginacion(start, limit);
+      
+      if (facturas.length === 0) {
+        hayMasFacturas = false;
+      } else {
+        todasLasFacturas = todasLasFacturas.concat(facturas);
+        start += limit;
+        
+        // Si obtenemos menos facturas que el límite, significa que no hay más
+        if (facturas.length < limit) {
+          hayMasFacturas = false;
+        }
       }
     }
   }
