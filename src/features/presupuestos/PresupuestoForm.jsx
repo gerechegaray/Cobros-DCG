@@ -327,7 +327,16 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
     setEnviando(true);
     setError("");
     try {
-      const data = await api.createAlegraQuote({
+      // 🆕 LOGS para depuración de bonificación
+      console.log('🆕 [PresupuestoForm] Items antes de enviar:', items);
+      console.log('🆕 [PresupuestoForm] Items con bonificación:', items.map(item => ({
+        producto: item.producto,
+        cantidad: item.cantidad,
+        bonificacion: item.bonificacion,
+        price: item.price
+      })));
+      
+      const requestData = {
         clienteId: clienteSeleccionado,
         items: items.map(item => ({ ...item, price: item.price })),
         observaciones,
@@ -336,7 +345,13 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
         vendedor: vendedorSeleccionado,
         condicion,
         dueDate: fechaVencimiento ? fechaVencimiento.toISOString().slice(0, 10) : null
-      });
+      };
+      
+      console.log('🆕 [PresupuestoForm] Datos enviados a API:', JSON.stringify(requestData, null, 2));
+      
+      const data = await api.createAlegraQuote(requestData);
+      
+      console.log('🆕 [PresupuestoForm] Respuesta de API:', data);
       
       toast.current?.show({ severity: 'success', summary: 'Presupuesto creado', detail: 'El presupuesto fue creado correctamente.' });
       setItems([]);
@@ -344,6 +359,7 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
       setObservaciones("");
       if (onPresupuestoCreado) onPresupuestoCreado(data.alegraQuote);
     } catch (err) {
+      console.error('🆕 [PresupuestoForm] Error al crear presupuesto:', err);
       setError("Error de red al crear presupuesto");
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error de red al crear presupuesto' });
     } finally {
