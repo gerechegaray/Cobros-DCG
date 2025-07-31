@@ -55,17 +55,13 @@ export default function SelectorCliente({ user }) {
           console.log('[SelectorCliente] Usuario sin rol válido - no se muestran clientes');
         }
         
-        // 🆕 Ordenar clientes alfabéticamente y convertir a formato para dropdown
-        const clientesOrdenados = clientesFiltrados
-          .sort((a, b) => {
-            const nombreA = a.name || a.nombre || a['Razón Social'] || '';
-            const nombreB = b.name || b.nombre || b['Razón Social'] || '';
-            return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
-          })
-          .map(cliente => ({
-            label: cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id || '(Sin nombre)',
-            value: cliente
-          }));
+                 // 🆕 Ordenar clientes alfabéticamente
+         const clientesOrdenados = clientesFiltrados
+           .sort((a, b) => {
+             const nombreA = a.name || a.nombre || a['Razón Social'] || '';
+             const nombreB = b.name || b.nombre || b['Razón Social'] || '';
+             return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
+           });
         
         setClientes(clientesOrdenados);
       } catch (e) {
@@ -80,30 +76,30 @@ export default function SelectorCliente({ user }) {
   }, [user]);
 
   const handleCrearPedido = () => {
-    if (cliente && cliente.value && cliente.value.id) {
+    if (cliente && cliente.id) {
       setLoading(true);
       // 🆕 Pasar el ID del cliente para que aparezca pre-seleccionado
-      navigate("/presupuestos/new", { state: { cliente: cliente.value.id } });
+      navigate("/presupuestos/new", { state: { cliente: cliente.id } });
     } else {
       console.error('[SelectorCliente] Cliente no válido:', cliente);
     }
   };
 
   const handleCargarCobro = () => {
-    if (cliente && cliente.label) {
+    if (cliente && cliente.name) {
       setLoading(true);
       // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
-      navigate("/list/new", { state: { cliente: cliente.label } });
+      navigate("/list/new", { state: { cliente: cliente.name } });
     } else {
       console.error('[SelectorCliente] Cliente no válido para cobro:', cliente);
     }
   };
 
   const handleEstadoCuenta = () => {
-    if (cliente && cliente.value) {
+    if (cliente) {
       setLoading(true);
       // 🆕 Pasar el cliente completo para el estado de cuenta
-      navigate("/estado-cuenta", { state: { cliente: cliente.value } });
+      navigate("/estado-cuenta", { state: { cliente: cliente } });
     } else {
       console.error('[SelectorCliente] Cliente no válido para estado de cuenta:', cliente);
     }
@@ -147,21 +143,21 @@ export default function SelectorCliente({ user }) {
         }}>
           Cliente
         </label>
-        <Dropdown
-          value={cliente}
-          options={clientes}
-          onChange={(e) => {
-            console.log('[SelectorCliente] Cliente seleccionado:', e.value);
-            setCliente(e.value);
-          }}
-          optionLabel="label"
-          placeholder="Selecciona un cliente"
-          filter
-          filterPlaceholder="Buscar cliente..."
-          showClear
-          className="w-full"
-          style={{ width: "100%" }}
-        />
+                 <Dropdown
+           value={cliente}
+           options={clientes}
+           onChange={(e) => {
+             console.log('[SelectorCliente] Cliente seleccionado:', e.value);
+             setCliente(e.value);
+           }}
+           optionLabel="name"
+           placeholder="Selecciona un cliente"
+           filter
+           filterPlaceholder="Buscar cliente..."
+           showClear
+           className="w-full"
+           style={{ width: "100%" }}
+         />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 24 }}>
