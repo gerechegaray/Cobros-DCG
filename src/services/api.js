@@ -7,6 +7,11 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  console.log('🆕 DEBUG API Request:');
+  console.log('🆕 URL:', url);
+  console.log('🆕 API_BASE_URL:', API_BASE_URL);
+  console.log('🆕 Endpoint:', endpoint);
+  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
@@ -24,15 +29,23 @@ export const apiRequest = async (endpoint, options = {}) => {
   };
 
   try {
+    console.log('🆕 Haciendo petición a:', url);
     const response = await fetch(url, finalOptions);
+    
+    console.log('🆕 Response status:', response.status);
+    console.log('🆕 Response ok:', response.ok);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log('🆕 Response data:', data);
+    console.log('🆕 Response data length:', Array.isArray(data) ? data.length : 'Not an array');
+    
+    return data;
   } catch (error) {
-    console.error(`Error en petición a ${url}:`, error);
+    console.error(`🆕 Error en petición a ${url}:`, error);
     throw error;
   }
 };
