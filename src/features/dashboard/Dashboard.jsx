@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../services/firebase";
-import { collection, query, getDocs } from "firebase/firestore";
+import { collection, query, getDocs, onSnapshot, orderBy } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { ProgressBar } from "primereact/progressbar";
 import { Button } from "primereact/button";
@@ -172,6 +172,84 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     fetchCobranzas(true);
   };
 
+  // 🆕 Real-time listener para actualización automática
+  useEffect(() => {
+    // Configurar listener en tiempo real
+    const q = query(collection(db, "cobranzas"), orderBy("fecha", "desc"));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const data = [];
+      querySnapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() });
+      });
+      
+      // Actualizar cache local
+      localStorage.setItem("cobranzas_dashboard", JSON.stringify(data));
+      
+      // Aplicar filtrado por rol
+      let filteredData = data;
+      if (user.role === "Santi" || user.role === "Guille") {
+        filteredData = data.filter(cobro => cobro.cobrador === user.role);
+      } else if (user.role === "admin") {
+        filteredData = data;
+      }
+      
+      setUserCobros(filteredData);
+      
+      // Calcular stats con datos filtrados
+      const totalCobranzas = filteredData.length;
+      const totalMonto = filteredData.reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+      
+      // Calcular montos por período
+      const hoy = new Date();
+      const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const inicioSemana = new Date(hoy);
+      inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+      
+      const montoMes = filteredData
+        .filter(cobro => {
+          let fechaCobro;
+          if (cobro.fecha?.toDate) {
+            fechaCobro = cobro.fecha.toDate();
+          } else if (cobro.fecha instanceof Date) {
+            fechaCobro = cobro.fecha;
+          } else {
+            fechaCobro = new Date(cobro.fecha);
+          }
+          return fechaCobro >= inicioMes;
+        })
+        .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+      
+      const montoSemana = filteredData
+        .filter(cobro => {
+          let fechaCobro;
+          if (cobro.fecha?.toDate) {
+            fechaCobro = cobro.fecha.toDate();
+          } else if (cobro.fecha instanceof Date) {
+            fechaCobro = cobro.fecha;
+          } else {
+            fechaCobro = new Date(cobro.fecha);
+          }
+          return fechaCobro >= inicioSemana;
+        })
+        .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
+      
+      setStats(prev => ({ 
+        ...prev, 
+        totalCobranzas, 
+        totalMonto,
+        montoMes,
+        montoSemana
+      }));
+    }, (error) => {
+      console.error("Error en real-time listener:", error);
+    });
+    
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
+  }, [user.role]);
+
+  // Cargar datos iniciales
   useEffect(() => {
     fetchCobranzas();
   }, [user]);
@@ -396,9 +474,23 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
 
   return (
     <div className="p-p-1 p-p-md-2 p-p-lg-3 dashboard-main-container" style={{ maxWidth: "100%", margin: "0 auto", overflow: "hidden" }}>
-      <h2 className="p-text-center p-mb-2 p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word" }}>
-        {getDashboardTitle()}
-      </h2>
+      <div className="p-text-center p-mb-2">
+        <h2 className="p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word", marginBottom: "0.5rem" }}>
+          {getDashboardTitle()}
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+          <div style={{ 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            backgroundColor: '#10b981', 
+            animation: 'pulse 2s infinite' 
+          }}></div>
+          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+            Actualización en tiempo real
+          </span>
+        </div>
+      </div>
 
 
       {/* Alertas de cobros pendientes */}
@@ -506,6 +598,15 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
 
       {/* Estilos responsive específicos para el dashboard */}
       <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+        
         @media (max-width: 768px) {
           .dashboard-main-container {
             padding: 0.5rem !important;
