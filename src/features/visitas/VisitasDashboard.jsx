@@ -406,14 +406,26 @@ export default function VisitasDashboard({ user }) {
     const fechaFiltro = new Date(filtroFecha);
     const fechaFiltroStr = `${fechaFiltro.getFullYear()}-${String(fechaFiltro.getMonth() + 1).padStart(2, '0')}-${String(fechaFiltro.getDate()).padStart(2, '0')}`;
     
-
+    console.log('🆕 Debug - Filtro de visitas:');
+    console.log('🆕 Fecha filtro:', fechaFiltroStr);
+    console.log('🆕 Total visitas:', visitas.length);
+    console.log('🆕 Primeras 3 visitas:', visitas.slice(0, 3).map(v => ({ id: v.id, fecha: v.fecha, cliente: v.clienteNombre })));
     
-    return visitas.filter(visita => {
+    const visitasFiltradas = visitas.filter(visita => {
       // La fecha de la visita ya viene como string YYYY-MM-DD desde el backend
       const fechaVisitaStr = visita.fecha;
+      const coincide = fechaVisitaStr === fechaFiltroStr;
       
-      return fechaVisitaStr === fechaFiltroStr;
+      if (coincide) {
+        console.log(`🆕 Visita incluida: ${visita.id} - ${visita.clienteNombre} - ${fechaVisitaStr}`);
+      }
+      
+      return coincide;
     });
+    
+    console.log('🆕 Visitas filtradas:', visitasFiltradas.length);
+    
+    return visitasFiltradas;
   }, [visitas, filtroFecha]);
 
   // Filtrar clientes según el vendedor seleccionado (para nuevo programa)
@@ -901,14 +913,20 @@ export default function VisitasDashboard({ user }) {
       }
       // Si es un string o número
       else if (typeof fecha === 'string' || typeof fecha === 'number') {
-        fechaObj = new Date(fecha);
+        // 🆕 Para fechas de Alegra, usar UTC para evitar problemas de zona horaria
+        if (typeof fecha === 'string' && fecha.includes('T')) {
+          // Es una fecha ISO de Alegra, usar UTC
+          fechaObj = new Date(fecha + 'Z'); // Asegurar que sea UTC
+        } else {
+          fechaObj = new Date(fecha);
+        }
       }
       
       if (fechaObj && !isNaN(fechaObj.getTime())) {
-        // Formato DD/MM/YYYY
-        const dia = fechaObj.getDate().toString().padStart(2, '0');
-        const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
-        const año = fechaObj.getFullYear().toString();
+        // 🆕 Usar UTC para evitar problemas de zona horaria
+        const dia = fechaObj.getUTCDate().toString().padStart(2, '0');
+        const mes = (fechaObj.getUTCMonth() + 1).toString().padStart(2, '0');
+        const año = fechaObj.getUTCFullYear().toString();
         return `${dia}/${mes}/${año}`;
       }
       
