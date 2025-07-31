@@ -110,17 +110,30 @@ const FacturasAlegra = ({ user }) => {
     const isSelected = selectedFacturas.some(f => f.id === factura.id);
     const canSelect = activeTab === 'pendiente';
 
-    // Obtener icono y color del estado
+    // 🆕 Obtener estado real de la factura (no solo el status de Alegra)
     const getEstadoInfo = () => {
-      switch (factura.status) {
-        case 'paid':
-          return { icon: '✅', color: 'text-green-600', label: 'Pagada' };
-        case 'pending':
+      // Primero verificar el estado real en las hojas de ruta
+      const estadoReal = obtenerEstadoFactura(factura.id);
+      
+      switch (estadoReal.estado) {
+        case 'entregado':
+          return { icon: '✅', color: 'text-green-600', label: 'Entregado' };
+        case 'en_reparto':
+          return { icon: '🚚', color: 'text-blue-600', label: 'En Reparto' };
+        case 'pendiente':
           return { icon: '⏳', color: 'text-yellow-600', label: 'Pendiente' };
-        case 'overdue':
-          return { icon: '⚠️', color: 'text-red-600', label: 'Vencida' };
         default:
-          return { icon: '📋', color: 'text-blue-600', label: 'Sin estado' };
+          // Si no hay estado en hojas de ruta, usar el status de Alegra
+          switch (factura.status) {
+            case 'paid':
+              return { icon: '✅', color: 'text-green-600', label: 'Pagada' };
+            case 'pending':
+              return { icon: '⏳', color: 'text-yellow-600', label: 'Pendiente' };
+            case 'overdue':
+              return { icon: '⚠️', color: 'text-red-600', label: 'Vencida' };
+            default:
+              return { icon: '📋', color: 'text-blue-600', label: 'Sin estado' };
+          }
       }
     };
 

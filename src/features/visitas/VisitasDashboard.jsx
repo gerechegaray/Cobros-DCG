@@ -1078,84 +1078,155 @@ export default function VisitasDashboard({ user }) {
           {mostrarProgramas && (
             <div className="mt-4">
               {programas.length > 0 ? (
-                <DataTable
-                  value={programas}
-                  paginator
-                  rows={5}
-                  rowsPerPageOptions={[5, 10]}
-                  emptyMessage="No hay programas de visitas creados"
-                >
-                  <Column field="clienteNombre" header="Cliente" sortable />
-                  <Column
-                    field="vendedorId"
-                    header="Vendedor"
-                    body={(programa) => programa.vendedorId === 1 ? 'Guille' : 'Santi'}
-                    sortable
-                  />
-                  <Column
-                    field="frecuencia"
-                    header="Frecuencia"
-                    body={(programa) => {
-                      const frecuencias = {
-                        'semanal': 'Semanal',
-                        'quincenal': 'Quincenal',
-                        'mensual': 'Mensual'
-                      };
-                      return frecuencias[programa.frecuencia] || programa.frecuencia;
-                    }}
-                    sortable
-                  />
-                  <Column
-                    field="diaSemana"
-                    header="Día"
-                    body={(programa) => {
-                      const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                      return dias[programa.diaSemana] || programa.diaSemana;
-                    }}
-                    sortable
-                  />
-                  <Column
-                    field="horario"
-                    header="Horario"
-                    body={(programa) => programa.horario === 'mañana' ? 'Mañana' : 'Tarde'}
-                    sortable
-                  />
-                  <Column
-                    field="activo"
-                    header="Estado"
-                    body={(programa) => (
-                      <Tag
-                        value={programa.activo ? 'Activo' : 'Inactivo'}
-                        severity={programa.activo ? 'success' : 'danger'}
-                      />
-                    )}
-                    sortable
-                  />
-                  <Column
-                    header="Acciones"
-                    body={(programa) => (
-                      <div className="flex gap-2">
-                        <Button
-                          icon="pi pi-pencil"
-                          size="small"
-                          severity="info"
-                          tooltip="Editar programa"
-                          onClick={() => abrirEditarPrograma(programa)}
+                isMobile ? (
+                  // 🆕 Layout móvil para programas
+                  <div className="space-y-3">
+                    {programas.map((programa) => (
+                      <Card key={programa.id} className="shadow-sm">
+                        <div className="p-3">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{programa.clienteNombre}</div>
+                              <div className="text-sm text-gray-600">
+                                {programa.vendedorId === 1 ? 'Guille' : 'Santi'} • {
+                                  programa.frecuencia === 'semanal' ? 'Semanal' :
+                                  programa.frecuencia === 'quincenal' ? 'Quincenal' :
+                                  programa.frecuencia === 'mensual' ? 'Mensual' : programa.frecuencia
+                                }
+                              </div>
+                            </div>
+                            <Tag
+                              value={programa.activo ? 'Activo' : 'Inactivo'}
+                              severity={programa.activo ? 'success' : 'danger'}
+                              className="text-xs"
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div>
+                              <span className="text-gray-500">Día:</span>
+                              <div className="font-medium">
+                                {(() => {
+                                  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                  return dias[programa.diaSemana] || programa.diaSemana;
+                                })()}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Horario:</span>
+                              <div className="font-medium">
+                                {programa.horario === 'mañana' ? 'Mañana' : 'Tarde'}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <Button
+                              icon="pi pi-pencil"
+                              label="Editar"
+                              size="small"
+                              severity="info"
+                              className="flex-1"
+                              onClick={() => abrirEditarPrograma(programa)}
+                            />
+                            <Button
+                              icon="pi pi-trash"
+                              label="Eliminar"
+                              size="small"
+                              severity="danger"
+                              className="flex-1"
+                              onClick={() => {
+                                setProgramaAEliminar(programa);
+                                setMostrarConfirmacionEliminar(true);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  // Layout desktop para programas
+                  <DataTable
+                    value={programas}
+                    paginator
+                    rows={5}
+                    rowsPerPageOptions={[5, 10]}
+                    emptyMessage="No hay programas de visitas creados"
+                    className="p-datatable-sm"
+                  >
+                    <Column field="clienteNombre" header="Cliente" sortable />
+                    <Column
+                      field="vendedorId"
+                      header="Vendedor"
+                      body={(programa) => programa.vendedorId === 1 ? 'Guille' : 'Santi'}
+                      sortable
+                    />
+                    <Column
+                      field="frecuencia"
+                      header="Frecuencia"
+                      body={(programa) => {
+                        const frecuencias = {
+                          'semanal': 'Semanal',
+                          'quincenal': 'Quincenal',
+                          'mensual': 'Mensual'
+                        };
+                        return frecuencias[programa.frecuencia] || programa.frecuencia;
+                      }}
+                      sortable
+                    />
+                    <Column
+                      field="diaSemana"
+                      header="Día"
+                      body={(programa) => {
+                        const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                        return dias[programa.diaSemana] || programa.diaSemana;
+                      }}
+                      sortable
+                    />
+                    <Column
+                      field="horario"
+                      header="Horario"
+                      body={(programa) => programa.horario === 'mañana' ? 'Mañana' : 'Tarde'}
+                      sortable
+                    />
+                    <Column
+                      field="activo"
+                      header="Estado"
+                      body={(programa) => (
+                        <Tag
+                          value={programa.activo ? 'Activo' : 'Inactivo'}
+                          severity={programa.activo ? 'success' : 'danger'}
                         />
-                        <Button
-                          icon="pi pi-trash"
-                          size="small"
-                          severity="danger"
-                          tooltip="Eliminar programa"
-                          onClick={() => {
-                            setProgramaAEliminar(programa);
-                            setMostrarConfirmacionEliminar(true);
-                          }}
-                        />
-                      </div>
-                    )}
-                  />
-                </DataTable>
+                      )}
+                      sortable
+                    />
+                    <Column
+                      header="Acciones"
+                      body={(programa) => (
+                        <div className="flex gap-2">
+                          <Button
+                            icon="pi pi-pencil"
+                            size="small"
+                            severity="info"
+                            tooltip="Editar programa"
+                            onClick={() => abrirEditarPrograma(programa)}
+                          />
+                          <Button
+                            icon="pi pi-trash"
+                            size="small"
+                            severity="danger"
+                            tooltip="Eliminar programa"
+                            onClick={() => {
+                              setProgramaAEliminar(programa);
+                              setMostrarConfirmacionEliminar(true);
+                            }}
+                          />
+                        </div>
+                      )}
+                    />
+                  </DataTable>
+                )
               ) : (
                 <div className="text-center py-4 text-gray-500">
                   No hay programas de visitas creados
