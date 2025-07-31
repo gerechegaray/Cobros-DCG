@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db, auth, getClientesCatalogo } from "../../services/firebase";
-import { collection, query, getDocs } from "firebase/firestore";
+import { collection, query, getDocs, onSnapshot, orderBy } from "firebase/firestore";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
 import { Badge } from "primereact/badge";
@@ -34,7 +34,8 @@ function Alerts({ user, onNavigateToMyCobros }) {
   const fetchCobranzas = async (force = false) => {
     let data = [];
     if (!force) {
-      const cache = localStorage.getItem("cobranzas_alerts");
+      // 🆕 Usar el mismo cache que el dashboard
+      const cache = localStorage.getItem("cobranzas_dashboard");
       if (cache) {
         data = JSON.parse(cache);
         // Filtrar cobros pendientes según el rol del usuario
@@ -50,13 +51,42 @@ function Alerts({ user, onNavigateToMyCobros }) {
     querySnapshot.forEach((doc) => {
       data.push({ id: doc.id, ...doc.data() });
     });
-    localStorage.setItem("cobranzas_alerts", JSON.stringify(data));
+    // 🆕 Actualizar el cache del dashboard también
+    localStorage.setItem("cobranzas_dashboard", JSON.stringify(data));
     let filteredData = data.filter(cobro => !cobro.cargado);
     filteredData = getFilteredData(filteredData);
     setPendingCobros(filteredData);
     setTotalPending(filteredData.length);
   };
 
+  // 🆕 Real-time listener para actualización automática de alertas
+  useEffect(() => {
+    // Configurar listener en tiempo real
+    const q = query(collection(db, "cobranzas"), orderBy("fecha", "desc"));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const data = [];
+      querySnapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() });
+      });
+      
+      // Actualizar cache local
+      localStorage.setItem("cobranzas_dashboard", JSON.stringify(data));
+      
+      // Filtrar cobros pendientes según el rol del usuario
+      let filteredData = data.filter(cobro => !cobro.cargado);
+      filteredData = getFilteredData(filteredData);
+      setPendingCobros(filteredData);
+      setTotalPending(filteredData.length);
+    }, (error) => {
+      console.error("Error en real-time listener de alertas:", error);
+    });
+    
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
+  }, [user.role]);
+
+  // Cargar datos iniciales
   useEffect(() => {
     fetchCobranzas();
   }, [user]);
