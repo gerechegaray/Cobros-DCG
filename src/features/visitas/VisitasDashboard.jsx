@@ -741,11 +741,7 @@ export default function VisitasDashboard({ user }) {
       const fechaFin = new Date();
       fechaFin.setDate(fechaFin.getDate() + 30); // Generar para el próximo mes
 
-      await api.generarVisitas();
-
-      if (!res.ok) throw new Error('Error al generar visitas');
-
-      const result = await res.json();
+      const result = await api.generarVisitas();
 
       toast.current?.show({
         severity: 'success',
@@ -755,11 +751,9 @@ export default function VisitasDashboard({ user }) {
 
       // Recargar visitas
       const sellerId = getSellerId();
-      const urlVisitas = esAdmin 
-        ? '/api/visitas-cache' // 🆕 Usar endpoint con caché
-        : `/api/visitas-cache?vendedorId=${sellerId}`; // 🆕 Usar endpoint con caché
-      const resVisitas = await fetch(urlVisitas);
-      const dataVisitas = await resVisitas.json();
+      const dataVisitas = esAdmin 
+        ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
+        : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
       setVisitas(dataVisitas);
     } catch (error) {
       console.error('Error generando visitas:', error);
