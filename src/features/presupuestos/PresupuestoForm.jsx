@@ -375,6 +375,8 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
         />
       )}
       {error && <div style={{ color: "red", marginBottom: 10 }}>{error}</div>}
+      
+      {/* 1. Cliente */}
       <div className="p-field">
         <label>Cliente</label>
         <Dropdown
@@ -386,6 +388,38 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
           disabled={loading}
         />
       </div>
+      
+      {/* 2. Fecha de creación */}
+      <div className="p-field" style={{ marginTop: 20 }}>
+        <label>Fecha de creación</label>
+        <Calendar value={fechaCreacion} onChange={e => setFechaCreacion(e.value)} dateFormat="dd/mm/yyyy" showIcon showButtonBar />
+        <small>({formatFecha(fechaCreacion)})</small>
+      </div>
+      
+      {/* 3. Condición */}
+      <div className="p-field" style={{ marginTop: 20 }}>
+        <label>Condición</label>
+        <Dropdown value={condicion} options={[{ label: "Contado", value: "Contado" }, { label: "Cuenta Corriente", value: "Cuenta Corriente" }]} onChange={e => setCondicion(e.value)} style={{ width: 200 }} />
+      </div>
+      
+      {/* 4. Fecha de vencimiento */}
+      <div className="p-field" style={{ marginTop: 20 }}>
+        <label>Fecha de vencimiento</label>
+        <Calendar value={fechaVencimiento} dateFormat="dd/mm/yyyy" showIcon disabled style={{ width: 200 }} />
+        <small>({formatFecha(fechaVencimiento)})</small>
+      </div>
+      
+      {/* 5. Vendedor */}
+      <div className="p-field" style={{ marginTop: 20 }}>
+        <label>Vendedor</label>
+        {user?.role === "admin" ? (
+          <Dropdown value={vendedorSeleccionado} options={vendedores} onChange={e => setVendedorSeleccionado(e.value)} placeholder="Selecciona vendedor" style={{ width: 200 }} />
+        ) : (
+          <Dropdown value={vendedorSeleccionado} options={vendedores} disabled style={{ width: 200 }} />
+        )}
+      </div>
+      
+      {/* 6. Producto */}
       <div className="p-field" style={{ marginTop: 20 }}>
         <label>Producto</label>
         <Dropdown
@@ -407,12 +441,16 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
           disabled={loadingProductos || !clienteSeleccionado}
         />
       </div>
+      
+      {/* 7. Precio */}
       {productoSeleccionado && (
         <div className="p-field" style={{ marginTop: 5 }}>
           <label>Precio</label>
           <InputNumber value={getPrecioGeneral(productos.find(p => p.id === productoSeleccionado))} mode="currency" currency="ARS" locale="es-AR" disabled style={{ width: 200 }} />
         </div>
       )}
+      
+      {/* 8. Cantidad */}
       <div className="p-field" style={{ marginTop: 10 }}>
         <label>Cantidad</label>
         <InputNumber
@@ -422,6 +460,8 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
           disabled={!productoSeleccionado}
         />
       </div>
+      
+      {/* 9. Bonificación */}
       <div className="p-field" style={{ marginTop: 10 }}>
         <label>Bonificación (%)</label>
         <InputNumber
@@ -435,28 +475,8 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
           style={{ width: 120 }}
         />
       </div>
-      <div className="p-field" style={{ marginTop: 10 }}>
-        <label>Fecha de creación</label>
-                    <Calendar value={fechaCreacion} onChange={e => setFechaCreacion(e.value)} dateFormat="dd/mm/yyyy" showIcon showButtonBar />
-        <small>({formatFecha(fechaCreacion)})</small>
-      </div>
-      <div className="p-field" style={{ marginTop: 10 }}>
-        <label>Condición</label>
-        <Dropdown value={condicion} options={[{ label: "Contado", value: "Contado" }, { label: "Cuenta Corriente", value: "Cuenta Corriente" }]} onChange={e => setCondicion(e.value)} style={{ width: 200 }} />
-      </div>
-      <div className="p-field" style={{ marginTop: 10 }}>
-        <label>Fecha de vencimiento</label>
-                    <Calendar value={fechaVencimiento} dateFormat="dd/mm/yyyy" showIcon disabled style={{ width: 200 }} />
-        <small>({formatFecha(fechaVencimiento)})</small>
-      </div>
-      <div className="p-field" style={{ marginTop: 10 }}>
-        <label>Vendedor</label>
-        {user?.role === "admin" ? (
-          <Dropdown value={vendedorSeleccionado} options={vendedores} onChange={e => setVendedorSeleccionado(e.value)} placeholder="Selecciona vendedor" style={{ width: 200 }} />
-        ) : (
-          <Dropdown value={vendedorSeleccionado} options={vendedores} disabled style={{ width: 200 }} />
-        )}
-      </div>
+      
+      {/* 10. Agregar */}
       <div className="p-field" style={{ marginTop: 10 }}>
         <Button
           label="Agregar"
@@ -467,6 +487,8 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
           style={{ width: 150 }}
         />
       </div>
+      
+      {/* 11. Lista de Productos */}
       <div style={{ marginTop: 20 }}>
         <h4>Productos agregados</h4>
         <ul>
@@ -481,10 +503,14 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
             );
           })}
         </ul>
+        
+        {/* 12. Total */}
         <div style={{ marginTop: 10, fontWeight: 'bold', fontSize: 18 }}>
           Total parcial: {totalParcial.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
         </div>
       </div>
+      
+      {/* 13. Observaciones */}
       <div className="p-field" style={{ marginTop: 20 }}>
         <label>Observaciones</label>
         <textarea
@@ -495,6 +521,8 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
           placeholder="Observaciones para el presupuesto (opcional)"
         />
       </div>
+      
+      {/* 14. Crear Presupuesto */}
       <Button
         label={enviando ? "Creando..." : "Crear Presupuesto"}
         icon="pi pi-check"
