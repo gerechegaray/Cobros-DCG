@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'https://cobros-dcg.onrender.com'
+      '/api': 'http://localhost:3001'
     }
   }
 });

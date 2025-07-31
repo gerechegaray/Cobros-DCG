@@ -24,9 +24,9 @@ export async function getAlegraInvoices() {
 export async function getEstadoCuenta(clienteId) {
   console.log('[ALEGRA SERVICE] Consultando estado de cuenta para cliente:', clienteId);
   
-  // 🆕 Probar con URL directa al servidor de producción
-  const url = `https://cobros-dcg.onrender.com/api/alegra/estado-cuenta/${clienteId}`;
-  console.log('[ALEGRA SERVICE] URL directa:', url);
+  // 🆕 Usar URL relativa para que funcione con el proxy
+  const url = `/api/alegra/estado-cuenta/${clienteId}`;
+  console.log('[ALEGRA SERVICE] URL relativa:', url);
   
   try {
     const response = await fetch(url, {
