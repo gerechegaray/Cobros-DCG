@@ -25,11 +25,13 @@ export async function getEstadoCuenta(clienteId) {
   console.log('[ALEGRA SERVICE] Consultando estado de cuenta para cliente:', clienteId);
   const url = `/api/alegra/estado-cuenta/${clienteId}`;
   console.log('[ALEGRA SERVICE] URL:', url);
+  console.log('[ALEGRA SERVICE] URL completa:', window.location.origin + url);
   
   try {
     const response = await fetch(url);
     console.log('[ALEGRA SERVICE] Response status:', response.status);
     console.log('[ALEGRA SERVICE] Response headers:', response.headers);
+    console.log('[ALEGRA SERVICE] Response URL:', response.url);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -37,7 +39,19 @@ export async function getEstadoCuenta(clienteId) {
       throw new Error(`Error al obtener el estado de cuenta de Alegra: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
+    // 🆕 Verificar el contenido antes de parsear
+    const responseText = await response.text();
+    console.log('[ALEGRA SERVICE] Response text (primeros 200 chars):', responseText.substring(0, 200));
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[ALEGRA SERVICE] Error parseando JSON:', parseError);
+      console.error('[ALEGRA SERVICE] Response text completo:', responseText);
+      throw new Error('Respuesta no es JSON válido');
+    }
+    
     console.log('[ALEGRA SERVICE] Datos recibidos:', data.length, 'facturas');
     console.log('[ALEGRA SERVICE] Primeras 3 facturas:', data.slice(0, 3).map(f => ({
       numero: f.numero,
