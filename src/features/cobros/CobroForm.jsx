@@ -18,11 +18,12 @@ function CobroForm({ user }) {
   const navigate = useNavigate();
   const clienteNavegacion = location.state?.cliente || null;
 
-  useEffect(() => {
-    if (!clienteNavegacion) {
-      navigate('/clientes');
-    }
-  }, [clienteNavegacion, navigate]);
+  // 🆕 Removido redirección automática - permitir acceso directo al formulario
+  // useEffect(() => {
+  //   if (!clienteNavegacion) {
+  //     navigate('/clientes');
+  //   }
+  // }, [clienteNavegacion, navigate]);
 
   const [fecha, setFecha] = useState(null);
   const [cliente, setCliente] = useState(clienteNavegacion || "");

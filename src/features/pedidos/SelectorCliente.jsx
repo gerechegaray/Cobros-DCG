@@ -82,8 +82,8 @@ export default function SelectorCliente({ user }) {
   const handleCrearPedido = () => {
     if (cliente) {
       setLoading(true);
-      // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
-      navigate("/presupuestos/new", { state: { cliente: cliente.label } });
+      // 🆕 Pasar el ID del cliente para que aparezca pre-seleccionado
+      navigate("/presupuestos/new", { state: { cliente: cliente.value.id } });
     }
   };
 
