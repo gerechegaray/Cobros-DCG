@@ -871,7 +871,13 @@ app.get("/api/cache/stats", (req, res) => {
 app.get("/api/visitas-cache", async (req, res) => {
   try {
     const { vendedorId } = req.query;
-    console.log('Entrando a /api/visitas-cache, vendedorId:', vendedorId);
+    console.log('🆕 Entrando a /api/visitas-cache, vendedorId:', vendedorId);
+    
+    // 🆕 Debug: Verificar estado del cache
+    console.log('🆕 Estado del cache de visitas:');
+    console.log('🆕 - Cache disponible:', !!cacheCompartido.visitas);
+    console.log('🆕 - Cache expirado:', cacheExpiro('visitas'));
+    console.log('🆕 - Última actualización:', cacheCompartido.ultimaActualizacion.visitas);
     
     // Verificar si el cache está disponible y no expiró
     if (!cacheExpiro('visitas') && cacheCompartido.visitas) {
@@ -901,6 +907,14 @@ app.get("/api/visitas-cache", async (req, res) => {
         ...doc.data()
       });
     });
+    
+    console.log(`🆕 Visitas encontradas en Firestore: ${visitas.length}`);
+    if (visitas.length > 0) {
+      console.log('🆕 Primeras 3 visitas:');
+      visitas.slice(0, 3).forEach((v, index) => {
+        console.log(`🆕   ${index + 1}. ID: ${v.id}, Cliente: ${v.clienteNombre}, Fecha: ${v.fecha}`);
+      });
+    }
     
     // Guardar en cache
     cacheCompartido.visitas = visitas;
