@@ -140,17 +140,16 @@ export async function getAlegraInvoices() {
   
   console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${todasLasFacturas.length}`);
   
-  // 🆕 Debug: mostrar las fechas de las primeras 5 facturas después del filtro
-  if (facturasFiltradas.length > 0) {
-    console.log('🆕 Fechas de las primeras 5 facturas (después del filtro):');
-    facturasFiltradas.slice(0, 5).forEach((factura, index) => {
-      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
-    });
-  } else {
-    console.log('🆕 No hay facturas que cumplan el criterio de 7 días');
-  }
+  // 🆕 TEMPORAL: Devolver todas las facturas sin filtro para ver las fechas reales
+  console.log('🆕 TEMPORAL: Devolviendo todas las facturas sin filtro para verificar fechas de zona horaria');
+  console.log('🆕 Fechas de todas las facturas obtenidas:');
+  todasLasFacturas.forEach((factura, index) => {
+    console.log(`  ${index + 1}. ID: ${factura.id}, Fecha original: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+  });
   
-  return facturasFiltradas;
+  return todasLasFacturas;
+  
+  // 🆕 Debug: mostrar las fechas de las primeras 5 facturas después del filtro
 }
 
 export async function getAlegraContacts() {
