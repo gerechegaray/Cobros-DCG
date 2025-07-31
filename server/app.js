@@ -927,10 +927,21 @@ app.get("/api/visitas-cache", async (req, res) => {
     
     // Filtrar por vendedor si se especifica
     let visitasFiltradas = visitas;
-    if (vendedorId) {
+    console.log('🆕 DEBUG: Antes del filtro - Total visitas:', visitas.length);
+    console.log('🆕 DEBUG: vendedorId recibido:', vendedorId, 'tipo:', typeof vendedorId);
+    
+    if (vendedorId && vendedorId !== 'undefined') {
       visitasFiltradas = visitas.filter(visita => visita.vendedorId === parseInt(vendedorId));
-      console.log(`Filtradas ${visitasFiltradas.length} visitas para vendedor ${vendedorId}`);
+      console.log(`🆕 DEBUG: Filtradas ${visitasFiltradas.length} visitas para vendedor ${vendedorId}`);
+    } else {
+      console.log('🆕 DEBUG: No se aplica filtro de vendedor, retornando todas las visitas');
     }
+    
+    console.log('🆕 DEBUG: Visitas a retornar:', visitasFiltradas.length);
+    console.log('🆕 DEBUG: Primeras 3 visitas a retornar:');
+    visitasFiltradas.slice(0, 3).forEach((v, index) => {
+      console.log(`🆕   ${index + 1}. ID: ${v.id}, Cliente: ${v.clienteNombre}, Vendedor: ${v.vendedorId}`);
+    });
     
     res.json(visitasFiltradas);
   } catch (error) {
