@@ -29,7 +29,13 @@ export async function getEstadoCuenta(clienteId) {
   console.log('[ALEGRA SERVICE] URL directa:', url);
   
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
     console.log('[ALEGRA SERVICE] Response status:', response.status);
     console.log('[ALEGRA SERVICE] Response headers:', response.headers);
     console.log('[ALEGRA SERVICE] Response URL:', response.url);
