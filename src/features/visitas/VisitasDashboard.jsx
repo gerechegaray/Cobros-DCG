@@ -407,9 +407,16 @@ export default function VisitasDashboard({ user }) {
     const fechaFiltroStr = `${fechaFiltro.getFullYear()}-${String(fechaFiltro.getMonth() + 1).padStart(2, '0')}-${String(fechaFiltro.getDate()).padStart(2, '0')}`;
     
     console.log('🆕 Debug - Filtro de visitas:');
-    console.log('🆕 Fecha filtro:', fechaFiltroStr);
+    console.log('🆕 Fecha filtro (objeto):', filtroFecha);
+    console.log('🆕 Fecha filtro (string):', fechaFiltroStr);
     console.log('🆕 Total visitas:', visitas.length);
-    console.log('🆕 Primeras 3 visitas:', visitas.slice(0, 3).map(v => ({ id: v.id, fecha: v.fecha, cliente: v.clienteNombre })));
+    
+    if (visitas.length > 0) {
+      console.log('🆕 Primeras 5 visitas:');
+      visitas.slice(0, 5).forEach((v, index) => {
+        console.log(`  ${index + 1}. ID: ${v.id}, Fecha: ${v.fecha}, Cliente: ${v.clienteNombre}`);
+      });
+    }
     
     const visitasFiltradas = visitas.filter(visita => {
       // La fecha de la visita ya viene como string YYYY-MM-DD desde el backend
@@ -424,6 +431,16 @@ export default function VisitasDashboard({ user }) {
     });
     
     console.log('🆕 Visitas filtradas:', visitasFiltradas.length);
+    
+    // 🆕 Si no hay visitas filtradas, mostrar todas las visitas para debug
+    if (visitasFiltradas.length === 0 && visitas.length > 0) {
+      console.log('🆕 No se encontraron visitas para la fecha. Todas las fechas disponibles:');
+      const fechasUnicas = [...new Set(visitas.map(v => v.fecha))].sort();
+      fechasUnicas.forEach(fecha => {
+        const count = visitas.filter(v => v.fecha === fecha).length;
+        console.log(`  ${fecha}: ${count} visitas`);
+      });
+    }
     
     return visitasFiltradas;
   }, [visitas, filtroFecha]);
