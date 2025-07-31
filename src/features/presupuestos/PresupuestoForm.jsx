@@ -55,11 +55,61 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
   // Utilidad para mostrar fecha en formato DD/MM/YYYY
   const formatFecha = (date) => {
     if (!date) return '';
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = String(d.getFullYear());
-    return `${day}/${month}/${year}`;
+    
+    try {
+      let fechaObj = null;
+      
+      // Si es un string en formato DD/MM/YY (formato de Alegra)
+      if (typeof date === 'string' && date.includes('/')) {
+        const partes = date.split('/');
+        if (partes.length === 3) {
+          const dia = parseInt(partes[0]);
+          const mes = parseInt(partes[1]) - 1; // Meses en JS van de 0-11
+          const año = parseInt(partes[2]);
+          // Asumir siglo 20xx si el año tiene 2 dígitos
+          const añoCompleto = año < 100 ? 2000 + año : año;
+          fechaObj = new Date(añoCompleto, mes, dia);
+        }
+      }
+      // Si es un objeto de Firestore Timestamp con _seconds
+      else if (date && typeof date === 'object' && date._seconds !== undefined) {
+        fechaObj = new Date(date._seconds * 1000);
+      }
+      // Si es un objeto de Firestore Timestamp con seconds
+      else if (date && typeof date === 'object' && date.seconds !== undefined) {
+        fechaObj = new Date(date.seconds * 1000);
+      }
+      // Si es un objeto de Firestore con toDate()
+      else if (date && typeof date === 'object' && typeof date.toDate === 'function') {
+        fechaObj = date.toDate();
+      }
+      // Si es una fecha normal
+      else if (date instanceof Date) {
+        fechaObj = date;
+      }
+      // Si es un string o número (formato estándar)
+      else if (typeof date === 'string' || typeof date === 'number') {
+        // 🆕 Para fechas de Alegra, usar UTC para evitar problemas de zona horaria
+        if (typeof date === 'string' && date.includes('T')) {
+          // Es una fecha ISO de Alegra, usar UTC
+          fechaObj = new Date(date + 'Z'); // Asegurar que sea UTC
+        } else {
+          fechaObj = new Date(date);
+        }
+      }
+      
+      if (fechaObj && !isNaN(fechaObj.getTime())) {
+        // 🆕 Usar UTC para evitar problemas de zona horaria
+        const dia = fechaObj.getUTCDate().toString().padStart(2, '0');
+        const mes = (fechaObj.getUTCMonth() + 1).toString().padStart(2, '0');
+        const año = fechaObj.getUTCFullYear().toString();
+        return `${dia}/${mes}/${año}`;
+      }
+      
+      return '';
+    } catch (error) {
+      return '';
+    }
   };
 
   // Utilidad para obtener el precio de la lista General

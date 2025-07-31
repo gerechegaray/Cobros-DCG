@@ -530,14 +530,20 @@ function PresupuestosList({ user }) {
       }
       // Si es un string o número (formato estándar)
       else if (typeof fecha === 'string' || typeof fecha === 'number') {
-        fechaObj = new Date(fecha);
+        // 🆕 Para fechas de Alegra, usar UTC para evitar problemas de zona horaria
+        if (typeof fecha === 'string' && fecha.includes('T')) {
+          // Es una fecha ISO de Alegra, usar UTC
+          fechaObj = new Date(fecha + 'Z'); // Asegurar que sea UTC
+        } else {
+          fechaObj = new Date(fecha);
+        }
       }
       
       if (fechaObj && !isNaN(fechaObj.getTime())) {
-        // Formato DD/MM/YYYY
-        const dia = fechaObj.getDate().toString().padStart(2, '0');
-        const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
-        const año = fechaObj.getFullYear().toString(); // Año completo con 4 dígitos
+        // 🆕 Usar UTC para evitar problemas de zona horaria
+        const dia = fechaObj.getUTCDate().toString().padStart(2, '0');
+        const mes = (fechaObj.getUTCMonth() + 1).toString().padStart(2, '0');
+        const año = fechaObj.getUTCFullYear().toString();
         const resultado = `${dia}/${mes}/${año}`;
         return resultado;
       }
