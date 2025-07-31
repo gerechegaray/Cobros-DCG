@@ -372,13 +372,19 @@ export default function VisitasDashboard({ user }) {
   useEffect(() => {
     const cargarVisitas = async () => {
       try {
+        console.log('🆕 Iniciando carga de visitas...');
         setLoading(true);
         const sellerId = getSellerId();
+        console.log('🆕 Seller ID:', sellerId);
+        console.log('🆕 Es admin:', esAdmin);
         
         // Si es admin, no filtrar por vendedorId
         const data = esAdmin
           ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
           : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
+        
+        console.log('🆕 Datos recibidos del backend:', data);
+        console.log('🆕 Cantidad de visitas recibidas:', data.length);
         
         setVisitas(data);
       } catch (error) {
@@ -400,22 +406,10 @@ export default function VisitasDashboard({ user }) {
 
   // Filtrar visitas por fecha
   const visitasFiltradas = useMemo(() => {
-    // 🆕 TEMPORAL: Mostrar todas las visitas sin filtro para debug
-    console.log('🆕 TEMPORAL: Mostrando todas las visitas sin filtro para debug');
-    console.log('🆕 Total visitas cargadas:', visitas.length);
+    console.log('🆕 Debug - Estado de visitas:');
+    console.log('🆕 Total visitas en estado:', visitas.length);
+    console.log('🆕 Filtro fecha:', filtroFecha);
     
-    if (visitas.length > 0) {
-      console.log('🆕 Todas las visitas:');
-      visitas.forEach((v, index) => {
-        console.log(`  ${index + 1}. ID: ${v.id}, Fecha: ${v.fecha}, Cliente: ${v.clienteNombre}, Estado: ${v.estado}`);
-      });
-    }
-    
-    // 🆕 TEMPORAL: Devolver todas las visitas sin filtro
-    return visitas;
-    
-    // Código original comentado temporalmente
-    /*
     if (!filtroFecha) return visitas;
     
     // Convertir la fecha del filtro a string YYYY-MM-DD sin problemas de timezone
@@ -459,7 +453,6 @@ export default function VisitasDashboard({ user }) {
     }
     
     return visitasFiltradas;
-    */
   }, [visitas, filtroFecha]);
 
   // Filtrar clientes según el vendedor seleccionado (para nuevo programa)
