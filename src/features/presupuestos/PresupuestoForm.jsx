@@ -234,14 +234,25 @@ function PresupuestoForm({ user, onPresupuestoCreado }) {
         
         // 🆕 Si hay un cliente inicial de navegación, seleccionarlo automáticamente
         if (clienteInicial && clientesFiltrados.length > 0) {
+          console.log('[PresupuestoForm] Cliente inicial recibido:', clienteInicial);
+          console.log('[PresupuestoForm] Tipo de clienteInicial:', typeof clienteInicial);
+          console.log('[PresupuestoForm] Primer cliente disponible:', clientesFiltrados[0]);
+          
           const clienteEncontrado = clientesFiltrados.find(cliente => 
             cliente.id === clienteInicial || 
+            cliente.id === parseInt(clienteInicial) || // En caso de que sea string
             cliente.name === clienteInicial ||
             cliente.nombre === clienteInicial ||
             cliente['Razón Social'] === clienteInicial
           );
+          
+          console.log('[PresupuestoForm] Cliente encontrado:', clienteEncontrado);
+          
           if (clienteEncontrado) {
             setClienteSeleccionado(clienteEncontrado.id);
+            console.log('[PresupuestoForm] Cliente seleccionado:', clienteEncontrado.id);
+          } else {
+            console.log('[PresupuestoForm] No se encontró el cliente con ID:', clienteInicial);
           }
         }
         
