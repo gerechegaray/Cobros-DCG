@@ -879,7 +879,9 @@ app.get("/api/visitas-cache", async (req, res) => {
     console.log('🆕 - Cache expirado:', cacheExpiro('visitas'));
     console.log('🆕 - Última actualización:', cacheCompartido.ultimaActualizacion.visitas);
     
+    // 🆕 TEMPORARIO: Forzar consulta directa a Firestore para debug
     // Verificar si el cache está disponible y no expiró
+    /*
     if (!cacheExpiro('visitas') && cacheCompartido.visitas) {
       console.log('📦 Sirviendo visitas desde cache');
       
@@ -894,6 +896,7 @@ app.get("/api/visitas-cache", async (req, res) => {
       res.json(visitas);
       return;
     }
+    */
     
     // Cache expirado o no disponible, cargar desde Firestore
     console.log('🔄 Cache expirado o no disponible, cargando visitas desde Firestore...');
