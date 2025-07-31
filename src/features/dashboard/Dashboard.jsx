@@ -70,15 +70,29 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         
         const montoMes = filteredData
           .filter(cobro => {
-            const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
-            return fechaCobro >= inicioMes && cobro.cargado;
+            let fechaCobro;
+            if (cobro.fecha?.toDate) {
+              fechaCobro = cobro.fecha.toDate();
+            } else if (cobro.fecha instanceof Date) {
+              fechaCobro = cobro.fecha;
+            } else {
+              fechaCobro = new Date(cobro.fecha);
+            }
+            return fechaCobro >= inicioMes;
           })
           .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
         
         const montoSemana = filteredData
           .filter(cobro => {
-            const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
-            return fechaCobro >= inicioSemana && cobro.cargado;
+            let fechaCobro;
+            if (cobro.fecha?.toDate) {
+              fechaCobro = cobro.fecha.toDate();
+            } else if (cobro.fecha instanceof Date) {
+              fechaCobro = cobro.fecha;
+            } else {
+              fechaCobro = new Date(cobro.fecha);
+            }
+            return fechaCobro >= inicioSemana;
           })
           .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
         
@@ -116,15 +130,29 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     
     const montoMes = filteredData
       .filter(cobro => {
-        const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
-        return fechaCobro >= inicioMes && cobro.cargado;
+        let fechaCobro;
+        if (cobro.fecha?.toDate) {
+          fechaCobro = cobro.fecha.toDate();
+        } else if (cobro.fecha instanceof Date) {
+          fechaCobro = cobro.fecha;
+        } else {
+          fechaCobro = new Date(cobro.fecha);
+        }
+        return fechaCobro >= inicioMes;
       })
       .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
     
     const montoSemana = filteredData
       .filter(cobro => {
-        const fechaCobro = cobro.fecha?.toDate ? cobro.fecha.toDate() : new Date(cobro.fecha);
-        return fechaCobro >= inicioSemana && cobro.cargado;
+        let fechaCobro;
+        if (cobro.fecha?.toDate) {
+          fechaCobro = cobro.fecha.toDate();
+        } else if (cobro.fecha instanceof Date) {
+          fechaCobro = cobro.fecha;
+        } else {
+          fechaCobro = new Date(cobro.fecha);
+        }
+        return fechaCobro >= inicioSemana;
       })
       .reduce((sum, cobro) => sum + (cobro.monto || 0), 0);
     
@@ -371,13 +399,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       <h2 className="p-text-center p-mb-2 p-text-md p-text-lg" style={{ color: "#1f2937", wordWrap: "break-word" }}>
         {getDashboardTitle()}
       </h2>
-      {/* 🆕 Botones solo para admin */}
-      {user.role === "admin" && (
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: 16 }}>
-          <Button label="Actualizar" icon="pi pi-refresh" onClick={() => fetchCobranzas(true)} />
-          <Button label="Limpiar Cache" icon="pi pi-trash" severity="secondary" onClick={limpiarCacheYRecargar} />
-        </div>
-      )}
+
 
       {/* Alertas de cobros pendientes */}
       <div className="dashboard-alerts-container" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
@@ -389,10 +411,6 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Cobranzas</h3>
         <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-              <span className="p-d-flex p-ai-center"><i className="pi pi-dollar p-mr-2" style={{ color: '#059669', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Monto Total</span></span>
-              <span style={{ color: '#059669', fontWeight: 600, marginLeft: 12 }}>{formatCurrency(stats.totalMonto)}</span>
-            </li>
             <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
               <span className="p-d-flex p-ai-center"><i className="pi pi-calendar p-mr-2" style={{ color: '#7c3aed', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cobrado este Mes</span></span>
               <span style={{ color: '#7c3aed', fontWeight: 600, marginLeft: 12 }}>{formatCurrency(stats.montoMes)}</span>
@@ -472,6 +490,19 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       )}
 
       {/* 🆕 Sección eliminada: "Progreso de Carga en Sistema" - No se muestra para ningún rol */}
+
+      {/* Botón Actualizar solo para admin - al final de la pantalla */}
+      {user.role === "admin" && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, marginBottom: 16 }}>
+          <Button 
+            label="Actualizar Datos" 
+            icon="pi pi-refresh" 
+            onClick={() => fetchCobranzas(true)}
+            className="p-button-outlined"
+            style={{ minWidth: '200px' }}
+          />
+        </div>
+      )}
 
       {/* Estilos responsive específicos para el dashboard */}
       <style>{`

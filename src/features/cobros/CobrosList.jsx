@@ -338,10 +338,33 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   // Agregar función para obtener razón social
   const getRazonSocial = (clienteId) => {
     if (!clienteId) return '-';
-    if (catalogoCargado && clientesCatalogo.length > 0) {
-      const cliente = clientesCatalogo.find(c => c.id === clienteId);
-      return cliente ? cliente['Razón Social'] : String(clienteId);
+    
+    // Si el clienteId ya es un nombre completo (contiene espacios), devolverlo tal como está
+    if (typeof clienteId === 'string' && clienteId.includes(' ')) {
+      return clienteId;
     }
+    
+    // Para códigos numéricos o IDs, intentar buscar en el catálogo
+    if (catalogoCargado && clientesCatalogo.length > 0) {
+      // Buscar por id exacto
+      let cliente = clientesCatalogo.find(c => c.id === clienteId);
+      
+      // Si no se encuentra por id, buscar por otros campos
+      if (!cliente) {
+        cliente = clientesCatalogo.find(c => 
+          c.name === clienteId || 
+          c.nombre === clienteId || 
+          c['Razón Social'] === clienteId
+        );
+      }
+      
+      // Si se encuentra el cliente, devolver su razón social
+      if (cliente) {
+        return cliente['Razón Social'] || cliente.name || cliente.nombre || clienteId;
+      }
+    }
+    
+    // Si no se encuentra, devolver el ID tal como está
     return String(clienteId);
   };
 

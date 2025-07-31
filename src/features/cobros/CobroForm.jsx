@@ -39,13 +39,11 @@ function CobroForm({ user }) {
 
   const formasDeCobro = [
     { label: "Efectivo", value: "Efectivo" },
-    { label: "Mercado Pago", value: "Mercado Pago" },
-    { label: "Transferencia DCG", value: "Transferencia DCG" },
-    { label: "Transferencia Santander", value: "Transferencia Santander" },
+    { label: "Transferencia Santander DCG", value: "Transferencia Santander DCG" },
     { label: "Transferencia Galicia DCG", value: "Transferencia Galicia DCG" },
-    { label: "Alleata", value: "Alleata" },
-    // Mantener compatibilidad con formas antiguas
-    { label: "Transferencia", value: "Transferencia" },
+    { label: "Transferencia Santander ROE", value: "Transferencia Santander ROE" },
+    { label: "Mercado Pago", value: "Mercado Pago" },
+    { label: "Alleata/Getnet", value: "Alleata/Getnet" },
     { label: "Cheque", value: "Cheque" },
     { label: "Otro", value: "Otro" },
   ];
@@ -93,7 +91,10 @@ function CobroForm({ user }) {
         const options = clientesFiltrados
           .slice()
           .sort((a, b) => ((a.name || a.nombre || a['Razón Social'] || '').localeCompare(b.name || b.nombre || b['Razón Social'] || '')))
-          .map((c) => ({ label: c.name || c.nombre || c['Razón Social'] || c.id || '(Sin nombre)', value: c.id }));
+          .map((c) => ({ 
+            label: c.name || c.nombre || c['Razón Social'] || c.id || '(Sin nombre)', 
+            value: c.name || c.nombre || c['Razón Social'] || c.id 
+          }));
         setClientes(options);
       } catch (error) {
         console.error('Error al obtener clientes de Firestore:', error);
@@ -289,19 +290,21 @@ function CobroForm({ user }) {
               />
             </div>
 
-            {/* Cargado en sistema */}
-            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
-              <div className="p-d-flex p-ai-center p-gap-2">
-                <Checkbox 
-                  checked={cargado} 
-                  onChange={(e) => setCargado(e.checked)} 
-                  inputId="cargado" 
-                />
-                <label htmlFor="cargado" className="p-text-sm" style={{ color: "#374151" }}>
-                  ¿Cargado en el sistema?
-                </label>
+            {/* Cargado en sistema - Solo visible para admin */}
+            {user?.role === 'admin' && (
+              <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
+                <div className="p-d-flex p-ai-center p-gap-2">
+                  <Checkbox 
+                    checked={cargado} 
+                    onChange={(e) => setCargado(e.checked)} 
+                    inputId="cargado" 
+                  />
+                  <label htmlFor="cargado" className="p-text-sm" style={{ color: "#374151" }}>
+                    ¿Cargado en el sistema?
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Botón submit */}
             <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
