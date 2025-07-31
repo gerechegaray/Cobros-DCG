@@ -80,26 +80,32 @@ export default function SelectorCliente({ user }) {
   }, [user]);
 
   const handleCrearPedido = () => {
-    if (cliente) {
+    if (cliente && cliente.value && cliente.value.id) {
       setLoading(true);
       // 🆕 Pasar el ID del cliente para que aparezca pre-seleccionado
       navigate("/presupuestos/new", { state: { cliente: cliente.value.id } });
+    } else {
+      console.error('[SelectorCliente] Cliente no válido:', cliente);
     }
   };
 
   const handleCargarCobro = () => {
-    if (cliente) {
+    if (cliente && cliente.label) {
       setLoading(true);
       // 🆕 Pasar el nombre del cliente para que aparezca pre-seleccionado
       navigate("/list/new", { state: { cliente: cliente.label } });
+    } else {
+      console.error('[SelectorCliente] Cliente no válido para cobro:', cliente);
     }
   };
 
   const handleEstadoCuenta = () => {
-    if (cliente) {
+    if (cliente && cliente.value) {
       setLoading(true);
       // 🆕 Pasar el cliente completo para el estado de cuenta
       navigate("/estado-cuenta", { state: { cliente: cliente.value } });
+    } else {
+      console.error('[SelectorCliente] Cliente no válido para estado de cuenta:', cliente);
     }
   };
 
@@ -144,7 +150,10 @@ export default function SelectorCliente({ user }) {
         <Dropdown
           value={cliente}
           options={clientes}
-          onChange={(e) => setCliente(e.value)}
+          onChange={(e) => {
+            console.log('[SelectorCliente] Cliente seleccionado:', e.value);
+            setCliente(e.value);
+          }}
           optionLabel="label"
           placeholder="Selecciona un cliente"
           filter
