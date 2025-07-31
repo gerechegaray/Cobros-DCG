@@ -237,17 +237,33 @@ app.post("/api/alegra/quotes", async (req, res) => {
     // Construir el body para Alegra
     const alegraBody = {
       client: clienteId,
-      items: items.map(item => ({
-        id: item.producto,
-        quantity: item.cantidad,
-        price: item.price
-      })),
+      items: items.map(item => {
+        const itemData = {
+          id: item.producto,
+          quantity: item.cantidad,
+          price: item.price
+        };
+        
+        // Agregar bonificación si existe
+        if (item.bonificacion && item.bonificacion > 0) {
+          itemData.discount = item.bonificacion;
+          itemData.discountType = 'percentage'; // Bonificación como porcentaje
+        }
+        
+        return itemData;
+      }),
       observations: observaciones || '',
       dueDate: dueDate || '',
     };
     if (fechaCreacion) alegraBody.date = fechaCreacion;
     if (vendedor) alegraBody.seller = vendedor;
     // LOGS para depuración
+    console.log('🆕 Items con bonificación:', items.map(item => ({
+      producto: item.producto,
+      cantidad: item.cantidad,
+      bonificacion: item.bonificacion,
+      price: item.price
+    })));
     console.log('Enviando a Alegra:', JSON.stringify(alegraBody, null, 2));
     // Crear presupuesto en Alegra
     const alegraRes = await fetch(url, {
@@ -311,16 +327,36 @@ app.post("/api/presupuestos", async (req, res) => {
       const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
       const alegraBody = {
         client: clienteId,
-        items: items.map(item => ({
-          id: item.producto,
-          quantity: item.cantidad,
-          price: item.price
-        })),
+        items: items.map(item => {
+          const itemData = {
+            id: item.producto,
+            quantity: item.cantidad,
+            price: item.price
+          };
+          
+          // Agregar bonificación si existe
+          if (item.bonificacion && item.bonificacion > 0) {
+            itemData.discount = item.bonificacion;
+            itemData.discountType = 'percentage'; // Bonificación como porcentaje
+          }
+          
+          return itemData;
+        }),
         observations: observaciones || '',
         dueDate: dueDate || '',
       };
       if (fechaCreacion) alegraBody.date = fechaCreacion;
       if (vendedor) alegraBody.seller = vendedor;
+      
+      // LOGS para depuración
+      console.log('🆕 Items con bonificación (presupuestos):', items.map(item => ({
+        producto: item.producto,
+        cantidad: item.cantidad,
+        bonificacion: item.bonificacion,
+        price: item.price
+      })));
+      console.log('🆕 Body para Alegra (presupuestos):', JSON.stringify(alegraBody, null, 2));
+      
       const alegraRes = await fetch(url, {
         method: 'POST',
         headers: {
