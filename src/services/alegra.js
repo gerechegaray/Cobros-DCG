@@ -24,9 +24,12 @@ export async function getAlegraInvoices() {
 export async function getEstadoCuenta(clienteId) {
   console.log('[ALEGRA SERVICE] Consultando estado de cuenta para cliente:', clienteId);
   
-  // 🆕 URL directa al servidor de producción (sin proxy)
-  const url = `https://cobros-dcg.onrender.com/api/alegra/estado-cuenta/${clienteId}`;
-  console.log('[ALEGRA SERVICE] URL directa:', url);
+  // 🆕 Usar proxy local en desarrollo, URL directa en producción
+  const isDevelopment = import.meta.env.DEV;
+  const baseUrl = isDevelopment ? '' : 'https://cobros-dcg.onrender.com';
+  const url = `${baseUrl}/api/alegra/estado-cuenta/${clienteId}`;
+  console.log('[ALEGRA SERVICE] URL:', url);
+  console.log('[ALEGRA SERVICE] Modo desarrollo:', isDevelopment);
   
   try {
     const response = await fetch(url, {
@@ -60,11 +63,19 @@ export async function getEstadoCuenta(clienteId) {
     }
     
     console.log('[ALEGRA SERVICE] Datos recibidos:', data.length, 'facturas');
-    console.log('[ALEGRA SERVICE] Primeras 3 facturas:', data.slice(0, 3).map(f => ({
+    console.log('[ALEGRA SERVICE] Todas las facturas recibidas:', data.map(f => ({
       numero: f.numero,
       clienteNombre: f.clienteNombre,
-      montoTotal: f.montoTotal
+      montoTotal: f.montoTotal,
+      estado: f.estado
     })));
+    
+    // 🆕 Verificar si hay facturas con números específicos que mencionó el usuario
+    const facturas1y6 = data.filter(f => f.numero === '1' || f.numero === '6');
+    if (facturas1y6.length > 0) {
+      console.warn('[ALEGRA SERVICE] ⚠️ ADVERTENCIA: Se encontraron facturas 1 y 6 que deberían estar filtradas:', facturas1y6);
+    }
+    
     return data;
   } catch (error) {
     console.error('[ALEGRA SERVICE] Error completo:', error);
