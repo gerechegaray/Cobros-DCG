@@ -720,18 +720,26 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     console.log(`[ESTADO CUENTA] Facturas del cliente ${clienteId}: ${facturasDelCliente.length}`);
     
     // 🆕 Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
+    console.log(`[ESTADO CUENTA] Todas las facturas antes del filtro:`, facturasDelCliente.map(f => ({ 
+      numero: f.number, 
+      status: f.status,
+      id: f.id
+    })));
+    
     const facturasValidas = facturasDelCliente.filter(factura => {
       const estadosExcluidos = ["void", "closed", "paid"];
       const esValida = !estadosExcluidos.includes(factura.status);
       if (!esValida) {
-        console.log(`[ESTADO CUENTA] Excluyendo factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+        console.log(`[ESTADO CUENTA] 🚫 EXCLUYENDO factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+      } else {
+        console.log(`[ESTADO CUENTA] ✅ MANTENIENDO factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
       }
       return esValida;
     });
     
     console.log(`[ESTADO CUENTA] Facturas válidas (sin anuladas/cerradas/pagadas): ${facturasValidas.length} de ${facturasDelCliente.length}`);
     
-    console.log(`[ESTADO CUENTA] Facturas obtenidas:`, facturasValidas.map(f => ({ 
+    console.log(`[ESTADO CUENTA] Facturas finales después del filtro:`, facturasValidas.map(f => ({ 
       numero: f.number, 
       client: f.client,
       clientName: f.clientName,
