@@ -57,6 +57,13 @@ function EstadoCuenta({ user }) {
           totalPagado,
           totalGeneral
         });
+        
+        // 🆕 Mostrar información sobre facturas excluidas
+        toast.current.show({
+          severity: 'info',
+          summary: 'Estado de cuenta cargado',
+          detail: `Se muestran ${datosAlegra.length} facturas válidas. Las facturas anuladas, cerradas y pagadas han sido excluidas automáticamente.`
+        });
       } else {
         // Si no hay datos, mostrar tabla vacía
         setBoletas([]);
@@ -69,7 +76,7 @@ function EstadoCuenta({ user }) {
         toast.current.show({
           severity: 'info',
           summary: 'Sin datos',
-          detail: 'No se encontraron movimientos para este cliente en Alegra'
+          detail: 'No se encontraron movimientos válidos para este cliente en Alegra (las facturas anuladas, cerradas y pagadas han sido excluidas)'
         });
       }
 

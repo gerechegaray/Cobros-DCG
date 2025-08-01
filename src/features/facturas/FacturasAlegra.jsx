@@ -756,12 +756,17 @@ const FacturasAlegra = ({ user }) => {
         if (data.length > 0) {
           console.log('🆕 Frontend: Fechas de las primeras 3 facturas:');
           data.slice(0, 3).forEach((factura, index) => {
-            console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+            console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}, Status: ${factura.status}`);
           });
         }
         setFacturas(data);
         setFacturasFiltradas(data); // Inicializar facturas filtradas
         setLoading(false);
+        
+        // 🆕 Mostrar información sobre el filtro de facturas excluidas
+        if (data.length > 0) {
+          console.log('🆕 Frontend: Se muestran solo facturas válidas (las anuladas, cerradas y pagadas han sido excluidas automáticamente)');
+        }
       })
       .catch(err => {
         setError(err.message);

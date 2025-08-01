@@ -151,17 +151,29 @@ export async function getAlegraInvoices() {
   
   console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${todasLasFacturas.length}`);
   
+  // 🆕 Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
+  const facturasSinAnuladas = facturasFiltradas.filter(factura => {
+    const estadosExcluidos = ["void", "closed", "paid"];
+    const esValida = !estadosExcluidos.includes(factura.status);
+    if (!esValida) {
+      console.log(`🆕 Excluyendo factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+    }
+    return esValida;
+  });
+  
+  console.log(`🆕 Facturas válidas (sin anuladas/cerradas/pagadas): ${facturasSinAnuladas.length} de ${facturasFiltradas.length}`);
+  
   // 🆕 Debug: mostrar las fechas de las primeras 5 facturas después del filtro
-  if (facturasFiltradas.length > 0) {
-    console.log('🆕 Fechas de las primeras 5 facturas (después del filtro):');
-    facturasFiltradas.slice(0, 5).forEach((factura, index) => {
-      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}`);
+  if (facturasSinAnuladas.length > 0) {
+    console.log('🆕 Fechas de las primeras 5 facturas (después de todos los filtros):');
+    facturasSinAnuladas.slice(0, 5).forEach((factura, index) => {
+      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}, Status: ${factura.status}`);
     });
   } else {
-    console.log('🆕 No hay facturas que cumplan el criterio de 7 días');
+    console.log('🆕 No hay facturas que cumplan los criterios (7 días + no anuladas/cerradas/pagadas)');
   }
   
-  return facturasFiltradas;
+  return facturasSinAnuladas;
 }
 
 export async function getAlegraContacts() {

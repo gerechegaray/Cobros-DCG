@@ -719,14 +719,27 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     const facturasDelCliente = await facturasResponse.json();
     console.log(`[ESTADO CUENTA] Facturas del cliente ${clienteId}: ${facturasDelCliente.length}`);
     
-    console.log(`[ESTADO CUENTA] Facturas obtenidas:`, facturasDelCliente.map(f => ({ 
+    // 🆕 Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
+    const facturasValidas = facturasDelCliente.filter(factura => {
+      const estadosExcluidos = ["void", "closed", "paid"];
+      const esValida = !estadosExcluidos.includes(factura.status);
+      if (!esValida) {
+        console.log(`[ESTADO CUENTA] Excluyendo factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+      }
+      return esValida;
+    });
+    
+    console.log(`[ESTADO CUENTA] Facturas válidas (sin anuladas/cerradas/pagadas): ${facturasValidas.length} de ${facturasDelCliente.length}`);
+    
+    console.log(`[ESTADO CUENTA] Facturas obtenidas:`, facturasValidas.map(f => ({ 
       numero: f.number, 
       client: f.client,
-      clientName: f.clientName 
+      clientName: f.clientName,
+      status: f.status
     })));
     
     // Transformar los datos al formato esperado por el frontend
-    const boletas = facturasDelCliente.map(factura => {
+    const boletas = facturasValidas.map(factura => {
       // Calcular el total de pagos asociados (solo payments.amount)
       const pagosAsociados = factura.payments || [];
       const montoPagado = pagosAsociados.reduce((sum, pago) => sum + (pago.amount || 0), 0);
