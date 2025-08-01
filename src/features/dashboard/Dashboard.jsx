@@ -304,7 +304,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       
       try {
         // 🆕 Obtener facturas de Alegra
-        const facturas = await api.getAlegraInvoices();
+        const facturas = await api.getAlegraInvoices(5); // 🆕 Últimos 5 días por defecto
         
         // 🆕 Obtener hojas de ruta para calcular estados
         const hojasDeRuta = await api.getHojasDeRuta();

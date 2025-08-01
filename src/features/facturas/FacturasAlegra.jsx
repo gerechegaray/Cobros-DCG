@@ -48,6 +48,16 @@ const FacturasAlegra = ({ user }) => {
   const [clientes, setClientes] = useState([]);
   const [activeTab, setActiveTab] = useState('todos');
   
+  // 🆕 Estado para rango de días
+  const [rangoDias, setRangoDias] = useState(5); // Default 5 días
+  
+  // 🆕 Opciones de rango disponibles
+  const opcionesRango = [
+    { label: "Hoy", value: 1 },
+    { label: "Últimos 3 días", value: 3 },
+    { label: "Últimos 5 días", value: 5 }
+  ];
+  
   // 🆕 Estados para responsive
   const [isMobile, setIsMobile] = useState(false);
   const [expandedCards, setExpandedCards] = useState(new Set());
@@ -750,7 +760,7 @@ const FacturasAlegra = ({ user }) => {
       return;
     }
     
-    api.getAlegraInvoices()
+    api.getAlegraInvoices(rangoDias)
       .then(data => {
         console.log('🆕 Frontend: Facturas recibidas:', data.length);
         if (data.length > 0) {
@@ -772,7 +782,7 @@ const FacturasAlegra = ({ user }) => {
         setError(err.message);
         setLoading(false);
       });
-  }, [esAdmin]);
+  }, [esAdmin, rangoDias]);
 
   // Obtener hojas de ruta pendientes desde Firestore
   useEffect(() => {
@@ -1222,7 +1232,19 @@ const FacturasAlegra = ({ user }) => {
       {/* SECCIÓN DE FILTROS (DESPLEGABLE) */}
       {showFiltros && (
         <Card className="mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* 🆕 Filtro por Rango de Días */}
+            <div className="flex flex-col">
+              <label className="mb-2 font-semibold">Rango de Días</label>
+              <Dropdown
+                value={rangoDias}
+                options={opcionesRango}
+                onChange={(e) => setRangoDias(e.value)}
+                placeholder="Seleccionar rango"
+                className="w-full"
+              />
+            </div>
+
             {/* Filtro por Cliente */}
             <div className="flex flex-col">
               <label className="mb-2 font-semibold">Cliente</label>
@@ -1291,7 +1313,7 @@ const FacturasAlegra = ({ user }) => {
           <div className="mb-3">
             <h3 className="text-lg font-semibold">Facturas Disponibles</h3>
             <p className="text-sm text-gray-600 mt-1">
-              📅 Solo se muestran facturas de los últimos 7 días
+              📅 Solo se muestran facturas abiertas de los últimos {rangoDias} día{rangoDias !== 1 ? 's' : ''}
             </p>
           </div>
           

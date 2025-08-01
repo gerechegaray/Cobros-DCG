@@ -2,7 +2,7 @@
 
 import fetch from 'node-fetch';
 
-export async function getAlegraInvoices() {
+export async function getAlegraInvoices(dias = 5) {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
@@ -11,169 +11,64 @@ export async function getAlegraInvoices() {
     throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
   }
   
-  // 🆕 Calcular fecha límite (7 días atrás para incluir los últimos 7 días)
+  // 🆕 Validar rangos permitidos: hoy (1), 3 días, 5 días
+  const rangosPermitidos = [1, 3, 5];
+  if (!rangosPermitidos.includes(dias)) {
+    throw new Error(`Rango de días no válido. Solo se permiten: ${rangosPermitidos.join(', ')} días`);
+  }
+  
+  // 🆕 Calcular fecha límite usando filtro nativo de Alegra
   const fechaLimite = new Date();
-  fechaLimite.setDate(fechaLimite.getDate() - 7); // Cambiado de -6 a -7
-  fechaLimite.setHours(0, 0, 0, 0); // Establecer a inicio del día
-  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+  fechaLimite.setDate(fechaLimite.getDate() - dias);
+  fechaLimite.setHours(0, 0, 0, 0);
+  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
   
-  // 🆕 Ajustar fecha límite para ser más tolerante con zona horaria (1 día menos)
-  const fechaLimiteAjustada = new Date(fechaLimite);
-  fechaLimiteAjustada.setDate(fechaLimiteAjustada.getDate() - 1);
-  const fechaLimiteAjustadaStr = fechaLimiteAjustada.toISOString().split('T')[0];
+  console.log(`🆕 OPTIMIZADO: Filtrando facturas desde ${fechaLimiteStr} (últimos ${dias} días)`);
+  console.log(`🆕 OPTIMIZADO: Solo facturas abiertas (status=open)`);
   
-  console.log(`🆕 Filtro de facturas: solo desde ${fechaLimiteStr} (últimos 7 días incluyendo hoy)`);
-  console.log(`🆕 Filtro ajustado para zona horaria: desde ${fechaLimiteAjustadaStr} (más tolerante)`);
-  console.log(`🆕 Fecha actual: ${new Date().toISOString().split('T')[0]}`);
-  console.log(`🆕 Fecha límite (objeto Date): ${fechaLimite.toISOString()}`);
-  
-  // 🆕 Función para obtener facturas con paginación
-  const obtenerFacturasConPaginacion = async (start = 0, limit = 30) => {
-    // 🆕 Probar con diferentes parámetros para obtener más facturas
-    const url = `https://api.alegra.com/api/v1/invoices?start=${start}&limit=${limit}&order_direction=DESC&order_field=date`;
-    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
-    
-    console.log(`🆕 Llamando a: ${url}`);
-    
-    const response = await fetch(url, {
-      headers: {
-        accept: 'application/json',
-        authorization
-      }
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Alegra API error:', response.status, errorText);
-      throw new Error('Error al obtener las facturas de Alegra');
-    }
-    
-    return await response.json();
-  };
-  
-  // 🆕 Obtener todas las facturas con paginación
-  console.log('🆕 Obteniendo todas las facturas de Alegra con paginación...');
-  
-  let todasLasFacturas = [];
-  let start = 0;
-  const limit = 30;
-  let hayMasFacturas = true;
-  
-  // 🆕 Primero intentar obtener todas las facturas sin paginación
-  try {
-    console.log('🆕 Intentando obtener todas las facturas sin paginación...');
-    const urlSimple = `https://api.alegra.com/api/v1/invoices?limit=30`;
-    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
-    
-    const responseSimple = await fetch(urlSimple, {
-      headers: {
-        accept: 'application/json',
-        authorization
-      }
-    });
-    
-    if (responseSimple.ok) {
-      const facturasSimples = await responseSimple.json();
-      console.log(`🆕 Facturas obtenidas sin paginación: ${facturasSimples.length}`);
-      if (facturasSimples.length > 1) {
-        todasLasFacturas = facturasSimples;
-        hayMasFacturas = false;
-      }
-    }
-  } catch (error) {
-    console.log('🆕 Error obteniendo facturas sin paginación, continuando con paginación...');
-  }
-  
-  // 🆕 Si no se obtuvieron suficientes facturas, usar paginación
-  if (todasLasFacturas.length <= 1) {
-    console.log('🆕 Usando paginación para obtener más facturas...');
-    start = 0;
-    hayMasFacturas = true;
-    
-    while (hayMasFacturas) {
-      console.log(`🆕 Obteniendo facturas desde ${start} con límite ${limit}...`);
-      const facturas = await obtenerFacturasConPaginacion(start, limit);
-      
-      if (facturas.length === 0) {
-        hayMasFacturas = false;
-      } else {
-        todasLasFacturas = todasLasFacturas.concat(facturas);
-        start += limit;
-        
-        // Si obtenemos menos facturas que el límite, significa que no hay más
-        if (facturas.length < limit) {
-          hayMasFacturas = false;
-        }
-      }
-    }
-  }
-  
-  console.log(`🆕 Total de facturas obtenidas de Alegra: ${todasLasFacturas.length}`);
-  console.log(`🆕 Status de respuesta: 200`);
-  
-  // 🆕 Debug: mostrar TODAS las fechas de facturas antes del filtro
-  if (todasLasFacturas.length > 0) {
-    console.log('🆕 TODAS las facturas obtenidas de Alegra (antes del filtro):');
-    todasLasFacturas.forEach((factura, index) => {
-      const fechaFactura = new Date(factura.date);
-      const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
-      const fechaLimiteAjustadaStr = fechaLimiteAjustada.toISOString().split('T')[0];
-      const esReciente = fechaFacturaStr >= fechaLimiteAjustadaStr;
-      console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Fecha (Date): ${fechaFactura.toISOString()}, Fecha (solo fecha): ${fechaFacturaStr}, Es reciente: ${esReciente}, Cliente: ${factura.client?.name || 'N/A'}`);
-    });
-  } else {
-    console.log('🆕 No se obtuvieron facturas de Alegra');
-  }
-  
-  // 🆕 Filtrar facturas de los últimos 7 días
-  const facturasFiltradas = todasLasFacturas.filter(factura => {
-    if (!factura.date) {
-      console.log(`🆕 Factura ${factura.id} sin fecha, excluida del filtro`);
-      return false;
-    }
-    
-    // Convertir la fecha de la factura a objeto Date
-    const fechaFactura = new Date(factura.date);
-    
-    // 🆕 Comparar solo las fechas (sin tiempo) para evitar problemas de zona horaria
-    const fechaFacturaStr = fechaFactura.toISOString().split('T')[0];
-    const fechaLimiteAjustadaStr = fechaLimiteAjustada.toISOString().split('T')[0];
-    const esReciente = fechaFacturaStr >= fechaLimiteAjustadaStr;
-    
-    if (!esReciente) {
-      console.log(`🆕 Factura ${factura.id} del ${factura.date} (${fechaFacturaStr}) excluida (más de 7 días)`);
-    } else {
-      console.log(`🆕 Factura ${factura.id} del ${factura.date} (${fechaFacturaStr}) INCLUIDA (dentro de 7 días)`);
-    }
-    
-    return esReciente;
+  // 🆕 Usar filtros nativos de Alegra para optimizar rendimiento
+  const params = new URLSearchParams({
+    date_afterOrNow: fechaLimiteStr,
+    status: 'open', // 🆕 Solo facturas abiertas
+    order_direction: 'DESC',
+    order_field: 'date',
+    limit: '30'
   });
   
-  console.log(`🆕 Facturas después del filtro de 7 días: ${facturasFiltradas.length} de ${todasLasFacturas.length}`);
+  const url = `https://api.alegra.com/api/v1/invoices?${params.toString()}`;
+  const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
   
-  // 🆕 Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
-  const facturasSinAnuladas = facturasFiltradas.filter(factura => {
-    const estadosExcluidos = ["void", "closed", "paid"];
-    const esValida = !estadosExcluidos.includes(factura.status);
-    if (!esValida) {
-      console.log(`🆕 Excluyendo factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+  console.log(`🆕 OPTIMIZADO: URL con filtros nativos: ${url}`);
+  
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json',
+      authorization
     }
-    return esValida;
   });
   
-  console.log(`🆕 Facturas válidas (sin anuladas/cerradas/pagadas): ${facturasSinAnuladas.length} de ${facturasFiltradas.length}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Alegra API error:', response.status, errorText);
+    throw new Error('Error al obtener las facturas de Alegra');
+  }
   
-  // 🆕 Debug: mostrar las fechas de las primeras 5 facturas después del filtro
-  if (facturasSinAnuladas.length > 0) {
-    console.log('🆕 Fechas de las primeras 5 facturas (después de todos los filtros):');
-    facturasSinAnuladas.slice(0, 5).forEach((factura, index) => {
+  const facturas = await response.json();
+  
+  console.log(`🆕 OPTIMIZADO: Facturas obtenidas directamente filtradas: ${facturas.length}`);
+  console.log(`🆕 OPTIMIZADO: Solo facturas abiertas de los últimos ${dias} días`);
+  
+  // 🆕 Debug: mostrar las primeras 5 facturas obtenidas
+  if (facturas.length > 0) {
+    console.log('🆕 OPTIMIZADO: Primeras 5 facturas obtenidas:');
+    facturas.slice(0, 5).forEach((factura, index) => {
       console.log(`  ${index + 1}. ID: ${factura.id}, Fecha: ${factura.date}, Cliente: ${factura.client?.name || 'N/A'}, Status: ${factura.status}`);
     });
   } else {
-    console.log('🆕 No hay facturas que cumplan los criterios (7 días + no anuladas/cerradas/pagadas)');
+    console.log('🆕 OPTIMIZADO: No hay facturas abiertas en el rango especificado');
   }
   
-  return facturasSinAnuladas;
+  return facturas;
 }
 
 export async function getAlegraContacts() {

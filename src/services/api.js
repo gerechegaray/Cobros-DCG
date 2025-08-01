@@ -53,7 +53,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 // Funciones específicas para cada endpoint
 export const api = {
   // Alegra
-  getAlegraInvoices: () => apiRequest('/api/alegra/invoices'),
+  getAlegraInvoices: (dias = 5) => apiRequest(`/api/alegra/invoices?dias=${dias}`),
   getAlegraContacts: () => apiRequest('/api/alegra/contacts'),
   getAlegraItems: () => apiRequest('/api/alegra/items'),
   createAlegraQuote: (data) => apiRequest('/api/alegra/quotes', {
