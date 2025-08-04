@@ -5,7 +5,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sist-gestion-dcg.o
 
 // Función helper para hacer peticiones al backend
 export const apiRequest = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // Añadir parámetro de versión para evitar caché en producción
+  const version = Date.now();
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `${API_BASE_URL}${endpoint}${separator}v=${version}`;
   
   console.log('🆕 DEBUG API Request:');
   console.log('🆕 URL:', url);
