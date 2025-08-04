@@ -335,8 +335,35 @@ function PresupuestosList({ user }) {
         
         const response = await api.getPresupuestos(user.email, user.role, params);
         
-        // 🆕 Extraer datos y paginación de la respuesta
-        const { data, pagination: paginationData } = response;
+        console.log('🆕 Response completa:', response);
+        
+        // 🆕 Extraer datos y paginación de la respuesta con validación
+        let data = [];
+        let paginationData = {
+          page: 1,
+          limit: rowsPerPage,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false
+        };
+        
+        // Verificar si la respuesta tiene la estructura esperada
+        if (response && typeof response === 'object') {
+          if (response.data && Array.isArray(response.data)) {
+            data = response.data;
+          } else if (Array.isArray(response)) {
+            // Si la respuesta es directamente un array
+            data = response;
+          }
+          
+          if (response.pagination && typeof response.pagination === 'object') {
+            paginationData = response.pagination;
+          }
+        }
+        
+        console.log('🆕 Data extraída:', data);
+        console.log('🆕 Pagination extraída:', paginationData);
         
         // Limpiar datos antes de establecer el estado
         const datosLimpios = limpiarDatosParaRender(data);
@@ -540,6 +567,12 @@ function PresupuestosList({ user }) {
 
   // 🆕 Función para limpiar datos antes de renderizar
   const limpiarDatosParaRender = (datos) => {
+    // 🆕 Validar que datos sea un array
+    if (!datos || !Array.isArray(datos)) {
+      console.warn('🆕 limpiarDatosParaRender: datos no es un array válido:', datos);
+      return [];
+    }
+    
     return datos.map(presupuesto => {
       const presupuestoLimpio = { ...presupuesto };
       

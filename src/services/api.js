@@ -41,7 +41,10 @@ export const apiRequest = async (endpoint, options = {}) => {
     
     const data = await response.json();
     console.log('🆕 Response data:', data);
+    console.log('🆕 Response data type:', typeof data);
+    console.log('🆕 Response data is array:', Array.isArray(data));
     console.log('🆕 Response data length:', Array.isArray(data) ? data.length : 'Not an array');
+    console.log('🆕 Response data keys:', typeof data === 'object' ? Object.keys(data) : 'Not an object');
     
     return data;
   } catch (error) {
