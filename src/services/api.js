@@ -169,7 +169,7 @@ export const api = {
   sincronizarPresupuestosDesdeAlegra: async () => {
     try {
       console.log('🔄 Iniciando sincronización desde Alegra...');
-      const response = await apiRequest('/presupuestos/sincronizar-alegra', {
+      const response = await apiRequest('/api/presupuestos/sincronizar-alegra', {
         method: 'POST'
       });
       console.log('🔄 Respuesta de sincronización:', response);
