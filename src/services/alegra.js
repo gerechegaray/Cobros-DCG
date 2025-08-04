@@ -26,7 +26,7 @@ export async function getEstadoCuenta(clienteId) {
   
   // 🆕 Usar proxy local en desarrollo, URL directa en producción
   const isDevelopment = import.meta.env.DEV;
-  const baseUrl = isDevelopment ? '' : 'https://cobros-dcg.onrender.com';
+  const baseUrl = isDevelopment ? '' : 'https://sist-gestion-dcg.onrender.com';
   const url = `${baseUrl}/api/alegra/estado-cuenta/${clienteId}`;
   console.log('[ALEGRA SERVICE] URL:', url);
   console.log('[ALEGRA SERVICE] Modo desarrollo:', isDevelopment);
