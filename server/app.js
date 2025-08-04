@@ -1957,7 +1957,7 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     
     console.log(`🔄 Obteniendo presupuestos de Alegra desde ${fechaLimiteStr}...`);
     
-    const url = `https://api.alegra.com/api/v1/estimates?date_afterOrNow=${fechaLimiteStr}&limit=100`;
+    const url = `https://api.alegra.com/api/v1/estimates?date_afterOrNow=${fechaLimiteStr}&limit=30`;
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
     
     console.log('🆕 URL de Alegra:', url);
