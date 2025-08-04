@@ -182,26 +182,52 @@ function GestionDatos({ user }) {
   const exportarDatos = async () => {
     setExporting(true);
     try {
-      const data = await api.exportCleanupData({
+      const response = await api.exportCleanupData({
         dias: cleanupConfig.dias,
         coleccion: cleanupConfig.coleccion
       });
       
-      // Crear y descargar archivo Excel
-      const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `datos_antiguos_${cleanupConfig.coleccion}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      
-      toast.current?.show({
-        severity: 'success',
-        summary: 'Exportación Exitosa',
-        detail: 'Datos exportados correctamente'
-      });
+      // Convertir JSON a CSV
+      if (response.registros && response.registros.length > 0) {
+        const headers = Object.keys(response.registros[0]).join(',');
+        const rows = response.registros.map(registro => 
+          Object.values(registro).map(valor => {
+            if (valor === null || valor === undefined) {
+              return '""';
+            }
+            if (typeof valor === 'object') {
+              return `"${JSON.stringify(valor).replace(/"/g, '""')}"`;
+            }
+            if (typeof valor === 'string') {
+              return `"${valor.replace(/"/g, '""')}"`;
+            }
+            return valor;
+          }).join(',')
+        );
+        
+        const csv = [headers, ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `datos_antiguos_${cleanupConfig.coleccion}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        toast.current?.show({
+          severity: 'success',
+          summary: 'Exportación Exitosa',
+          detail: `${response.total} registros exportados correctamente`
+        });
+      } else {
+        toast.current?.show({
+          severity: 'info',
+          summary: 'Sin datos',
+          detail: 'No hay registros para exportar'
+        });
+      }
     } catch (error) {
+      console.error('Error exportando datos:', error);
       toast.current?.show({
         severity: 'error',
         summary: 'Error',

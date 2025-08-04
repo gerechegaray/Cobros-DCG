@@ -1827,19 +1827,14 @@ app.get("/api/cleanup/export", async (req, res) => {
     
     const registros = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Convertir a formato CSV para exportación
-    const headers = Object.keys(registros[0] || {}).join(',');
-    const rows = registros.map(registro => 
-      Object.values(registro).map(valor => 
-        typeof valor === 'string' ? `"${valor.replace(/"/g, '""')}"` : valor
-      ).join(',')
-    );
-    
-    const csv = [headers, ...rows].join('\n');
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=datos_antiguos_${coleccion}_${new Date().toISOString().split('T')[0]}.csv`);
-    res.send(csv);
+    // Devolver JSON en lugar de CSV directamente
+    res.json({
+      coleccion,
+      dias,
+      total: registros.length,
+      registros,
+      fechaLimite: fechaLimite.toISOString()
+    });
   } catch (error) {
     console.error('Error exportando datos de limpieza:', error);
     res.status(500).json({ error: error.message });
