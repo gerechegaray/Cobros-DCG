@@ -72,7 +72,14 @@ export const api = {
   syncProductosAlegra: () => apiRequest('/api/sync-productos-alegra', { method: 'POST' }),
 
   // Presupuestos
-  getPresupuestos: (email, role) => apiRequest(`/api/presupuestos?email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}`),
+  getPresupuestos: (email, role, params = {}) => {
+    const queryParams = new URLSearchParams({
+      email: encodeURIComponent(email),
+      role: encodeURIComponent(role),
+      ...params
+    });
+    return apiRequest(`/api/presupuestos?${queryParams.toString()}`);
+  },
   createPresupuesto: (data) => apiRequest('/api/presupuestos', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -83,6 +90,21 @@ export const api = {
   }),
   deletePresupuesto: (id) => apiRequest(`/api/presupuestos/${id}`, { method: 'DELETE' }),
   syncEstadosPresupuestos: () => apiRequest('/api/sync-estados-presupuestos', { method: 'POST' }),
+
+  // 🆕 Cobros
+  getCobros: (params = {}) => {
+    const queryParams = new URLSearchParams(params);
+    return apiRequest(`/api/cobros?${queryParams.toString()}`);
+  },
+  createCobro: (data) => apiRequest('/api/cobros', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateCobro: (id, data) => apiRequest(`/api/cobros/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteCobro: (id) => apiRequest(`/api/cobros/${id}`, { method: 'DELETE' }),
 
   // Visitas
   getVisitas: () => apiRequest('/api/visitas'),
@@ -123,5 +145,20 @@ export const api = {
   refreshCache: (tipo) => apiRequest('/api/cache/refresh', {
     method: 'POST',
     body: JSON.stringify({ tipo }),
+  }),
+
+  // 🆕 Limpieza de datos
+  getCleanupStats: () => apiRequest('/api/cleanup/stats'),
+  getCleanupPreview: (params) => {
+    const queryParams = new URLSearchParams(params);
+    return apiRequest(`/api/cleanup/preview?${queryParams.toString()}`);
+  },
+  exportCleanupData: (params) => {
+    const queryParams = new URLSearchParams(params);
+    return apiRequest(`/api/cleanup/export?${queryParams.toString()}`);
+  },
+  executeCleanup: (params) => apiRequest('/api/cleanup/execute', {
+    method: 'POST',
+    body: JSON.stringify(params),
   }),
 }; 

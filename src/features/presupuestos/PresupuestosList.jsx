@@ -35,6 +35,19 @@ function PresupuestosList({ user }) {
   const [showFiltros, setShowFiltros] = useState(false); // Estado para mostrar/ocultar filtros
   const [isMobile, setIsMobile] = useState(false); // 🆕 Estado para detectar móvil
   const [expandedCards, setExpandedCards] = useState(new Set()); // 🆕 Estado para cards expandidos
+  
+  // 🆕 Estados para paginación
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  
   const toast = useRef(null);
 
   const estados = [
@@ -237,10 +250,16 @@ function PresupuestosList({ user }) {
     <DataTable 
       value={presupuestosFiltrados}
       paginator 
-      rows={10}
-      rowsPerPageOptions={[10, 20, 50]}
+      rows={rowsPerPage}
+      rowsPerPageOptions={[10, 20, 50, 100]}
       className="p-datatable-sm"
       emptyMessage="No hay pedidos para mostrar"
+      lazy
+      first={(currentPage - 1) * rowsPerPage}
+      totalRecords={pagination.total}
+      onPage={onPageChange}
+      onRowsPerPageChange={onRowsPerPageChange}
+      loading={loading}
     >
       <Column field="fechaCreacion" header="Fecha" body={row => {
         const camposFecha = ['fechaCreacion', 'fecha', 'timestamp', 'date', 'createdAt', 'fechaCreacionTimestamp'];
@@ -287,115 +306,80 @@ function PresupuestosList({ user }) {
     async function fetchPresupuestos() {
       setLoading(true);
       try {
-        const data = await api.getPresupuestos(user.email, user.role);
+        // 🆕 Construir parámetros para la API con paginación
+        const params = {
+          page: currentPage,
+          limit: rowsPerPage
+        };
+        
+        // 🆕 Agregar filtros si están activos
+        if (activeTab !== 'todos') {
+          if (activeTab === 'facturados') {
+            params.estado = 'facturado';
+          } else if (activeTab === 'sin-facturar') {
+            params.estado = 'pendiente';
+          }
+        }
+        
+        if (filtroCliente) {
+          params.clienteId = filtroCliente;
+        }
+        
+        if (filtroFechaDesde) {
+          params.fechaDesde = filtroFechaDesde.toISOString().split('T')[0];
+        }
+        
+        if (filtroFechaHasta) {
+          params.fechaHasta = filtroFechaHasta.toISOString().split('T')[0];
+        }
+        
+        const response = await api.getPresupuestos(user.email, user.role, params);
+        
+        // 🆕 Extraer datos y paginación de la respuesta
+        const { data, pagination: paginationData } = response;
         
         // Limpiar datos antes de establecer el estado
         const datosLimpios = limpiarDatosParaRender(data);
         setPresupuestos(datosLimpios);
+        setPresupuestosFiltrados(datosLimpios);
+        setPagination(paginationData);
+        
+        console.log(`🆕 Presupuestos cargados: ${datosLimpios.length} de ${paginationData.total} total`);
+        console.log(`🆕 Página ${paginationData.page} de ${paginationData.totalPages}`);
       } catch (err) {
+        console.error('Error cargando presupuestos:', err);
         setPresupuestos([]);
+        setPresupuestosFiltrados([]);
       } finally {
         setLoading(false);
       }
     }
     if (user?.email && user?.role) fetchPresupuestos();
-  }, [user]);
-
-  // Función para aplicar filtros
-  const aplicarFiltros = () => {
-    let filtradas = [...presupuestos];
-
-    // Filtro por pestaña (estado)
-    if (activeTab !== 'todos') {
-      if (activeTab === 'facturados') {
-        filtradas = filtradas.filter(presupuesto => presupuesto.estado === 'facturado');
-      } else if (activeTab === 'sin-facturar') {
-        filtradas = filtradas.filter(presupuesto => presupuesto.estado !== 'facturado');
-      }
-    }
-
-    // Filtro por cliente
-    if (filtroCliente) {
-      filtradas = filtradas.filter(presupuesto => {
-        const nombreCliente = getClienteNombre(presupuesto.clienteId);
-        return nombreCliente.toLowerCase().includes(filtroCliente.toLowerCase());
-      });
-    }
-
-    // Filtro por fecha desde
-    if (filtroFechaDesde) {
-      filtradas = filtradas.filter(presupuesto => {
-        // Convertir la fecha del presupuesto a Date para comparación
-        let fechaPresupuesto = null;
-        if (presupuesto.fechaCreacion) {
-          if (typeof presupuesto.fechaCreacion === 'object' && presupuesto.fechaCreacion.toDate) {
-            fechaPresupuesto = presupuesto.fechaCreacion.toDate();
-          } else if (typeof presupuesto.fechaCreacion === 'string') {
-            // Si ya es string, intentar parsearlo
-            const partes = presupuesto.fechaCreacion.split('/');
-            if (partes.length === 3) {
-              // Formato DD/MM/YY
-              const dia = parseInt(partes[0]);
-              const mes = parseInt(partes[1]) - 1; // Meses van de 0-11
-              const año = 2000 + parseInt(partes[2]); // Asumir siglo 21
-              fechaPresupuesto = new Date(año, mes, dia);
-            } else {
-              fechaPresupuesto = new Date(presupuesto.fechaCreacion);
-            }
-          } else {
-            fechaPresupuesto = new Date(presupuesto.fechaCreacion);
-          }
-        }
-        
-        return fechaPresupuesto && !isNaN(fechaPresupuesto.getTime()) && fechaPresupuesto >= filtroFechaDesde;
-      });
-    }
-
-    // Filtro por fecha hasta
-    if (filtroFechaHasta) {
-      filtradas = filtradas.filter(presupuesto => {
-        // Convertir la fecha del presupuesto a Date para comparación
-        let fechaPresupuesto = null;
-        if (presupuesto.fechaCreacion) {
-          if (typeof presupuesto.fechaCreacion === 'object' && presupuesto.fechaCreacion.toDate) {
-            fechaPresupuesto = presupuesto.fechaCreacion.toDate();
-          } else if (typeof presupuesto.fechaCreacion === 'string') {
-            // Si ya es string, intentar parsearlo
-            const partes = presupuesto.fechaCreacion.split('/');
-            if (partes.length === 3) {
-              // Formato DD/MM/YY
-              const dia = parseInt(partes[0]);
-              const mes = parseInt(partes[1]) - 1; // Meses van de 0-11
-              const año = 2000 + parseInt(partes[2]); // Asumir siglo 21
-              fechaPresupuesto = new Date(año, mes, dia);
-            } else {
-              fechaPresupuesto = new Date(presupuesto.fechaCreacion);
-            }
-          } else {
-            fechaPresupuesto = new Date(presupuesto.fechaCreacion);
-          }
-        }
-        
-        const fechaHasta = new Date(filtroFechaHasta);
-        fechaHasta.setHours(23, 59, 59, 999); // Incluir todo el día
-        return fechaPresupuesto && !isNaN(fechaPresupuesto.getTime()) && fechaPresupuesto <= fechaHasta;
-      });
-    }
-
-    setPresupuestosFiltrados(filtradas);
-  };
+  }, [user, currentPage, rowsPerPage, activeTab, filtroCliente, filtroFechaDesde, filtroFechaHasta]);
 
   // 🆕 Función para limpiar filtros
   const limpiarFiltros = () => {
     setFiltroCliente(null);
     setFiltroFechaDesde(null);
     setFiltroFechaHasta(null);
-    setPresupuestosFiltrados(presupuestos);
+    setCurrentPage(1); // Resetear a la primera página
+  };
+
+  // 🆕 Función para cambiar página
+  const onPageChange = (event) => {
+    setCurrentPage(event.page + 1);
+  };
+
+  // 🆕 Función para cambiar filas por página
+  const onRowsPerPageChange = (event) => {
+    setRowsPerPage(event.value);
+    setCurrentPage(1); // Resetear a la primera página
   };
 
   // Aplicar filtros cuando cambien
   useEffect(() => {
-    aplicarFiltros();
+    // Los filtros ahora se aplican en el servidor, por lo que esta función ya no es necesaria.
+    // setPresupuestosFiltrados(filtradas); // Esto ya no es necesario
   }, [presupuestos, filtroCliente, filtroFechaDesde, filtroFechaHasta, activeTab]);
 
   // 🆕 Cargar clientes para el filtro
@@ -709,12 +693,15 @@ function PresupuestosList({ user }) {
 
           {/* RESUMEN DE FILTROS */}
           <div className="mt-3 text-sm text-gray-600">
-            Mostrando {presupuestosFiltrados.length} de {presupuestos.length} pedidos
+            Mostrando {presupuestosFiltrados.length} de {pagination.total} pedidos
             {(filtroCliente || filtroFechaDesde || filtroFechaHasta) && (
               <span className="ml-2 text-blue-600">
                 (filtros activos)
               </span>
             )}
+            <span className="ml-2 text-gray-500">
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
           </div>
         </Card>
       )}

@@ -422,28 +422,59 @@ app.post("/api/presupuestos", async (req, res) => {
 app.get("/api/presupuestos", async (req, res) => {
   console.log('Entrando a /api/presupuestos');
   try {
-    const { email, role } = req.query;
+    const { email, role, page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta } = req.query;
     console.log(`Filtrando presupuestos para email: ${email}, role: ${role}`);
+    console.log(`Paginación: page=${page}, limit=${limit}`);
+    console.log(`Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}`);
     
     // 🆕 Calcular fecha límite (7 días atrás desde hoy)
     const fechaLimite = new Date();
     fechaLimite.setDate(fechaLimite.getDate() - 7);
     console.log(`🆕 Filtro de fecha: solo presupuestos desde ${fechaLimite.toISOString()}`);
     
+    // 🆕 Construir query base con filtros
     let query = adminDb.collection('presupuestos')
-      .where('fechaCreacion', '>=', fechaLimite) // 🆕 Filtrar por fecha
+      .where('fechaCreacion', '>=', fechaLimite)
       .orderBy('fechaCreacion', 'desc');
-    let snapshot;
     
-    if (role === 'admin') {
-      // Admin ve todos los presupuestos (pero con filtro de fecha)
-      console.log('Admin: mostrando presupuestos de los últimos 7 días');
-      snapshot = await query.get();
-    } else {
-      // Vendedores (Guille, Santi) ven solo sus presupuestos por rol (con filtro de fecha)
-      console.log(`Vendedor ${role}: filtrando por rol y fecha`);
-      snapshot = await query.get();
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // 🆕 Aplicar filtros adicionales si se proporcionan
+    if (estado && estado !== 'todos') {
+      query = query.where('estado', '==', estado);
+    }
+    
+    if (clienteId) {
+      query = query.where('clienteId', '==', clienteId);
+    }
+    
+    // 🆕 Aplicar filtros de fecha si se proporcionan
+    if (fechaDesde) {
+      const fechaDesdeObj = new Date(fechaDesde);
+      query = query.where('fechaCreacion', '>=', fechaDesdeObj);
+    }
+    
+    if (fechaHasta) {
+      const fechaHastaObj = new Date(fechaHasta);
+      fechaHastaObj.setHours(23, 59, 59, 999);
+      query = query.where('fechaCreacion', '<=', fechaHastaObj);
+    }
+    
+    // 🆕 Obtener total de documentos para paginación
+    const totalSnapshot = await query.get();
+    const total = totalSnapshot.size;
+    
+    // 🆕 Aplicar paginación
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const offset = (pageInt - 1) * limitInt;
+    
+    query = query.limit(limitInt).offset(offset);
+    
+    let snapshot = await query.get();
+    let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // 🆕 Filtrar por rol después de obtener los datos (para evitar problemas con índices compuestos)
+    if (role !== 'admin') {
+      console.log(`Vendedor ${role}: filtrando por rol`);
       
       // Debug: mostrar todos los presupuestos y sus usuarios
       console.log('Todos los presupuestos (con filtro de fecha):');
@@ -463,17 +494,27 @@ app.get("/api/presupuestos", async (req, res) => {
       }
       
       console.log(`Presupuestos filtrados para ${role}: ${filtrados.length} de ${data.length} total`);
-      console.log('Presupuestos filtrados:');
-      filtrados.forEach(p => {
-        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}, Fecha: ${p.fechaCreacion}`);
-      });
-      
-      return res.json(filtrados);
+      data = filtrados;
     }
     
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    console.log(`Presupuestos para admin (últimos 7 días): ${data.length} total`);
-    res.json(data);
+    // 🆕 Calcular información de paginación
+    const totalPages = Math.ceil(total / limitInt);
+    const hasNextPage = pageInt < totalPages;
+    const hasPrevPage = pageInt > 1;
+    
+    console.log(`Presupuestos para ${role}: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
+    
+    res.json({
+      data,
+      pagination: {
+        page: pageInt,
+        limit: limitInt,
+        total,
+        totalPages,
+        hasNextPage,
+        hasPrevPage
+      }
+    });
   } catch (error) {
     console.error('Error en /api/presupuestos:', error);
     res.status(500).json({ error: error.message });
@@ -1461,6 +1502,294 @@ app.get("/api/hojas-de-ruta", async (req, res) => {
     res.json(hojasDeRuta);
   } catch (error) {
     console.error('Error en /api/hojas-de-ruta:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para obtener cobros con paginación
+app.get("/api/cobros", async (req, res) => {
+  console.log('Entrando a /api/cobros');
+  try {
+    const { page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta, vendedorId } = req.query;
+    console.log(`Paginación: page=${page}, limit=${limit}`);
+    console.log(`Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}, vendedorId=${vendedorId}`);
+    
+    // 🆕 Construir query base
+    let query = adminDb.collection('cobros').orderBy('fechaCreacion', 'desc');
+    
+    // 🆕 Aplicar filtros si se proporcionan
+    if (estado && estado !== 'todos') {
+      query = query.where('estado', '==', estado);
+    }
+    
+    if (clienteId) {
+      query = query.where('clienteId', '==', clienteId);
+    }
+    
+    if (vendedorId) {
+      query = query.where('vendedorId', '==', parseInt(vendedorId));
+    }
+    
+    // 🆕 Aplicar filtros de fecha si se proporcionan
+    if (fechaDesde) {
+      const fechaDesdeObj = new Date(fechaDesde);
+      query = query.where('fechaCreacion', '>=', fechaDesdeObj);
+    }
+    
+    if (fechaHasta) {
+      const fechaHastaObj = new Date(fechaHasta);
+      fechaHastaObj.setHours(23, 59, 59, 999);
+      query = query.where('fechaCreacion', '<=', fechaHastaObj);
+    }
+    
+    // 🆕 Obtener total de documentos para paginación
+    const totalSnapshot = await query.get();
+    const total = totalSnapshot.size;
+    
+    // 🆕 Aplicar paginación
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const offset = (pageInt - 1) * limitInt;
+    
+    query = query.limit(limitInt).offset(offset);
+    
+    const snapshot = await query.get();
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // 🆕 Calcular información de paginación
+    const totalPages = Math.ceil(total / limitInt);
+    const hasNextPage = pageInt < totalPages;
+    const hasPrevPage = pageInt > 1;
+    
+    console.log(`Cobros obtenidos: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
+    
+    res.json({
+      data,
+      pagination: {
+        page: pageInt,
+        limit: limitInt,
+        total,
+        totalPages,
+        hasNextPage,
+        hasPrevPage
+      }
+    });
+  } catch (error) {
+    console.error('Error en /api/cobros:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para crear un cobro
+app.post("/api/cobros", async (req, res) => {
+  try {
+    const cobroData = {
+      ...req.body,
+      fechaCreacion: new Date(),
+      fechaActualizacion: new Date()
+    };
+    
+    const docRef = await adminDb.collection('cobros').add(cobroData);
+    
+    res.json({
+      id: docRef.id,
+      ...cobroData
+    });
+  } catch (error) {
+    console.error('Error creando cobro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para actualizar un cobro
+app.put("/api/cobros/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = {
+      ...req.body,
+      fechaActualizacion: new Date()
+    };
+    
+    await adminDb.collection('cobros').doc(id).update(updateData);
+    
+    res.json({ success: true, id });
+  } catch (error) {
+    console.error('Error actualizando cobro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para eliminar un cobro
+app.delete("/api/cobros/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await adminDb.collection('cobros').doc(id).delete();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error eliminando cobro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 ENDPOINTS PARA LIMPIEZA DE DATOS
+app.get("/api/cleanup/stats", async (req, res) => {
+  try {
+    const colecciones = ['visitas', 'hojasDeRuta', 'cobranzas', 'presupuestos'];
+    const stats = {};
+    
+    for (const coleccion of colecciones) {
+      const snapshot = await adminDb.collection(coleccion).get();
+      const total = snapshot.size;
+      
+      // Calcular registros antiguos (más de 30 días para visitas/hojas, 60 para cobranzas/presupuestos)
+      const diasLimite = coleccion === 'visitas' || coleccion === 'hojasDeRuta' ? 30 : 60;
+      const fechaLimite = new Date();
+      fechaLimite.setDate(fechaLimite.getDate() - diasLimite);
+      
+      const antiguosSnapshot = await adminDb.collection(coleccion)
+        .where('fechaCreacion', '<', fechaLimite)
+        .get();
+      
+      const antiguos = antiguosSnapshot.size;
+      
+      stats[coleccion] = {
+        total,
+        antiguos,
+        porcentaje: total > 0 ? Math.round((antiguos / total) * 100) : 0
+      };
+    }
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de limpieza:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/cleanup/preview", async (req, res) => {
+  try {
+    const { dias, coleccion } = req.query;
+    
+    if (!dias || !coleccion) {
+      return res.status(400).json({ error: 'Se requieren parámetros dias y coleccion' });
+    }
+    
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - parseInt(dias));
+    
+    const snapshot = await adminDb.collection(coleccion)
+      .where('fechaCreacion', '<', fechaLimite)
+      .limit(100) // Limitar a 100 registros para vista previa
+      .get();
+    
+    const registros = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    res.json({
+      coleccion,
+      dias,
+      total: registros.length,
+      registros
+    });
+  } catch (error) {
+    console.error('Error obteniendo vista previa de limpieza:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/cleanup/export", async (req, res) => {
+  try {
+    const { dias, coleccion } = req.query;
+    
+    if (!dias || !coleccion) {
+      return res.status(400).json({ error: 'Se requieren parámetros dias y coleccion' });
+    }
+    
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - parseInt(dias));
+    
+    const snapshot = await adminDb.collection(coleccion)
+      .where('fechaCreacion', '<', fechaLimite)
+      .get();
+    
+    const registros = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Convertir a formato CSV para exportación
+    const headers = Object.keys(registros[0] || {}).join(',');
+    const rows = registros.map(registro => 
+      Object.values(registro).map(valor => 
+        typeof valor === 'string' ? `"${valor.replace(/"/g, '""')}"` : valor
+      ).join(',')
+    );
+    
+    const csv = [headers, ...rows].join('\n');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=datos_antiguos_${coleccion}_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  } catch (error) {
+    console.error('Error exportando datos de limpieza:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/cleanup/execute", async (req, res) => {
+  try {
+    const { dias, coleccion } = req.body;
+    
+    if (!dias || !coleccion) {
+      return res.status(400).json({ error: 'Se requieren parámetros dias y coleccion' });
+    }
+    
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - parseInt(dias));
+    
+    // Obtener registros a eliminar
+    const snapshot = await adminDb.collection(coleccion)
+      .where('fechaCreacion', '<', fechaLimite)
+      .get();
+    
+    const registrosAEliminar = snapshot.docs;
+    const totalAEliminar = registrosAEliminar.length;
+    
+    if (totalAEliminar === 0) {
+      return res.json({
+        eliminados: 0,
+        mensaje: 'No hay registros antiguos para eliminar'
+      });
+    }
+    
+    // Eliminar registros en lotes para evitar timeouts
+    const batch = adminDb.batch();
+    let eliminados = 0;
+    
+    for (const doc of registrosAEliminar) {
+      batch.delete(doc.ref);
+      eliminados++;
+      
+      // Commit cada 500 operaciones para evitar límites
+      if (eliminados % 500 === 0) {
+        await batch.commit();
+        console.log(`Eliminados ${eliminados} registros de ${coleccion}`);
+      }
+    }
+    
+    // Commit final
+    if (eliminados % 500 !== 0) {
+      await batch.commit();
+    }
+    
+    console.log(`Limpieza completada: ${eliminados} registros eliminados de ${coleccion}`);
+    
+    res.json({
+      eliminados,
+      coleccion,
+      dias,
+      mensaje: `Se eliminaron ${eliminados} registros antiguos de ${coleccion}`
+    });
+  } catch (error) {
+    console.error('Error ejecutando limpieza de datos:', error);
     res.status(500).json({ error: error.message });
   }
 });

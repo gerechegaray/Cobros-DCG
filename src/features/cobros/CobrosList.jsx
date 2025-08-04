@@ -13,6 +13,7 @@ import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Dialog } from "primereact/dialog";
+import { api } from "../../services/api";
 
 function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const [cobros, setCobros] = useState([]);
@@ -35,6 +36,18 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const [isMobile, setIsMobile] = useState(false);
   const [expandedCards, setExpandedCards] = useState(new Set());
 
+  // 🆕 Estados para paginación
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+
   // Detectar si es móvil
   useEffect(() => {
     const checkMobile = () => {
@@ -49,45 +62,49 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
 
   const fetchCobranzas = async (force = false) => {
     setLoading(true);
-    let data = [];
-    if (!force) {
-      const cache = localStorage.getItem("cobranzas_list");
-      if (cache) {
-        data = JSON.parse(cache);
-        // Aplicar filtrado por rol
-        let filteredData = data;
-        if (user.role === "Santi" || user.role === "Guille") {
-          filteredData = data.filter(cobro => cobro.cobrador === user.role);
-        } else if (user.role === "admin") {
-          filteredData = data;
-        }
-        // Limpiar datos antes de establecer el estado
-        const datosLimpios = limpiarDatosParaRender(filteredData);
-        setCobros(datosLimpios);
-        setLoading(false);
-        return;
-      }
-    }
     try {
-      const q = query(collection(db, "cobranzas"), orderBy("fecha", "desc"));
-      const querySnapshot = await getDocs(q);
-      querySnapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() });
-      });
-      localStorage.setItem("cobranzas_list", JSON.stringify(data));
+      // 🆕 Construir parámetros para la API con paginación
+      const params = {
+        page: currentPage,
+        limit: rowsPerPage
+      };
       
-      // Aplicar filtrado por rol
-      let filteredData = data;
-      if (user.role === "Santi" || user.role === "Guille") {
-        filteredData = data.filter(cobro => cobro.cobrador === user.role);
-      } else if (user.role === "admin") {
-        filteredData = data;
+      // 🆕 Agregar filtros si están activos
+      if (filtroCliente) {
+        params.clienteId = filtroCliente;
       }
+      
+      if (filtroFechaDesde) {
+        params.fechaDesde = filtroFechaDesde.toISOString().split('T')[0];
+      }
+      
+      if (filtroFechaHasta) {
+        params.fechaHasta = filtroFechaHasta.toISOString().split('T')[0];
+      }
+      
+      // 🆕 Agregar filtro por vendedor si no es admin
+      if (user.role !== 'admin') {
+        const vendedorId = user.role === 'Guille' ? 1 : 2;
+        params.vendedorId = vendedorId;
+      }
+      
+      const response = await api.getCobros(params);
+      
+      // 🆕 Extraer datos y paginación de la respuesta
+      const { data, pagination: paginationData } = response;
+      
       // Limpiar datos antes de establecer el estado
-      const datosLimpios = limpiarDatosParaRender(filteredData);
+      const datosLimpios = limpiarDatosParaRender(data);
       setCobros(datosLimpios);
+      setCobranzasFiltradas(datosLimpios);
+      setPagination(paginationData);
+      
+      console.log(`🆕 Cobros cargados: ${datosLimpios.length} de ${paginationData.total} total`);
+      console.log(`🆕 Página ${paginationData.page} de ${paginationData.totalPages}`);
     } catch (error) {
-      // Error al cargar cobranzas
+      console.error('Error cargando cobros:', error);
+      setCobros([]);
+      setCobranzasFiltradas([]);
     } finally {
       setLoading(false);
     }
@@ -97,115 +114,25 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     // 🆕 Limpiar caché para forzar recarga
     localStorage.removeItem("cobranzas_list");
     fetchCobranzas(true);
-  }, []);
-
-  // Cargar catálogo de clientes
-  useEffect(() => {
-    async function fetchClientesCatalogo() {
-      try {
-        const data = await getClientesCatalogo();
-        setClientesCatalogo(data);
-        setCatalogoCargado(true);
-      } catch (error) {
-        // Error al obtener clientes de Firestore
-      } finally {
-        setLoadingClientesCatalogo(false);
-      }
-    }
-    fetchClientesCatalogo();
-  }, []);
-
-  // 🆕 Función para aplicar filtros
-  const aplicarFiltros = (datos) => {
-    let filtradas = [...datos];
-
-    // Filtro por cliente
-    if (filtroCliente) {
-      filtradas = filtradas.filter(cobro => {
-        const clienteNombre = getRazonSocial(cobro.cliente);
-        return clienteNombre.toLowerCase().includes(filtroCliente.toLowerCase());
-      });
-    }
-
-    // Filtro por fecha desde
-    if (filtroFechaDesde) {
-      filtradas = filtradas.filter(cobro => {
-        // Convertir la fecha del cobro a Date para comparación
-        let fechaCobro = null;
-        if (typeof cobro.fecha === 'string') {
-          // Si ya es string, intentar parsearlo
-          const partes = cobro.fecha.split('/');
-          if (partes.length === 3) {
-            // Formato DD/MM/YY
-            const dia = parseInt(partes[0]);
-            const mes = parseInt(partes[1]) - 1; // Meses van de 0-11
-            const año = 2000 + parseInt(partes[2]); // Asumir siglo 21
-            fechaCobro = new Date(año, mes, dia);
-          } else {
-            fechaCobro = new Date(cobro.fecha);
-          }
-        } else {
-          fechaCobro = new Date(cobro.fecha);
-        }
-        
-        return !isNaN(fechaCobro.getTime()) && fechaCobro >= filtroFechaDesde;
-      });
-    }
-
-    // Filtro por fecha hasta
-    if (filtroFechaHasta) {
-      filtradas = filtradas.filter(cobro => {
-        // Convertir la fecha del cobro a Date para comparación
-        let fechaCobro = null;
-        if (typeof cobro.fecha === 'string') {
-          // Si ya es string, intentar parsearlo
-          const partes = cobro.fecha.split('/');
-          if (partes.length === 3) {
-            // Formato DD/MM/YY
-            const dia = parseInt(partes[0]);
-            const mes = parseInt(partes[1]) - 1; // Meses van de 0-11
-            const año = 2000 + parseInt(partes[2]); // Asumir siglo 21
-            fechaCobro = new Date(año, mes, dia);
-          } else {
-            fechaCobro = new Date(cobro.fecha);
-          }
-        } else {
-          fechaCobro = new Date(cobro.fecha);
-        }
-        
-        const fechaHasta = new Date(filtroFechaHasta);
-        fechaHasta.setHours(23, 59, 59, 999); // Incluir todo el día
-        return !isNaN(fechaCobro.getTime()) && fechaCobro <= fechaHasta;
-      });
-    }
-
-    // 🆕 Validación final: asegurarse de que no haya objetos problemáticos
-    filtradas = filtradas.map(cobro => {
-      const cobroFinal = { ...cobro };
-      Object.keys(cobroFinal).forEach(key => {
-        // Solo convertir objetos que no sean booleanos (como timestamps)
-        if (typeof cobroFinal[key] === 'object' && cobroFinal[key] !== null && typeof cobroFinal[key] !== 'boolean') {
-  
-          // Si es un timestamp, convertirlo a string
-          if (cobroFinal[key]._seconds !== undefined || cobroFinal[key].seconds !== undefined || typeof cobroFinal[key].toDate === 'function') {
-            cobroFinal[key] = formatFechaUnificada(cobroFinal[key]);
-          } else {
-            cobroFinal[key] = '[Objeto]';
-          }
-        }
-      });
-      return cobroFinal;
-    });
-
-    setCobranzasFiltradas(filtradas);
-  };
+  }, [currentPage, rowsPerPage, filtroCliente, filtroFechaDesde, filtroFechaHasta]);
 
   // 🆕 Función para limpiar filtros
   const limpiarFiltros = () => {
     setFiltroCliente(null);
     setFiltroFechaDesde(null);
     setFiltroFechaHasta(null);
-    setCobranzasFiltradas(cobros);
+    setCurrentPage(1); // Resetear a la primera página
+  };
+
+  // 🆕 Función para cambiar página
+  const onPageChange = (event) => {
+    setCurrentPage(event.page + 1);
+  };
+
+  // 🆕 Función para cambiar filas por página
+  const onRowsPerPageChange = (event) => {
+    setRowsPerPage(event.value);
+    setCurrentPage(1); // Resetear a la primera página
   };
 
   // 🆕 Función unificada para formatear fechas en DD/MM/YYYY
@@ -293,12 +220,6 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     });
   };
 
-  // Aplicar filtros cuando cambien
-  useEffect(() => {
-    const datosLimpios = limpiarDatosParaRender(cobros);
-    aplicarFiltros(datosLimpios);
-  }, [cobros, filtroCliente, filtroFechaDesde, filtroFechaHasta]);
-
   // Cargar clientes para el filtro usando caché
   const cargarClientes = async () => {
     try {
@@ -334,6 +255,22 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   useEffect(() => {
     cargarClientes();
   }, [user.role]);
+
+  // Cargar catálogo de clientes
+  useEffect(() => {
+    async function fetchClientesCatalogo() {
+      try {
+        const data = await getClientesCatalogo();
+        setClientesCatalogo(data);
+        setCatalogoCargado(true);
+      } catch (error) {
+        // Error al obtener clientes de Firestore
+      } finally {
+        setLoadingClientesCatalogo(false);
+      }
+    }
+    fetchClientesCatalogo();
+  }, []);
 
   // Agregar función para obtener razón social
   const getRazonSocial = (clienteId) => {
@@ -412,17 +349,21 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const updateCargadoStatus = async (cobroId, newStatus) => {
     setUpdatingId(cobroId);
     try {
-      const cobroRef = doc(db, "cobranzas", cobroId);
-      await updateDoc(cobroRef, {
+      // 🆕 Usar la nueva API
+      await api.updateCobro(cobroId, {
         cargado: newStatus
       });
+      
       toast.current.show({ 
         severity: 'success', 
         summary: 'Actualizado', 
         detail: `Estado actualizado a: ${newStatus ? 'Cargado' : 'No cargado'}` 
       });
-      fetchCobranzas(true); // Recargar datos
+      
+      // Recargar datos
+      fetchCobranzas();
     } catch (error) {
+      console.error('Error actualizando cobro:', error);
       toast.current.show({ 
         severity: 'error', 
         summary: 'Error', 
@@ -437,15 +378,19 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const deleteCobro = async (cobroId) => {
     setUpdatingId(cobroId);
     try {
-      const cobroRef = doc(db, "cobranzas", cobroId);
-      await deleteDoc(cobroRef);
+      // 🆕 Usar la nueva API
+      await api.deleteCobro(cobroId);
+      
       toast.current.show({ 
         severity: 'success', 
         summary: 'Eliminado', 
         detail: 'Cobranza eliminada correctamente' 
       });
-      fetchCobranzas(true); // Recargar datos
+      
+      // Recargar datos
+      fetchCobranzas();
     } catch (error) {
+      console.error('Error eliminando cobro:', error);
       toast.current.show({ 
         severity: 'error', 
         summary: 'Error', 
@@ -566,8 +511,8 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
       <DataTable 
         value={cobranzasFiltradas}
         paginator 
-        rows={5}
-        rowsPerPageOptions={[5, 10, 20, 50]}
+        rows={rowsPerPage}
+        rowsPerPageOptions={[10, 20, 50, 100]}
         className="p-datatable-sm"
         emptyMessage="No hay cobranzas para mostrar"
         responsiveLayout="scroll"
@@ -576,6 +521,12 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
         size="small"
         removableSort
         sortMode="multiple"
+        lazy
+        first={(currentPage - 1) * rowsPerPage}
+        totalRecords={pagination.total}
+        onPage={onPageChange}
+        onRowsPerPageChange={onRowsPerPageChange}
+        loading={loading}
       >
         <Column field="fecha" header="Fecha" sortable style={{ minWidth: '85px', maxWidth: '100px' }}>
           {(rowData) => (
@@ -768,12 +719,15 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
 
           {/* RESUMEN DE FILTROS - Mejorado */}
           <div className="mt-3 text-xs md:text-sm text-gray-600 text-center md:text-left">
-            <span className="font-medium">Mostrando {cobranzasFiltradas.length} de {cobros.length} cobranzas</span>
+            <span className="font-medium">Mostrando {cobranzasFiltradas.length} de {pagination.total} cobranzas</span>
             {(filtroCliente || filtroFechaDesde || filtroFechaHasta) && (
               <span className="ml-2 text-blue-600 font-medium">
                 (filtros activos)
               </span>
             )}
+            <span className="ml-2 text-gray-500">
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
           </div>
         </Card>
       )}

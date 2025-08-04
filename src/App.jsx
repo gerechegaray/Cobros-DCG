@@ -14,7 +14,7 @@ import EstadoCuenta from "./features/clientes/EstadoCuenta";
 import SelectorCliente from "./features/pedidos/SelectorCliente";
 import FacturasAlegra from "./features/facturas/FacturasAlegra";
 import UserProfile from "./features/auth/UserProfile";
-import CacheMonitor from "./components/CacheMonitor";
+import GestionDatos from "./components/GestionDatos";
 import VisitasDashboard from "./features/visitas/VisitasDashboard";
 
 function App() {
@@ -67,9 +67,9 @@ function App() {
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
     ];
 
-    // 🆕 Agregar Monitor de Cache solo para admin
+    // 🆕 Agregar Gestión de Datos solo para admin
     if (user && user.role === 'admin') {
-      baseItems.push({ label: "Monitor de Cache", icon: "pi pi-database", path: "/cache-monitor" });
+      baseItems.push({ label: "Gestión de Datos", icon: "pi pi-database", path: "/gestion-datos" });
     }
 
     return baseItems;
@@ -100,9 +100,9 @@ function App() {
             <Route path="/facturas" element={<FacturasAlegra user={user} />} />
             <Route path="/visitas" element={<VisitasDashboard user={user} />} />
             <Route path="/profile" element={<UserProfile user={user} />} />
-            <Route path="/cache-monitor" element={
+            <Route path="/gestion-datos" element={
               user && user.role === 'admin' ? 
-              <CacheMonitor user={user} /> : 
+              <GestionDatos user={user} /> : 
               <Navigate to="/dashboard" replace />
             } />
           </Routes>
