@@ -164,4 +164,19 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(params),
   }),
+
+  // 🆕 Sincronizar presupuestos desde Alegra
+  sincronizarPresupuestosDesdeAlegra: async () => {
+    try {
+      console.log('🔄 Iniciando sincronización desde Alegra...');
+      const response = await apiRequest('/presupuestos/sincronizar-alegra', {
+        method: 'POST'
+      });
+      console.log('🔄 Respuesta de sincronización:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error sincronizando desde Alegra:', error);
+      throw error;
+    }
+  },
 }; 

@@ -1865,3 +1865,133 @@ function sleep(ms) {
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => console.log(`Servidor backend escuchando en http://localhost:${PORT}`));
+
+// Endpoint para sincronizar presupuestos desde Alegra a Firebase
+app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
+  try {
+    console.log('🔄 Iniciando sincronización de presupuestos desde Alegra...');
+    
+    // 🆕 Verificar si Firebase está inicializado
+    if (!adminDb) {
+      console.warn('⚠️ Firebase no inicializado - no se puede sincronizar');
+      return res.status(500).json({ 
+        error: 'Firebase no inicializado',
+        success: false 
+      });
+    }
+    
+    const email = process.env.ALEGRA_EMAIL?.trim();
+    const apiKey = process.env.ALEGRA_API_KEY?.trim();
+    
+    if (!email || !apiKey) {
+      console.error('❌ Credenciales de Alegra no configuradas');
+      return res.status(500).json({ 
+        error: 'Credenciales de Alegra no configuradas',
+        success: false 
+      });
+    }
+    
+    // 🆕 Obtener presupuestos de Alegra (últimos 30 días)
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - 30);
+    const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+    
+    console.log(`🔄 Obteniendo presupuestos de Alegra desde ${fechaLimiteStr}...`);
+    
+    const url = `https://api.alegra.com/api/v1/estimates?date_afterOrNow=${fechaLimiteStr}&limit=100`;
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Error obteniendo presupuestos de Alegra:', errorText);
+      return res.status(500).json({ 
+        error: `Error obteniendo presupuestos de Alegra: ${errorText}`,
+        success: false 
+      });
+    }
+    
+    const alegraPresupuestos = await response.json();
+    console.log(`🔄 Presupuestos obtenidos de Alegra: ${alegraPresupuestos.length}`);
+    
+    // 🆕 Obtener presupuestos existentes en Firebase
+    const firebaseSnapshot = await adminDb.collection('presupuestos').get();
+    const firebasePresupuestos = firebaseSnapshot.docs.map(doc => doc.data());
+    const firebaseIds = firebasePresupuestos.map(p => p.alegraId).filter(id => id);
+    
+    console.log(`🔄 Presupuestos existentes en Firebase: ${firebasePresupuestos.length}`);
+    console.log(`🔄 IDs de Alegra en Firebase: ${firebaseIds.length}`);
+    
+    // 🆕 Filtrar presupuestos de Alegra que no están en Firebase
+    const presupuestosParaSincronizar = alegraPresupuestos.filter(presupuesto => {
+      return !firebaseIds.includes(presupuesto.id.toString());
+    });
+    
+    console.log(`🔄 Presupuestos para sincronizar: ${presupuestosParaSincronizar.length}`);
+    
+    if (presupuestosParaSincronizar.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No hay presupuestos nuevos para sincronizar',
+        sincronizados: 0
+      });
+    }
+    
+    // 🆕 Sincronizar presupuestos a Firebase
+    let sincronizados = 0;
+    const errores = [];
+    
+    for (const presupuesto of presupuestosParaSincronizar) {
+      try {
+        // 🆕 Crear documento en Firebase
+        const presupuestoData = {
+          alegraId: presupuesto.id.toString(),
+          clienteId: presupuesto.client?.id?.toString() || '',
+          clienteNombre: presupuesto.client?.name || '',
+          fechaCreacion: new Date(presupuesto.date),
+          estado: presupuesto.status === 'approved' ? 'Facturada' : 'Sin facturar',
+          total: presupuesto.total || 0,
+          items: presupuesto.items || [],
+          observaciones: presupuesto.observations || '',
+          usuario: 'Sincronizado desde Alegra',
+          vendedor: 1, // Default
+          sincronizadoDesdeAlegra: true,
+          fechaSincronizacion: new Date()
+        };
+        
+        await adminDb.collection('presupuestos').add(presupuestoData);
+        sincronizados++;
+        console.log(`✅ Presupuesto ${presupuesto.id} sincronizado`);
+        
+      } catch (error) {
+        console.error(`❌ Error sincronizando presupuesto ${presupuesto.id}:`, error);
+        errores.push({
+          id: presupuesto.id,
+          error: error.message
+        });
+      }
+    }
+    
+    console.log(`🔄 Sincronización completada: ${sincronizados} presupuestos sincronizados`);
+    
+    return res.json({
+      success: true,
+      message: `Sincronización completada: ${sincronizados} presupuestos sincronizados`,
+      sincronizados,
+      errores: errores.length > 0 ? errores : undefined
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en sincronización:', error);
+    res.status(500).json({ 
+      error: error.message,
+      success: false 
+    });
+  }
+});
