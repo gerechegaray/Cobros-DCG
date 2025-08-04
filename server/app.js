@@ -1870,6 +1870,7 @@ app.listen(PORT, () => console.log(`Servidor backend escuchando en http://localh
 app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
   try {
     console.log('🔄 Iniciando sincronización de presupuestos desde Alegra...');
+    console.log('🆕 Verificando configuración...');
     
     // 🆕 Verificar si Firebase está inicializado
     if (!adminDb) {
@@ -1879,17 +1880,25 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
         success: false 
       });
     }
+    console.log('✅ Firebase inicializado correctamente');
     
     const email = process.env.ALEGRA_EMAIL?.trim();
     const apiKey = process.env.ALEGRA_API_KEY?.trim();
     
+    console.log('🆕 Verificando credenciales de Alegra...');
+    console.log('🆕 ALEGRA_EMAIL configurado:', !!email);
+    console.log('🆕 ALEGRA_API_KEY configurado:', !!apiKey);
+    
     if (!email || !apiKey) {
       console.error('❌ Credenciales de Alegra no configuradas');
+      console.error('❌ ALEGRA_EMAIL:', email ? 'Configurado' : 'NO CONFIGURADO');
+      console.error('❌ ALEGRA_API_KEY:', apiKey ? 'Configurado' : 'NO CONFIGURADO');
       return res.status(500).json({ 
         error: 'Credenciales de Alegra no configuradas',
         success: false 
       });
     }
+    console.log('✅ Credenciales de Alegra configuradas correctamente');
     
     // 🆕 Obtener presupuestos de Alegra (últimos 30 días)
     const fechaLimite = new Date();
