@@ -327,13 +327,13 @@ app.post("/api/presupuestos", async (req, res) => {
   console.log('Entrando a /api/presupuestos');
   try {
     const { clienteId, items, observaciones, usuario, fechaCreacion, vendedor, condicion, dueDate } = req.body;
-    // 1. Crear en Firestore con estado pendiente-alegra
+    // 1. Crear en Firestore con estado unbilled (estado correcto de Alegra)
     const docRef = await adminDb.collection('presupuestos').add({
       clienteId,
       items,
       observaciones,
       usuario,
-      estado: 'pendiente-alegra',
+      estado: 'unbilled', // Usar estado correcto de Alegra desde el inicio
       fechaCreacion: fechaCreacion ? new Date(fechaCreacion) : new Date(),
       vendedor: vendedor || null,
       condicion: condicion || null,
@@ -403,11 +403,11 @@ app.post("/api/presupuestos", async (req, res) => {
       const alegraText = await alegraRes.text();
       if (!alegraRes.ok) throw new Error(alegraText);
       alegraQuote = JSON.parse(alegraText);
-      // 3. Si sale bien, actualizar doc con idAlegra y estado pendiente
-      await docRef.update({ idAlegra: alegraQuote.id, estado: 'pendiente' });
+      // 3. Si sale bien, actualizar doc con idAlegra y mantener estado unbilled
+      await docRef.update({ idAlegra: alegraQuote.id, estado: 'unbilled' });
     } catch (err) {
       alegraError = err.message || String(err);
-      // Si falla, dejar estado como pendiente-alegra y guardar error
+      // Si falla, mantener estado como unbilled y guardar error
       await docRef.update({ alegraError });
     }
     // Responder con el doc de Firestore y el resultado de Alegra (si hay)
@@ -421,9 +421,33 @@ app.post("/api/presupuestos", async (req, res) => {
 
 // Endpoint para obtener todos los presupuestos guardados en Firestore, filtrando por usuario y rol
 app.get("/api/presupuestos", async (req, res) => {
-  console.log('Entrando a /api/presupuestos');
-  try {
-    const { email, role, page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta } = req.query;
+  console.log('🔄 Entrando a /api/presupuestos');
+  console.log('🆕 Verificando Firebase initialization...');
+  
+  // Verificar que Firebase esté inicializado
+  if (!adminDb) {
+    console.error('❌ Firebase no inicializado en /api/presupuestos');
+    return res.status(500).json({ 
+      error: 'Firebase no inicializado',
+      success: false,
+      data: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
+    });
+  }
+  console.log('✅ Firebase inicializado correctamente');
+  
+      try {
+      const { email, role, page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta } = req.query;
+      
+      console.log('🆕 Parámetros recibidos:');
+      console.log('🆕 - email:', email);
+      console.log('🆕 - role:', role);
+      console.log('🆕 - page:', page);
+      console.log('🆕 - limit:', limit);
+      console.log('🆕 - estado:', estado);
+      console.log('🆕 - clienteId:', clienteId);
+      console.log('🆕 - fechaDesde:', fechaDesde);
+      console.log('🆕 - fechaHasta:', fechaHasta);
     console.log(`Filtrando presupuestos para email: ${email}, role: ${role}`);
     console.log(`Paginación: page=${page}, limit=${limit}`);
     console.log(`Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}`);
@@ -568,8 +592,14 @@ app.get("/api/presupuestos", async (req, res) => {
     console.log('🆕 Enviando respuesta completa:', JSON.stringify(responseData, null, 2));
     res.json(responseData);
   } catch (error) {
-    console.error('Error en /api/presupuestos:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/presupuestos:', error);
+    console.error('❌ Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: error.message,
+      success: false,
+      data: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
+    });
   }
 });
 
@@ -894,7 +924,7 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
 // Endpoint para sincronizar estados de presupuestos con Alegra (manual)
 app.post("/api/sync-estados-presupuestos", async (req, res) => {
   try {
-    const snapshot = await adminDb.collection('presupuestos').where('estado', 'in', ['pendiente', 'pendiente-alegra']).get();
+    const snapshot = await adminDb.collection('presupuestos').where('estado', 'in', ['unbilled', 'pendiente', 'pendiente-alegra']).get();
     console.log(`[SYNC] Presupuestos a sincronizar: ${snapshot.size}`);
     const email = process.env.ALEGRA_EMAIL?.trim();
     const apiKey = process.env.ALEGRA_API_KEY?.trim();
@@ -909,19 +939,19 @@ app.post("/api/sync-estados-presupuestos", async (req, res) => {
           headers: { accept: 'application/json', authorization }
         });
         if (response.status === 404) {
-          await doc.ref.update({ estado: 'facturado' });
+          await doc.ref.update({ estado: 'billed' });
           actualizados++;
-          console.log(`[SYNC] Presupuesto ${doc.id} marcado como facturado (no existe en Alegra)`);
+          console.log(`[SYNC] Presupuesto ${doc.id} marcado como billed (no existe en Alegra)`);
         } else if (response.ok) {
           const alegraData = await response.json();
-          // Usar el campo status oficial de Alegra
+          // Usar el campo status oficial de Alegra y mantener consistencia
           if (alegraData.status === 'billed') {
-            await doc.ref.update({ estado: 'facturado', facturaAlegra: alegraData.invoices || [] });
+            await doc.ref.update({ estado: 'billed', facturaAlegra: alegraData.invoices || [] });
             actualizados++;
-            console.log(`[SYNC] Presupuesto ${doc.id} marcado como facturado (status billed)`);
+            console.log(`[SYNC] Presupuesto ${doc.id} marcado como billed (status billed)`);
           } else if (alegraData.status === 'unbilled') {
-            await doc.ref.update({ estado: 'pendiente' });
-            console.log(`[SYNC] Presupuesto ${doc.id} sigue pendiente (status unbilled)`);
+            await doc.ref.update({ estado: 'unbilled' });
+            console.log(`[SYNC] Presupuesto ${doc.id} marcado como unbilled (status unbilled)`);
           } else {
             console.log(`[SYNC] Presupuesto ${doc.id} status desconocido: ${alegraData.status}`);
           }
