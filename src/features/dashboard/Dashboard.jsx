@@ -7,6 +7,7 @@ import { Button } from "primereact/button";
 import Alerts from "./Alerts";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
+import BackendStatus from "../../components/BackendStatus";
 
 function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   const navigate = useNavigate();
@@ -492,6 +493,10 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
         </div>
       </div>
 
+      {/* Estado del Backend */}
+      <div className="dashboard-backend-status" style={{ maxWidth: 480, margin: '0 auto', marginBottom: 16, width: '100%' }}>
+        <BackendStatus />
+      </div>
 
       {/* Alertas de cobros pendientes */}
       <div className="dashboard-alerts-container" style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>

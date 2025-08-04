@@ -1,7 +1,7 @@
 // src/services/api.js
 // Servicio centralizado para peticiones al backend
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sist-gestion-dcg.onrender.com';
 
 // Función helper para hacer peticiones al backend
 export const apiRequest = async (endpoint, options = {}) => {
