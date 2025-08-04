@@ -520,8 +520,13 @@ app.get("/api/presupuestos", async (req, res) => {
     const hasPrevPage = pageInt > 1;
     
     console.log(`Presupuestos para ${role}: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
+    console.log('🆕 Estructura de respuesta que se envía:');
+    console.log('🆕 - data es array:', Array.isArray(data));
+    console.log('🆕 - data length:', Array.isArray(data) ? data.length : 'No es array');
+    console.log('🆕 - data tipo:', typeof data);
+    console.log('🆕 - pagination tipo:', typeof { page: pageInt, limit: limitInt, total, totalPages, hasNextPage, hasPrevPage });
     
-    res.json({
+    const responseData = {
       data,
       pagination: {
         page: pageInt,
@@ -531,7 +536,10 @@ app.get("/api/presupuestos", async (req, res) => {
         hasNextPage,
         hasPrevPage
       }
-    });
+    };
+    
+    console.log('🆕 Enviando respuesta completa:', JSON.stringify(responseData, null, 2));
+    res.json(responseData);
   } catch (error) {
     console.error('Error en /api/presupuestos:', error);
     res.status(500).json({ error: error.message });

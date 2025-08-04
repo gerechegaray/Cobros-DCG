@@ -364,9 +364,17 @@ function PresupuestosList({ user }) {
         
         console.log('🆕 Data extraída:', data);
         console.log('🆕 Pagination extraída:', paginationData);
+        console.log('🆕 Tipo de data:', typeof data);
+        console.log('🆕 Es array:', Array.isArray(data));
+        console.log('🆕 Longitud de data:', Array.isArray(data) ? data.length : 'No es array');
         
         // Limpiar datos antes de establecer el estado
+        console.log('🆕 Antes de limpiarDatosParaRender');
         const datosLimpios = limpiarDatosParaRender(data);
+        console.log('🆕 Después de limpiarDatosParaRender:', datosLimpios);
+        console.log('🆕 Tipo de datosLimpios:', typeof datosLimpios);
+        console.log('🆕 Es array datosLimpios:', Array.isArray(datosLimpios));
+        
         setPresupuestos(datosLimpios);
         setPresupuestosFiltrados(datosLimpios);
         setPagination(paginationData);
