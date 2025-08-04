@@ -483,13 +483,17 @@ app.get("/api/presupuestos", async (req, res) => {
       // 🆕 Mapear estados del frontend a estados de Firebase
       let estadoFirebase = estado;
       if (estado === 'pendiente') {
-        estadoFirebase = 'unbilled'; // Estado real de Alegra
+        // Buscar tanto 'unbilled' como estados antiguos
+        console.log(`🆕 Mapeando estado: "${estado}" -> buscando estados no facturados`);
+        query = query.where('estado', 'in', ['unbilled', 'pendiente', 'pendiente-alegra', 'Sin facturar']);
       } else if (estado === 'facturado') {
-        estadoFirebase = 'billed'; // Estado real de Alegra
+        // Buscar tanto 'billed' como estados antiguos
+        console.log(`🆕 Mapeando estado: "${estado}" -> buscando estados facturados`);
+        query = query.where('estado', 'in', ['billed', 'facturado', 'Facturada']);
+      } else {
+        console.log(`🆕 Estado no reconocido: "${estado}" - aplicando filtro directo`);
+        query = query.where('estado', '==', estado);
       }
-      
-      console.log(`🆕 Mapeando estado: "${estado}" -> "${estadoFirebase}"`);
-      query = query.where('estado', '==', estadoFirebase);
     }
     
     if (clienteId) {
@@ -1918,6 +1922,8 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     console.log('🆕 Verificando credenciales de Alegra...');
     console.log('🆕 ALEGRA_EMAIL configurado:', !!email);
     console.log('🆕 ALEGRA_API_KEY configurado:', !!apiKey);
+    console.log('🆕 ALEGRA_EMAIL valor:', email ? `${email.substring(0, 3)}...` : 'NO CONFIGURADO');
+    console.log('🆕 ALEGRA_API_KEY valor:', apiKey ? `${apiKey.substring(0, 3)}...` : 'NO CONFIGURADO');
     
     if (!email || !apiKey) {
       console.error('❌ Credenciales de Alegra no configuradas');
@@ -1940,6 +1946,9 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     const url = `https://api.alegra.com/api/v1/estimates?date_afterOrNow=${fechaLimiteStr}&limit=100`;
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
     
+    console.log('🆕 URL de Alegra:', url);
+    console.log('🆕 Authorization header:', authorization.substring(0, 20) + '...');
+    
     const response = await fetch(url, {
       headers: {
         accept: 'application/json',
@@ -1947,9 +1956,14 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
       }
     });
     
+    console.log('🆕 Response status:', response.status);
+    console.log('🆕 Response headers:', Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Error obteniendo presupuestos de Alegra:', errorText);
+      console.error('❌ Status:', response.status);
+      console.error('❌ Status text:', response.statusText);
       return res.status(500).json({ 
         error: `Error obteniendo presupuestos de Alegra: ${errorText}`,
         success: false 
@@ -1958,6 +1972,15 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     
     const alegraPresupuestos = await response.json();
     console.log(`🔄 Presupuestos obtenidos de Alegra: ${alegraPresupuestos.length}`);
+    
+    if (alegraPresupuestos.length > 0) {
+      console.log('🆕 Primer presupuesto de Alegra:', {
+        id: alegraPresupuestos[0].id,
+        status: alegraPresupuestos[0].status,
+        date: alegraPresupuestos[0].date,
+        client: alegraPresupuestos[0].client?.name
+      });
+    }
     
     // 🆕 Obtener presupuestos existentes en Firebase
     const firebaseSnapshot = await adminDb.collection('presupuestos').get();
