@@ -715,12 +715,54 @@ function GestionDatos({ user }) {
           paginator 
           rows={10}
           className="p-datatable-sm"
+          emptyMessage="No hay registros para mostrar"
         >
           <Column field="id" header="ID" style={{ width: '100px' }} />
-          <Column field="fechaCreacion" header="Fecha Creación" />
-          <Column field="estado" header="Estado" />
-          <Column field="clienteNombre" header="Cliente" />
-          <Column field="monto" header="Monto" />
+          <Column 
+            field="fechaCreacion" 
+            header="Fecha Creación" 
+            body={(rowData) => {
+              if (rowData.fechaCreacion && rowData.fechaCreacion._seconds) {
+                return new Date(rowData.fechaCreacion._seconds * 1000).toLocaleDateString();
+              }
+              return rowData.fechaCreacion || 'N/A';
+            }}
+          />
+          <Column 
+            field="estado" 
+            header="Estado" 
+            body={(rowData) => {
+              const estado = rowData.estado;
+              if (typeof estado === 'string') {
+                return estado;
+              }
+              return estado || 'N/A';
+            }}
+          />
+          <Column 
+            field="clienteNombre" 
+            header="Cliente" 
+            body={(rowData) => {
+              return rowData.clienteNombre || rowData.clienteId || 'N/A';
+            }}
+          />
+          <Column 
+            field="total" 
+            header="Monto" 
+            body={(rowData) => {
+              if (rowData.total) {
+                return `$${rowData.total.toLocaleString()}`;
+              }
+              if (rowData.items && rowData.items.length > 0) {
+                const total = rowData.items.reduce((sum, item) => {
+                  const itemTotal = (item.price || 0) * (item.quantity || 1);
+                  return sum + itemTotal;
+                }, 0);
+                return `$${total.toLocaleString()}`;
+              }
+              return 'N/A';
+            }}
+          />
         </DataTable>
         <div className="flex justify-content-end gap-2 mt-3">
           <Button 
