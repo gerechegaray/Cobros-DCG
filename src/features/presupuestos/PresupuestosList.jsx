@@ -328,7 +328,7 @@ function PresupuestosList({ user }) {
     fetchCatalogos();
   }, []);
 
-  // 🆕 FORZAR DEPLOY - Función para cargar presupuestos desde Firestore (sin consultar Alegra)
+  // 🆕 FORZAR DEPLOY V2 - Función para cargar presupuestos desde Firestore (sin consultar Alegra)
   const fetchPresupuestos = async () => {
     setLoading(true);
     try {
