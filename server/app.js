@@ -456,7 +456,16 @@ app.get("/api/presupuestos", async (req, res) => {
     
     // 🆕 Aplicar filtros adicionales si se proporcionan
     if (estado && estado !== 'todos') {
-      query = query.where('estado', '==', estado);
+      // 🆕 Mapear estados del frontend a estados de Firebase
+      let estadoFirebase = estado;
+      if (estado === 'pendiente') {
+        estadoFirebase = 'Sin facturar';
+      } else if (estado === 'facturado') {
+        estadoFirebase = 'Facturada';
+      }
+      
+      console.log(`🆕 Mapeando estado: "${estado}" -> "${estadoFirebase}"`);
+      query = query.where('estado', '==', estadoFirebase);
     }
     
     if (clienteId) {
