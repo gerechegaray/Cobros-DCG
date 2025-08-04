@@ -150,6 +150,10 @@ function PresupuestosList({ user }) {
     // Obtener icono y color del estado
     const getEstadoInfo = () => {
       switch (presupuesto.estado) {
+        case 'billed':
+          return { icon: '✅', color: 'text-green-600', label: 'Facturado' };
+        case 'unbilled':
+          return { icon: '📋', color: 'text-blue-600', label: 'Sin facturar' };
         case 'facturado':
           return { icon: '✅', color: 'text-green-600', label: 'Facturado' };
         case 'pendiente-alegra':
@@ -276,8 +280,31 @@ function PresupuestosList({ user }) {
       }} />
       <Column field="clienteId" header="Cliente" body={row => getClienteNombre(row.clienteId)} />
       <Column field="estado" header="Estado" body={row => {
-         let label = row.estado === 'facturado' ? 'Facturada' : 'Sin facturar';
-         let severity = row.estado === 'facturado' ? 'success' : (row.estado === 'pendiente-alegra' ? 'warning' : 'info');
+         let label = 'Sin facturar';
+         let severity = 'info';
+         
+         switch (row.estado) {
+           case 'billed':
+             label = 'Facturada';
+             severity = 'success';
+             break;
+           case 'unbilled':
+             label = 'Sin facturar';
+             severity = 'info';
+             break;
+           case 'facturado':
+             label = 'Facturada';
+             severity = 'success';
+             break;
+           case 'pendiente-alegra':
+             label = 'Pendiente';
+             severity = 'warning';
+             break;
+           default:
+             label = 'Sin facturar';
+             severity = 'info';
+         }
+         
          return <Tag value={label} severity={severity} />;
         }} />
       <Column field="vendedor" header="Usuario" body={row => getVendedorNombre(row.vendedor)} />

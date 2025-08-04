@@ -459,9 +459,9 @@ app.get("/api/presupuestos", async (req, res) => {
       // 🆕 Mapear estados del frontend a estados de Firebase
       let estadoFirebase = estado;
       if (estado === 'pendiente') {
-        estadoFirebase = 'Sin facturar';
+        estadoFirebase = 'unbilled'; // Estado real de Alegra
       } else if (estado === 'facturado') {
-        estadoFirebase = 'Facturada';
+        estadoFirebase = 'billed'; // Estado real de Alegra
       }
       
       console.log(`🆕 Mapeando estado: "${estado}" -> "${estadoFirebase}"`);
@@ -1964,7 +1964,7 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
           clienteId: presupuesto.client?.id?.toString() || '',
           clienteNombre: presupuesto.client?.name || '',
           fechaCreacion: new Date(presupuesto.date),
-          estado: presupuesto.status === 'approved' ? 'Facturada' : 'Sin facturar',
+          estado: presupuesto.status, // Usar el estado real de Alegra (billed/unbilled)
           total: presupuesto.total || 0,
           items: presupuesto.items || [],
           observaciones: presupuesto.observations || '',
