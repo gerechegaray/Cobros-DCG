@@ -479,6 +479,8 @@ app.get("/api/presupuestos", async (req, res) => {
     const totalSnapshot = await query.get();
     const total = totalSnapshot.size;
     
+    console.log(`🆕 Total de presupuestos en Firebase (con filtro de fecha): ${total}`);
+    
     // 🆕 Aplicar paginación
     const pageInt = parseInt(page);
     const limitInt = parseInt(limit);
@@ -489,29 +491,45 @@ app.get("/api/presupuestos", async (req, res) => {
     let snapshot = await query.get();
     let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
+    console.log(`🆕 Presupuestos obtenidos de Firebase (página ${pageInt}): ${data.length}`);
+    console.log('🆕 Detalles de presupuestos obtenidos:');
+    data.forEach((p, index) => {
+      console.log(`🆕 ${index + 1}. ID: ${p.id}`);
+      console.log(`🆕    - Fecha: ${p.fechaCreacion}`);
+      console.log(`🆕    - Usuario: "${p.usuario}"`);
+      console.log(`🆕    - Vendedor: ${p.vendedor}`);
+      console.log(`🆕    - Estado: ${p.estado}`);
+      console.log(`🆕    - Cliente: ${p.clienteNombre || 'N/A'}`);
+    });
+    
     // 🆕 Filtrar por rol después de obtener los datos (para evitar problemas con índices compuestos)
     if (role !== 'admin') {
-      console.log(`Vendedor ${role}: filtrando por rol`);
+      console.log(`🆕 Vendedor ${role} (${email}): filtrando por rol`);
       
       // Debug: mostrar todos los presupuestos y sus usuarios
-      console.log('Todos los presupuestos (con filtro de fecha):');
+      console.log('🆕 Todos los presupuestos (con filtro de fecha):');
       data.forEach(p => {
-        console.log(`- ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}, Fecha: ${p.fechaCreacion}`);
+        console.log(`🆕 - ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}, Fecha: ${p.fechaCreacion}`);
       });
       
       // Filtrado SOLO por rol/vendedor, no por email
       let filtrados;
       if (role === 'Guille') {
         filtrados = data.filter(p => p.vendedor === 1 || p.vendedor === "1");
+        console.log(`🆕 Filtrando para Guille (vendedor = 1): ${filtrados.length} de ${data.length}`);
       } else if (role === 'Santi') {
         filtrados = data.filter(p => p.vendedor === 2 || p.vendedor === "2");
+        console.log(`🆕 Filtrando para Santi (vendedor = 2): ${filtrados.length} de ${data.length}`);
       } else {
         // Fallback: filtrar por email si no es Guille ni Santi
         filtrados = data.filter(p => p.usuario === email);
+        console.log(`🆕 Filtrando por email "${email}": ${filtrados.length} de ${data.length}`);
       }
       
-      console.log(`Presupuestos filtrados para ${role}: ${filtrados.length} de ${data.length} total`);
+      console.log(`🆕 Presupuestos filtrados para ${role}: ${filtrados.length} de ${data.length} total`);
       data = filtrados;
+    } else {
+      console.log(`🆕 Admin: mostrando todos los presupuestos sin filtro`);
     }
     
     // 🆕 Calcular información de paginación
