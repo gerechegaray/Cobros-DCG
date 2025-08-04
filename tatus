@@ -1,0 +1,5 @@
+[33mca94e59[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m � Fix: Añadido parámetro de versión temporal para forzar actualización en producción
+[33mfbe8324[m � Fix: Actualizadas todas las URLs del backend anterior - Cambiado vite.config.js proxy de cobros-dcg.onrender.com a sist-gestion-dcg.onrender.com - Actualizado alegra.js para usar el nuevo backend
+[33m075a2b4[m � Migración completa a backend en Render - Actualizado frontend para usar nuevo backend en https://sist-gestion-dcg.onrender.com - Añadido componente BackendStatus para verificar conexión - Creado archivo de configuración centralizada - Actualizada URL base del API en todos los servicios
+[33m64b4669[m Fix: Mejorar manejo de estados inconsistentes en Firebase y agregar logging detallado para diagnosticar errores 500
+[33mc5afa8b[m Fix: Actualizar estados de presupuestos para usar billed/unbilled consistentemente con Alegra

@@ -1,5 +1,6 @@
 // src/services/api.js
 // Servicio centralizado para peticiones al backend
+// 🆕 FORZAR DEPLOY - Actualizado para usar nuevo backend
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sist-gestion-dcg.onrender.com';
 
