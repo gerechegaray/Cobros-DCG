@@ -328,94 +328,96 @@ function PresupuestosList({ user }) {
     fetchCatalogos();
   }, []);
 
+  // Función para cargar presupuestos desde Firestore (sin consultar Alegra)
+  const fetchPresupuestos = async () => {
+    setLoading(true);
+    try {
+      // 🆕 Construir parámetros para la API con paginación
+      const params = {
+        page: currentPage,
+        limit: rowsPerPage
+      };
+      
+      // 🆕 Agregar filtros si están activos
+      if (activeTab !== 'todos') {
+        if (activeTab === 'facturados') {
+          params.estado = 'facturado';
+        } else if (activeTab === 'sin-facturar') {
+          params.estado = 'pendiente';
+        }
+      }
+      
+      if (filtroCliente) {
+        params.clienteId = filtroCliente;
+      }
+      
+      if (filtroFechaDesde) {
+        params.fechaDesde = filtroFechaDesde.toISOString().split('T')[0];
+      }
+      
+      if (filtroFechaHasta) {
+        params.fechaHasta = filtroFechaHasta.toISOString().split('T')[0];
+      }
+      
+      const response = await api.getPresupuestos(user.email, user.role, params);
+      
+      console.log('🆕 Response completa:', response);
+      
+      // 🆕 Extraer datos y paginación de la respuesta con validación
+      let data = [];
+      let paginationData = {
+        page: 1,
+        limit: rowsPerPage,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false
+      };
+      
+      // Verificar si la respuesta tiene la estructura esperada
+      if (response && typeof response === 'object') {
+        if (response.data && Array.isArray(response.data)) {
+          data = response.data;
+        } else if (Array.isArray(response)) {
+          // Si la respuesta es directamente un array
+          data = response;
+        }
+        
+        if (response.pagination && typeof response.pagination === 'object') {
+          paginationData = response.pagination;
+        }
+      }
+      
+      console.log('🆕 Data extraída:', data);
+      console.log('🆕 Pagination extraída:', paginationData);
+      console.log('🆕 Tipo de data:', typeof data);
+      console.log('🆕 Es array:', Array.isArray(data));
+      console.log('🆕 Longitud de data:', Array.isArray(data) ? data.length : 'No es array');
+      
+      // Limpiar datos antes de establecer el estado
+      console.log('🆕 Antes de limpiarDatosParaRender');
+      const datosLimpios = limpiarDatosParaRender(data);
+      console.log('🆕 Después de limpiarDatosParaRender:', datosLimpios);
+      console.log('🆕 Tipo de datosLimpios:', typeof datosLimpios);
+      console.log('🆕 Es array datosLimpios:', Array.isArray(datosLimpios));
+      
+      setPresupuestos(datosLimpios);
+      setPresupuestosFiltrados(datosLimpios);
+      setPagination(paginationData);
+      
+      console.log(`🆕 Presupuestos cargados: ${datosLimpios.length} de ${paginationData.total} total`);
+      console.log(`🆕 Página ${paginationData.page} de ${paginationData.totalPages}`);
+    } catch (err) {
+      console.error('Error cargando presupuestos:', err);
+      setPresupuestos([]);
+      setPresupuestosFiltrados([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Cargar presupuestos desde Firestore (sin consultar Alegra)
   useEffect(() => {
-    async function fetchPresupuestos() {
-      setLoading(true);
-      try {
-        // 🆕 Construir parámetros para la API con paginación
-        const params = {
-          page: currentPage,
-          limit: rowsPerPage
-        };
-        
-        // 🆕 Agregar filtros si están activos
-        if (activeTab !== 'todos') {
-          if (activeTab === 'facturados') {
-            params.estado = 'facturado';
-          } else if (activeTab === 'sin-facturar') {
-            params.estado = 'pendiente';
-          }
-        }
-        
-        if (filtroCliente) {
-          params.clienteId = filtroCliente;
-        }
-        
-        if (filtroFechaDesde) {
-          params.fechaDesde = filtroFechaDesde.toISOString().split('T')[0];
-        }
-        
-        if (filtroFechaHasta) {
-          params.fechaHasta = filtroFechaHasta.toISOString().split('T')[0];
-        }
-        
-        const response = await api.getPresupuestos(user.email, user.role, params);
-        
-        console.log('🆕 Response completa:', response);
-        
-        // 🆕 Extraer datos y paginación de la respuesta con validación
-        let data = [];
-        let paginationData = {
-          page: 1,
-          limit: rowsPerPage,
-          total: 0,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPrevPage: false
-        };
-        
-        // Verificar si la respuesta tiene la estructura esperada
-        if (response && typeof response === 'object') {
-          if (response.data && Array.isArray(response.data)) {
-            data = response.data;
-          } else if (Array.isArray(response)) {
-            // Si la respuesta es directamente un array
-            data = response;
-          }
-          
-          if (response.pagination && typeof response.pagination === 'object') {
-            paginationData = response.pagination;
-          }
-        }
-        
-        console.log('🆕 Data extraída:', data);
-        console.log('🆕 Pagination extraída:', paginationData);
-        console.log('🆕 Tipo de data:', typeof data);
-        console.log('🆕 Es array:', Array.isArray(data));
-        console.log('🆕 Longitud de data:', Array.isArray(data) ? data.length : 'No es array');
-        
-        // Limpiar datos antes de establecer el estado
-        console.log('🆕 Antes de limpiarDatosParaRender');
-        const datosLimpios = limpiarDatosParaRender(data);
-        console.log('🆕 Después de limpiarDatosParaRender:', datosLimpios);
-        console.log('🆕 Tipo de datosLimpios:', typeof datosLimpios);
-        console.log('🆕 Es array datosLimpios:', Array.isArray(datosLimpios));
-        
-        setPresupuestos(datosLimpios);
-        setPresupuestosFiltrados(datosLimpios);
-        setPagination(paginationData);
-        
-        console.log(`🆕 Presupuestos cargados: ${datosLimpios.length} de ${paginationData.total} total`);
-        console.log(`🆕 Página ${paginationData.page} de ${paginationData.totalPages}`);
-      } catch (err) {
-        console.error('Error cargando presupuestos:', err);
-        setPresupuestos([]);
-        setPresupuestosFiltrados([]);
-      } finally {
-        setLoading(false);
-      }
-    }
     if (user?.email && user?.role) fetchPresupuestos();
   }, [user, currentPage, rowsPerPage, activeTab, filtroCliente, filtroFechaDesde, filtroFechaHasta]);
 
