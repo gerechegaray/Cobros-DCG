@@ -188,26 +188,64 @@ function GestionDatos({ user }) {
         coleccion: cleanupConfig.coleccion
       });
       
-      // Convertir JSON a CSV
+      // Convertir JSON a CSV bien formateado para Excel
       if (response.registros && response.registros.length > 0) {
-        const headers = Object.keys(response.registros[0]).join(',');
+        // Función para formatear valores
+        const formatearValor = (valor, campo) => {
+          if (valor === null || valor === undefined) {
+            return '';
+          }
+          
+          // Formatear fechas de Firestore
+          if (campo && (campo.includes('fecha') || campo.includes('Fecha')) && typeof valor === 'object' && valor._seconds) {
+            return new Date(valor._seconds * 1000).toLocaleDateString('es-ES');
+          }
+          
+          // Formatear objetos JSON como strings legibles
+          if (typeof valor === 'object') {
+            if (valor._seconds) {
+              return new Date(valor._seconds * 1000).toLocaleDateString('es-ES');
+            }
+            return JSON.stringify(valor);
+          }
+          
+          // Formatear strings
+          if (typeof valor === 'string') {
+            // Limpiar caracteres especiales y codificación
+            return valor.replace(/"/g, '""').replace(/[\u00C0-\u017F]/g, (match) => {
+              const charMap = {
+                'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+                'ñ': 'n', 'ü': 'u', 'Á': 'A', 'É': 'E', 'Í': 'I',
+                'Ó': 'O', 'Ú': 'U', 'Ñ': 'N', 'Ü': 'U'
+              };
+              return charMap[match] || match;
+            });
+          }
+          
+          return valor.toString();
+        };
+        
+        // Obtener headers y formatearlos
+        const headers = Object.keys(response.registros[0]).map(header => 
+          header.replace(/([A-Z])/g, ' $1').trim()
+        );
+        
+        // Crear filas formateadas
         const rows = response.registros.map(registro => 
-          Object.values(registro).map(valor => {
-            if (valor === null || valor === undefined) {
-              return '""';
+          Object.entries(registro).map(([campo, valor]) => {
+            const valorFormateado = formatearValor(valor, campo);
+            // Escapar comillas y envolver en comillas si contiene comas o comillas
+            if (typeof valorFormateado === 'string' && (valorFormateado.includes(',') || valorFormateado.includes('"'))) {
+              return `"${valorFormateado.replace(/"/g, '""')}"`;
             }
-            if (typeof valor === 'object') {
-              return `"${JSON.stringify(valor).replace(/"/g, '""')}"`;
-            }
-            if (typeof valor === 'string') {
-              return `"${valor.replace(/"/g, '""')}"`;
-            }
-            return valor;
+            return valorFormateado;
           }).join(',')
         );
         
-        const csv = [headers, ...rows].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        // Crear CSV con BOM para Excel
+        const csv = [headers.join(','), ...rows].join('\n');
+        const BOM = '\uFEFF'; // Byte Order Mark para UTF-8
+        const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
