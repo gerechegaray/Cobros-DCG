@@ -9,6 +9,8 @@ import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { getEstadoCuenta } from "../../services/alegra";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 function EstadoCuenta({ user }) {
   const location = useLocation();
@@ -136,10 +138,26 @@ function EstadoCuenta({ user }) {
   };
 
   const formatMonto = (monto) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
-    }).format(monto);
+    // Convertir a número y validar
+    const numMonto = Number(monto);
+    if (isNaN(numMonto) || numMonto === null || numMonto === undefined) {
+      return '$0,00';
+    }
+    
+    try {
+      const formatted = new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS'
+      }).format(numMonto);
+      
+      // Asegurar que devuelva string y agregar log para debugging
+      const result = String(formatted);
+      console.log('formatMonto input:', monto, 'output:', result, 'type:', typeof result);
+      return result;
+    } catch (error) {
+      console.error('Error formateando monto:', error, monto);
+      return '$0,00';
+    }
   };
 
   const estadoTemplate = (rowData) => {
@@ -174,6 +192,136 @@ function EstadoCuenta({ user }) {
       {formatMonto(rowData[field])}
     </span>
   );
+
+  const exportarPDF = () => {
+    if (!cliente || boletas.length === 0) {
+      toast.current.show({
+        severity: 'warn',
+        summary: 'Sin datos',
+        detail: 'No hay datos para exportar'
+      });
+      return;
+    }
+
+    try {
+      // Crear un elemento temporal para el PDF
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.position = 'absolute';
+      pdfContainer.style.left = '-9999px';
+      pdfContainer.style.top = '0';
+      pdfContainer.style.width = '800px';
+      pdfContainer.style.backgroundColor = 'white';
+      pdfContainer.style.padding = '40px';
+      pdfContainer.style.fontFamily = 'Arial, sans-serif';
+      
+      // Crear el contenido del PDF
+      pdfContainer.innerHTML = `
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">ESTADO DE CUENTA</h1>
+        </div>
+        
+                 <div style="margin-bottom: 20px;">
+           <p style="margin: 5px 0;"><strong>Cliente:</strong> ${boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'N/A')}</p>
+           <p style="margin: 5px 0; color: #7f8c8d;"><strong>Generado el:</strong> ${new Date().toLocaleDateString('es-AR')}</p>
+         </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #2c3e50; margin-bottom: 15px;">RESUMEN DE TOTALES</h2>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span style="color: #e74c3c;"><strong>Total Adeudado:</strong> ${formatMonto(totales.totalAdeudado)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span style="color: #27ae60;"><strong>Total Pagado:</strong> ${formatMonto(totales.totalPagado)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span style="color: #2c3e50;"><strong>Total General:</strong> ${formatMonto(totales.totalGeneral)}</span>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h2 style="color: #2c3e50; margin-bottom: 15px;">DETALLE DE BOLETAS</h2>
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+              <tr style="background-color: #34495e; color: white;">
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Número</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Fecha Emisión</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Fecha Vencimiento</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Monto Total</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Monto Pagado</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Monto Adeudado</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${boletas.map(boleta => `
+                <tr style="background-color: ${boletas.indexOf(boleta) % 2 === 0 ? '#f8f9fa' : 'white'};">
+                  <td style="padding: 12px; border: 1px solid #ddd;">${boleta.numero || 'N/A'}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">${formatFecha(boleta.fechaEmision)}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">${formatFecha(boleta.fechaVencimiento)}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">${formatMonto(boleta.montoTotal || 0)}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">${formatMonto(boleta.montoPagado || 0)}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">${formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">${boleta.estado || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      
+      // Agregar el contenedor al DOM
+      document.body.appendChild(pdfContainer);
+      
+      // Capturar la imagen
+      html2canvas(pdfContainer, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      }).then(canvas => {
+        // Remover el contenedor temporal
+        document.body.removeChild(pdfContainer);
+        
+                 // Convertir a PDF usando jsPDF
+         const imgData = canvas.toDataURL('image/png');
+         const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+        
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+        
+                 // Guardar el PDF
+         const clienteNombre = boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'Cliente');
+         const fileName = `estado_cuenta_${clienteNombre.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+        pdf.save(fileName);
+        
+        toast.current.show({
+          severity: 'success',
+          summary: 'PDF Exportado',
+          detail: 'Estado de cuenta exportado correctamente'
+        });
+      });
+      
+    } catch (error) {
+      console.error('Error al exportar PDF:', error);
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo exportar el PDF'
+      });
+    }
+  };
 
   if (!cliente) {
     return (
@@ -271,6 +419,7 @@ function EstadoCuenta({ user }) {
                 label="Exportar PDF"
                 icon="pi pi-file-pdf"
                 className="p-button-outlined"
+                onClick={exportarPDF}
                 style={{
                   background: "rgba(255, 255, 255, 0.1)",
                   border: "2px solid rgba(255, 255, 255, 0.3)",

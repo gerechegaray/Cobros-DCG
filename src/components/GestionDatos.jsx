@@ -13,6 +13,7 @@ import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { Tag } from 'primereact/tag';
 import { api } from '../services/api';
+import * as XLSX from 'xlsx';
 
 function GestionDatos({ user }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -26,14 +27,64 @@ function GestionDatos({ user }) {
     coleccion: 'visitas',
     diasModificado: false
   });
+  
+  // Configuración de campos para exportación
+  const [camposExportacion, setCamposExportacion] = useState({
+    visitas: ['clienteNombre', 'vendedorNombre', 'fecha', 'horario', 'estado', 'resultado', 'comentario'],
+    hojasDeRuta: ['clienteNombre', 'vendedorNombre', 'fecha', 'estado'],
+    cobranzas: ['clienteNombre', 'vendedorNombre', 'monto', 'fecha', 'estado'],
+    presupuestos: ['clienteNombre', 'vendedorNombre', 'total', 'estado', 'fechaCreacion']
+  });
   const [previewData, setPreviewData] = useState([]);
   const [cleanupStats, setCleanupStats] = useState(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [showCleanupDialog, setShowCleanupDialog] = useState(false);
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [executing, setExecuting] = useState(false);
   
   const toast = useRef(null);
+
+  // Función para obtener el nombre del vendedor desde el caché
+  const obtenerNombreVendedor = (vendedorId) => {
+    if (!vendedorId) return 'N/A';
+    
+    // Mapeo hardcodeado de vendedores
+    const vendedoresMap = {
+      1: 'Guille',
+      2: 'Santi'
+    };
+    
+    // Si tenemos el ID en el mapeo, usarlo
+    if (vendedoresMap[vendedorId]) {
+      return vendedoresMap[vendedorId];
+    }
+    
+    try {
+      const vendedoresCache = localStorage.getItem("vendedores_catalogo");
+      if (vendedoresCache) {
+        const vendedores = JSON.parse(vendedoresCache).data;
+        const vendedor = vendedores.find(v => v.id === vendedorId);
+        if (vendedor) {
+          return vendedor.nombre || vendedor.name || `Vendedor ${vendedorId}`;
+        }
+      }
+    } catch (error) {
+      console.log('Error obteniendo nombre de vendedor:', error);
+    }
+    return `Vendedor ${vendedorId}`;
+  };
+
+  // Función para obtener el nombre del vendedor desde registro
+  const obtenerNombreVendedorDesdeRegistro = (registro) => {
+    if (registro.vendedorNombre) {
+      return registro.vendedorNombre;
+    }
+    if (registro.vendedorId) {
+      return obtenerNombreVendedor(registro.vendedorId);
+    }
+    return 'N/A';
+  };
 
   // Configuración de colecciones para limpieza
   const coleccionesLimpieza = [
@@ -188,7 +239,7 @@ function GestionDatos({ user }) {
         coleccion: cleanupConfig.coleccion
       });
       
-      // Convertir JSON a CSV bien formateado para Excel
+      // Convertir JSON a Excel bien formateado
       if (response.registros && response.registros.length > 0) {
         // Función para formatear valores
         const formatearValor = (valor, campo) => {
@@ -198,65 +249,82 @@ function GestionDatos({ user }) {
           
           // Formatear fechas de Firestore
           if (campo && (campo.includes('fecha') || campo.includes('Fecha')) && typeof valor === 'object' && valor._seconds) {
-            return new Date(valor._seconds * 1000).toLocaleDateString('es-ES');
+            return new Date(valor._seconds * 1000);
           }
           
           // Formatear objetos JSON como strings legibles
           if (typeof valor === 'object') {
             if (valor._seconds) {
-              return new Date(valor._seconds * 1000).toLocaleDateString('es-ES');
+              return new Date(valor._seconds * 1000);
             }
             return JSON.stringify(valor);
           }
           
           // Formatear strings
           if (typeof valor === 'string') {
-            // Limpiar caracteres especiales y codificación
-            return valor.replace(/"/g, '""').replace(/[\u00C0-\u017F]/g, (match) => {
-              const charMap = {
-                'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
-                'ñ': 'n', 'ü': 'u', 'Á': 'A', 'É': 'E', 'Í': 'I',
-                'Ó': 'O', 'Ú': 'U', 'Ñ': 'N', 'Ü': 'U'
-              };
-              return charMap[match] || match;
-            });
+            return valor;
           }
           
           return valor.toString();
         };
         
-        // Obtener headers y formatearlos
-        const headers = Object.keys(response.registros[0]).map(header => 
-          header.replace(/([A-Z])/g, ' $1').trim()
-        );
+
         
-        // Crear filas formateadas
-        const rows = response.registros.map(registro => 
-          Object.entries(registro).map(([campo, valor]) => {
-            const valorFormateado = formatearValor(valor, campo);
-            // Escapar comillas y envolver en comillas si contiene comas o comillas
-            if (typeof valorFormateado === 'string' && (valorFormateado.includes(',') || valorFormateado.includes('"'))) {
-              return `"${valorFormateado.replace(/"/g, '""')}"`;
+        // Obtener campos configurados para esta colección
+        const camposConfigurados = camposExportacion[cleanupConfig.coleccion] || Object.keys(response.registros[0]);
+        
+        // Crear headers con nombres legibles
+        const headers = camposConfigurados.map(campo => {
+          return campo.replace(/([A-Z])/g, ' $1').trim();
+        });
+        
+        // Crear filas formateadas solo con campos configurados
+        const rows = response.registros.map(registro => {
+          const fila = {};
+          camposConfigurados.forEach(campo => {
+            let valor;
+            
+                         // Manejar campos especiales
+             if (campo === 'vendedorNombre') {
+               valor = obtenerNombreVendedorDesdeRegistro(registro);
+             } else if (campo === 'comentario') {
+              valor = registro.comentario || registro.observaciones || '';
+            } else if (campo === 'resultado') {
+              valor = registro.resultado || registro.observaciones || '';
+            } else {
+              valor = registro[campo];
             }
-            return valorFormateado;
-          }).join(',')
-        );
+            
+            fila[campo.replace(/([A-Z])/g, ' $1').trim()] = formatearValor(valor, campo);
+          });
+          return fila;
+        });
         
-        // Crear CSV con BOM para Excel
-        const csv = [headers.join(','), ...rows].join('\n');
-        const BOM = '\uFEFF'; // Byte Order Mark para UTF-8
-        const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+        // Crear workbook y worksheet
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        
+        // Configurar anchos de columna automáticos
+        const columnWidths = headers.map(header => ({ wch: Math.max(header.length, 15) }));
+        worksheet['!cols'] = columnWidths;
+        
+        // Agregar worksheet al workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, cleanupConfig.coleccion);
+        
+        // Generar archivo Excel
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `datos_antiguos_${cleanupConfig.coleccion}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `datos_antiguos_${cleanupConfig.coleccion}_${new Date().toISOString().split('T')[0]}.xlsx`;
         a.click();
         window.URL.revokeObjectURL(url);
         
         toast.current?.show({
           severity: 'success',
           summary: 'Exportación Exitosa',
-          detail: `${response.total} registros exportados correctamente`
+          detail: `${response.total} registros exportados correctamente en formato Excel`
         });
       } else {
         toast.current?.show({
@@ -588,21 +656,27 @@ function GestionDatos({ user }) {
             </small>
           </div>
           
-          <div className="flex gap-2">
-            <Button 
-              label="Vista Previa" 
-              icon="pi pi-eye" 
-              className="p-button-info"
-              onClick={obtenerVistaPrevia}
-            />
-            <Button 
-              label="Exportar" 
-              icon="pi pi-download" 
-              className="p-button-success"
-              onClick={exportarDatos}
-              loading={exporting}
-            />
-          </div>
+                     <div className="flex gap-2">
+             <Button 
+               label="Vista Previa" 
+               icon="pi pi-eye" 
+               className="p-button-info"
+               onClick={obtenerVistaPrevia}
+             />
+             <Button 
+               label="Exportar Excel" 
+               icon="pi pi-download" 
+               className="p-button-success"
+               onClick={exportarDatos}
+               loading={exporting}
+             />
+             <Button 
+               label="Configurar Campos" 
+               icon="pi pi-cog" 
+               className="p-button-outlined"
+               onClick={() => setShowConfigDialog(true)}
+             />
+           </div>
         </Card>
       </div>
       
@@ -766,113 +840,216 @@ function GestionDatos({ user }) {
         style={{ width: '80vw' }}
         maximizable
       >
-        <DataTable 
-          value={previewData} 
-          paginator 
-          rows={10}
-          className="p-datatable-sm"
-          emptyMessage="No hay registros para mostrar"
-        >
-          <Column field="id" header="ID" style={{ width: '100px' }} />
-          <Column 
-            field="fechaCreacion" 
-            header="Fecha Creación" 
-            body={(rowData) => {
-              if (rowData.fechaCreacion && rowData.fechaCreacion._seconds) {
-                return new Date(rowData.fechaCreacion._seconds * 1000).toLocaleDateString();
-              }
-              return rowData.fechaCreacion || 'N/A';
-            }}
-          />
-          <Column 
-            field="estado" 
-            header="Estado" 
-            body={(rowData) => {
-              const estado = rowData.estado;
-              if (typeof estado === 'string') {
-                return estado;
-              }
-              return estado || 'N/A';
-            }}
-          />
-          <Column 
-            field="clienteNombre" 
-            header="Cliente" 
-            body={(rowData) => {
-              return rowData.clienteNombre || rowData.clienteId || 'N/A';
-            }}
-          />
-          <Column 
-            field="total" 
-            header="Monto" 
-            body={(rowData) => {
-              if (rowData.total) {
-                return `$${rowData.total.toLocaleString()}`;
-              }
-              if (rowData.items && rowData.items.length > 0) {
-                const total = rowData.items.reduce((sum, item) => {
-                  const itemTotal = (item.price || 0) * (item.quantity || 1);
-                  return sum + itemTotal;
-                }, 0);
-                return `$${total.toLocaleString()}`;
-              }
-              return 'N/A';
-            }}
-          />
-        </DataTable>
-        <div className="flex justify-content-end gap-2 mt-3">
-          <Button 
-            label="Cerrar" 
-            className="p-button-outlined"
-            onClick={() => setShowPreviewDialog(false)}
-          />
-          <Button 
-            label="Exportar" 
-            icon="pi pi-download" 
-            className="p-button-success"
-            onClick={exportarDatos}
-            loading={exporting}
-          />
-        </div>
+                 <DataTable 
+           value={previewData} 
+           paginator 
+           rows={10}
+           className="p-datatable-sm"
+           emptyMessage="No hay registros para mostrar"
+         >
+           <Column 
+             field="clienteNombre" 
+             header="Cliente" 
+             body={(rowData) => {
+               return rowData.clienteNombre || rowData.clienteId || 'N/A';
+             }}
+           />
+                                               <Column 
+               field="vendedorNombre" 
+               header="Vendedor" 
+               body={(rowData) => {
+                 return obtenerNombreVendedorDesdeRegistro(rowData);
+               }}
+             />
+           <Column 
+             field="fecha" 
+             header="Fecha" 
+             body={(rowData) => {
+               if (rowData.fecha && rowData.fecha._seconds) {
+                 return new Date(rowData.fecha._seconds * 1000).toLocaleDateString();
+               }
+               if (rowData.fechaCreacion && rowData.fechaCreacion._seconds) {
+                 return new Date(rowData.fechaCreacion._seconds * 1000).toLocaleDateString();
+               }
+               return rowData.fecha || rowData.fechaCreacion || 'N/A';
+             }}
+           />
+           <Column 
+             field="horario" 
+             header="Horario" 
+             body={(rowData) => {
+               return rowData.horario || 'N/A';
+             }}
+           />
+           <Column 
+             field="estado" 
+             header="Estado" 
+             body={(rowData) => {
+               const estado = rowData.estado;
+               if (typeof estado === 'string') {
+                 return estado;
+               }
+               return estado || 'N/A';
+             }}
+           />
+           <Column 
+             field="resultado" 
+             header="Resultado" 
+             body={(rowData) => {
+               return rowData.resultado || rowData.observaciones || 'N/A';
+             }}
+           />
+           <Column 
+             field="comentario" 
+             header="Observaciones" 
+             body={(rowData) => {
+               return rowData.comentario || rowData.observaciones || 'N/A';
+             }}
+           />
+         </DataTable>
+                 <div className="flex justify-content-end gap-2 mt-3">
+           <Button 
+             label="Cerrar" 
+             className="p-button-outlined"
+             onClick={() => setShowPreviewDialog(false)}
+           />
+           <Button 
+             label="Exportar Excel" 
+             icon="pi pi-download" 
+             className="p-button-success"
+             onClick={exportarDatos}
+             loading={exporting}
+           />
+         </div>
       </Dialog>
       
-      {/* Dialog de confirmación de limpieza */}
-      <Dialog 
-        header="Confirmar Limpieza de Datos" 
-        visible={showCleanupDialog} 
-        onHide={() => setShowCleanupDialog(false)}
-        style={{ width: '50vw' }}
-      >
-        <div className="p-3">
-          <p className="mb-3">
-            ¿Estás seguro de que quieres eliminar los registros antiguos de <strong>{cleanupConfig.coleccion}</strong>?
-          </p>
-          <div className="bg-red-50 p-3 border-round border-1 border-red-200 mb-3">
-            <div className="flex align-items-center gap-2 mb-2">
-              <i className="pi pi-exclamation-triangle text-red-600"></i>
-              <span className="font-bold text-red-600">Advertencia</span>
-            </div>
-            <p className="text-sm text-red-700 m-0">
-              Esta acción eliminará permanentemente los registros con más de {cleanupConfig.dias} días.
-              Se recomienda exportar los datos antes de proceder.
-            </p>
-          </div>
-          <div className="flex justify-content-end gap-2">
-            <Button 
-              label="Cancelar" 
-              className="p-button-outlined"
-              onClick={() => setShowCleanupDialog(false)}
-            />
-            <Button 
-              label="Eliminar Datos" 
-              icon="pi pi-trash" 
-              className="p-button-danger"
-              onClick={ejecutarLimpieza}
-              loading={executing}
-            />
-          </div>
-        </div>
-      </Dialog>
+             {/* Dialog de confirmación de limpieza */}
+       <Dialog 
+         header="Confirmar Limpieza de Datos" 
+         visible={showCleanupDialog} 
+         onHide={() => setShowCleanupDialog(false)}
+         style={{ width: '50vw' }}
+       >
+         <div className="p-3">
+           <p className="mb-3">
+             ¿Estás seguro de que quieres eliminar los registros antiguos de <strong>{cleanupConfig.coleccion}</strong>?
+           </p>
+           <div className="bg-red-50 p-3 border-round border-1 border-red-200 mb-3">
+             <div className="flex align-items-center gap-2 mb-2">
+               <i className="pi pi-exclamation-triangle text-red-600"></i>
+               <span className="font-bold text-red-600">Advertencia</span>
+             </div>
+             <p className="text-sm text-red-700 m-0">
+               Esta acción eliminará permanentemente los registros con más de {cleanupConfig.dias} días.
+               Se recomienda exportar los datos antes de proceder.
+             </p>
+           </div>
+           <div className="flex justify-content-end gap-2">
+             <Button 
+               label="Cancelar" 
+               className="p-button-outlined"
+               onClick={() => setShowCleanupDialog(false)}
+             />
+             <Button 
+               label="Eliminar Datos" 
+               icon="pi pi-trash" 
+               className="p-button-danger"
+               onClick={ejecutarLimpieza}
+               loading={executing}
+             />
+           </div>
+         </div>
+       </Dialog>
+       
+       {/* Dialog de configuración de campos */}
+       <Dialog 
+         header={`Configurar Campos - ${cleanupConfig.coleccion}`} 
+         visible={showConfigDialog} 
+         onHide={() => setShowConfigDialog(false)}
+         style={{ width: '70vw' }}
+       >
+         <div className="p-3">
+           <p className="mb-3">
+             Selecciona los campos que quieres incluir en la exportación y vista previa:
+           </p>
+           
+           <div className="grid">
+             <div className="col-12 md:col-6">
+               <h5>Campos Disponibles</h5>
+               <div className="max-h-60 overflow-y-auto border-round border-1 border-gray-200 p-2">
+                 {Object.keys(camposExportacion).map(coleccion => (
+                   <div key={coleccion} className="mb-3">
+                     <h6 className="mb-2">{coleccion.replace(/([A-Z])/g, ' $1').trim()}</h6>
+                     <div className="flex flex-wrap gap-2">
+                       {camposExportacion[coleccion].map(campo => (
+                         <div key={campo} className="flex align-items-center gap-1">
+                           <input
+                             type="checkbox"
+                             id={`${coleccion}_${campo}`}
+                             checked={camposExportacion[coleccion].includes(campo)}
+                             onChange={(e) => {
+                               const nuevosCampos = e.target.checked
+                                 ? [...camposExportacion[coleccion], campo]
+                                 : camposExportacion[coleccion].filter(c => c !== campo);
+                               
+                               setCamposExportacion(prev => ({
+                                 ...prev,
+                                 [coleccion]: nuevosCampos
+                               }));
+                             }}
+                           />
+                           <label htmlFor={`${coleccion}_${campo}`} className="text-sm">
+                             {campo.replace(/([A-Z])/g, ' $1').trim()}
+                           </label>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+             
+             <div className="col-12 md:col-6">
+               <h5>Campos Seleccionados</h5>
+               <div className="max-h-60 overflow-y-auto border-round border-1 border-gray-200 p-2">
+                 <div className="mb-2">
+                   <strong>{cleanupConfig.coleccion.replace(/([A-Z])/g, ' $1').trim()}:</strong>
+                 </div>
+                 <div className="flex flex-wrap gap-2">
+                   {camposExportacion[cleanupConfig.coleccion]?.map(campo => (
+                     <Tag 
+                       key={campo} 
+                       value={campo.replace(/([A-Z])/g, ' $1').trim()} 
+                       className="mb-1"
+                     />
+                   ))}
+                 </div>
+               </div>
+             </div>
+           </div>
+           
+           <div className="flex justify-content-end gap-2 mt-3">
+             <Button 
+               label="Cancelar" 
+               className="p-button-outlined"
+               onClick={() => setShowConfigDialog(false)}
+             />
+             <Button 
+               label="Guardar Configuración" 
+               icon="pi pi-check" 
+               className="p-button-success"
+               onClick={() => {
+                 setShowConfigDialog(false);
+                 toast.current?.show({
+                   severity: 'success',
+                   summary: 'Configuración Guardada',
+                   detail: 'Los campos de exportación han sido actualizados'
+                 });
+               }}
+             />
+           </div>
+         </div>
+       </Dialog>
     </>
   );
 }

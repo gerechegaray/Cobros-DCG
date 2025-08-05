@@ -14,6 +14,10 @@ import { Tag } from 'primereact/tag';
 import HojaDeRutaForm from '../hojasderuta/HojaDeRutaForm';
 import { Card } from 'primereact/card';
 import { getClientesCatalogo } from '../../services/firebase.js';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { Toast } from 'primereact/toast';
+import { useRef } from 'react';
 
 const COBRADORES = [
   { label: "Mariano", value: "Mariano" },
@@ -38,6 +42,7 @@ const FacturasAlegra = ({ user }) => {
   const [hojaEnEdicion, setHojaEnEdicion] = useState(null);
   const [facturasDisponiblesParaEdicion, setFacturasDisponiblesParaEdicion] = useState([]);
   const [facturasSeleccionadasParaEdicion, setFacturasSeleccionadasParaEdicion] = useState([]);
+  const toast = useRef(null);
 
   // 🆕 Estados para filtros
   const [filtroFechaDesde, setFiltroFechaDesde] = useState(null);
@@ -1072,26 +1077,32 @@ const FacturasAlegra = ({ user }) => {
 
   // 🆕 Función para renderizar las acciones
   const renderAcciones = (rowData) => {
-    if (esAdmin) {
-      return (
-        <div className="flex gap-1">
-          <Button
-            icon="pi pi-pencil"
-            className="p-button-sm p-button-text"
-            onClick={() => editarHojaRuta(rowData)}
-            tooltip="Editar"
-          />
-          <Button
-            icon="pi pi-trash"
-            className="p-button-sm p-button-text p-button-danger"
-            onClick={() => confirmarEliminacion(rowData.id)}
-            tooltip="Eliminar"
-          />
-        </div>
-      );
-    } else {
-      return <span style={{ color: 'gray', fontSize: '12px' }}>-</span>;
-    }
+    return (
+      <div className="flex gap-1">
+        <Button
+          icon="pi pi-file-pdf"
+          className="p-button-sm p-button-text p-button-info"
+          onClick={() => exportarHojaRutaPDF(rowData)}
+          tooltip="Exportar PDF"
+        />
+        {esAdmin && (
+          <>
+            <Button
+              icon="pi pi-pencil"
+              className="p-button-sm p-button-text"
+              onClick={() => editarHojaRuta(rowData)}
+              tooltip="Editar"
+            />
+            <Button
+              icon="pi pi-trash"
+              className="p-button-sm p-button-text p-button-danger"
+              onClick={() => confirmarEliminacion(rowData.id)}
+              tooltip="Eliminar"
+            />
+          </>
+        )}
+      </div>
+    );
   };
 
   // 🆕 Función para renderizar el contenido expandido
@@ -1198,6 +1209,133 @@ const FacturasAlegra = ({ user }) => {
         )}
       </div>
     );
+  };
+
+  // 🆕 Función para exportar hoja de ruta a PDF
+  const exportarHojaRutaPDF = (hoja) => {
+    if (!hoja || !hoja.pedidos || hoja.pedidos.length === 0) {
+      toast?.current?.show({
+        severity: 'warn',
+        summary: 'Sin datos',
+        detail: 'No hay datos para exportar'
+      });
+      return;
+    }
+
+    try {
+      // Crear un elemento temporal para el PDF
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.position = 'absolute';
+      pdfContainer.style.left = '-9999px';
+      pdfContainer.style.top = '0';
+                   pdfContainer.style.width = '800px';
+             pdfContainer.style.backgroundColor = 'white';
+             pdfContainer.style.padding = '20px';
+             pdfContainer.style.fontFamily = 'Arial, sans-serif';
+
+      // Obtener productos por cliente
+      const productosPorCliente = obtenerDetalleProductos(hoja.pedidos);
+      const totalHoja = calcularTotalHojaRuta(hoja.pedidos);
+      const entregados = hoja.pedidos.filter(p => p.entregado).length;
+      const totalPedidos = hoja.pedidos.length;
+
+      // Crear el contenido del PDF
+      pdfContainer.innerHTML = `
+        <div style="text-align: center; margin-bottom: 15px;">
+          <h1 style="color: #2c3e50; margin: 0; font-size: 18px;">HOJA DE RUTA</h1>
+        </div>
+        
+        <div style="margin-bottom: 10px;">
+          <p style="margin: 2px 0; font-size: 11px;"><strong>Responsable:</strong> ${hoja.responsable || 'N/A'}</p>
+          <p style="margin: 2px 0; font-size: 11px;"><strong>Fecha:</strong> ${formatFecha(hoja.fechaCreacion)}</p>
+          <p style="margin: 2px 0; color: #7f8c8d; font-size: 11px;"><strong>Generado el:</strong> ${new Date().toLocaleDateString('es-AR')}</p>
+        </div>
+        
+        <div style="margin-bottom: 12px;">
+          <h2 style="color: #2c3e50; margin-bottom: 6px; font-size: 14px;">RESUMEN</h2>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
+            <span style="color: #2c3e50;"><strong>Total de Pedidos:</strong> ${totalPedidos}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
+            <span style="color: #27ae60;"><strong>Entregados:</strong> ${entregados}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
+            <span style="color: #e74c3c;"><strong>Pendientes:</strong> ${totalPedidos - entregados}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
+            <span style="color: #2c3e50;"><strong>Total General:</strong> ${formatearMoneda(totalHoja)}</span>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 10px;">
+          <h2 style="color: #2c3e50; margin-bottom: 6px; font-size: 14px;">DETALLE DE PRODUCTOS POR CLIENTE</h2>
+          ${Object.entries(productosPorCliente).map(([cliente, productos]) => `
+            <div style="margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px; padding: 6px;">
+              <h3 style="color: #34495e; margin: 0 0 4px 0; font-size: 12px;">${cliente}</h3>
+              <ul style="margin: 0; padding-left: 15px; list-style-type: none;">
+                ${productos.map(producto => `
+                  <li style="margin: 2px 0; font-size: 10px; padding: 1px 0;">
+                    <span style="font-weight: bold; color: #2c3e50;">${producto.cantidad}x</span> ${producto.producto}
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      // Agregar el contenedor al DOM
+      document.body.appendChild(pdfContainer);
+
+      // Capturar la imagen
+      html2canvas(pdfContainer, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      }).then(canvas => {
+        // Remover el contenedor temporal
+        document.body.removeChild(pdfContainer);
+
+        // Convertir a PDF usando jsPDF
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        // Guardar el PDF
+        const responsable = hoja.responsable || 'Responsable';
+        const fileName = `hoja_ruta_${responsable.replace(/[^a-zA-Z0-9]/g, '_')}_${formatFecha(hoja.fechaCreacion).replace(/\//g, '-')}.pdf`;
+        pdf.save(fileName);
+
+        toast?.current?.show({
+          severity: 'success',
+          summary: 'PDF Exportado',
+          detail: 'Hoja de ruta exportada correctamente'
+        });
+      });
+
+    } catch (error) {
+      console.error('Error al exportar PDF:', error);
+      toast?.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: `Error al exportar PDF: ${error.message}`
+      });
+    }
   };
 
   if (loading) return <p>Cargando facturas...</p>;
@@ -1655,6 +1793,9 @@ const FacturasAlegra = ({ user }) => {
         )}
       </Dialog>
 
+      {/* Toast para notificaciones */}
+      <Toast ref={toast} />
+      
       {/* ConfirmDialog para eliminación */}
       <ConfirmDialog />
     </div>
