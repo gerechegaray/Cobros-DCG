@@ -23,7 +23,8 @@ function GestionDatos({ user }) {
   // Estados para limpieza de datos
   const [cleanupConfig, setCleanupConfig] = useState({
     dias: 30,
-    coleccion: 'visitas'
+    coleccion: 'visitas',
+    diasModificado: false
   });
   const [previewData, setPreviewData] = useState([]);
   const [cleanupStats, setCleanupStats] = useState(null);
@@ -277,9 +278,9 @@ function GestionDatos({ user }) {
   }, []);
 
   useEffect(() => {
-    // Actualizar días según la colección seleccionada
+    // Actualizar días según la colección seleccionada solo si no se ha modificado manualmente
     const coleccion = coleccionesLimpieza.find(c => c.value === cleanupConfig.coleccion);
-    if (coleccion) {
+    if (coleccion && !cleanupConfig.diasModificado) {
       setCleanupConfig(prev => ({ ...prev, dias: coleccion.dias }));
     }
   }, [cleanupConfig.coleccion]);
@@ -516,7 +517,11 @@ function GestionDatos({ user }) {
             <Dropdown
               value={cleanupConfig.coleccion}
               options={coleccionesLimpieza}
-              onChange={(e) => setCleanupConfig(prev => ({ ...prev, coleccion: e.value }))}
+              onChange={(e) => setCleanupConfig(prev => ({ 
+                ...prev, 
+                coleccion: e.value,
+                diasModificado: false 
+              }))}
               placeholder="Seleccionar colección"
               className="w-full"
             />
@@ -524,8 +529,21 @@ function GestionDatos({ user }) {
           
           <div className="mb-3">
             <label className="block text-sm font-medium mb-2">Días de antigüedad:</label>
-            <div className="text-lg font-bold text-blue-600">
-              {cleanupConfig.dias} días
+            <div className="flex align-items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={cleanupConfig.dias}
+                onChange={(e) => setCleanupConfig(prev => ({ 
+                  ...prev, 
+                  dias: parseInt(e.target.value) || 1,
+                  diasModificado: true 
+                }))}
+                className="p-inputtext p-component w-8rem"
+                style={{ textAlign: 'center' }}
+              />
+              <span className="text-lg font-bold text-blue-600">días</span>
             </div>
             <small className="text-gray-600">
               Registros con más de {cleanupConfig.dias} días serán eliminados
