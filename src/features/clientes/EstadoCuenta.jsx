@@ -130,7 +130,9 @@ function EstadoCuenta({ user }) {
   const formatFecha = (fecha) => {
     if (!fecha) return "";
     const date = new Date(fecha);
-    return date.toLocaleDateString("es-AR", {
+    // Ajustar a zona horaria de Argentina (UTC-3)
+    const fechaArgentina = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+    return fechaArgentina.toLocaleDateString("es-AR", {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -222,7 +224,7 @@ function EstadoCuenta({ user }) {
         
                  <div style="margin-bottom: 20px;">
            <p style="margin: 5px 0;"><strong>Cliente:</strong> ${boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'N/A')}</p>
-           <p style="margin: 5px 0; color: #7f8c8d;"><strong>Generado el:</strong> ${new Date().toLocaleDateString('es-AR')}</p>
+           <p style="margin: 5px 0; color: #7f8c8d;"><strong>Generado el:</strong> ${new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}</p>
          </div>
         
         <div style="margin-bottom: 30px;">
@@ -303,7 +305,8 @@ function EstadoCuenta({ user }) {
         
                  // Guardar el PDF
          const clienteNombre = boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'Cliente');
-         const fileName = `estado_cuenta_${clienteNombre.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+         const fechaArgentina = new Date(new Date().getTime() + (3 * 60 * 60 * 1000));
+         const fileName = `estado_cuenta_${clienteNombre.replace(/[^a-zA-Z0-9]/g, '_')}_${fechaArgentina.toISOString().split('T')[0]}.pdf`;
         pdf.save(fileName);
         
         toast.current.show({
