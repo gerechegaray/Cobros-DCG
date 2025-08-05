@@ -340,9 +340,12 @@ function EstadoCuenta({ user }) {
       style={{
         maxWidth: "100%",
         margin: "0 auto",
-        padding: "1.5rem",
+        padding: "1rem",
         background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-        minHeight: "100vh"
+        minHeight: "100vh",
+        "@media (max-width: 768px)": {
+          padding: "0.5rem"
+        }
       }}
     >
       <Toast ref={toast} />
@@ -360,17 +363,24 @@ function EstadoCuenta({ user }) {
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             padding: "2rem",
             color: "white",
-            margin: "-1.5rem -1.5rem 2rem -1.5rem"
+            margin: "-1.5rem -1.5rem 2rem -1.5rem",
+            "@media (max-width: 768px)": {
+              padding: "1rem",
+              margin: "-1rem -1rem 1rem -1rem"
+            }
           }}
         >
           <div className="flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
+            <div style={{ flex: "1", minWidth: "0" }}>
               <h1
                 style={{
                   margin: "0 0 0.5rem 0",
                   fontSize: "1.875rem",
                   fontWeight: "700",
-                  letterSpacing: "-0.025em"
+                  letterSpacing: "-0.025em",
+                  "@media (max-width: 768px)": {
+                    fontSize: "1.5rem"
+                  }
                 }}
               >
                 Estado de Cuenta
@@ -380,13 +390,21 @@ function EstadoCuenta({ user }) {
                   margin: "0",
                   fontSize: "1rem",
                   opacity: "0.9",
-                  fontWeight: "400"
+                  fontWeight: "400",
+                  "@media (max-width: 768px)": {
+                    fontSize: "0.875rem"
+                  }
                 }}
               >
                 Cliente: <strong>{cliente.razonSocial || cliente.id}</strong>
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2" style={{ 
+              "@media (max-width: 768px)": {
+                flexDirection: "column",
+                gap: "0.5rem"
+              }
+            }}>
               <Button
                 label="Volver"
                 icon="pi pi-arrow-left"
@@ -399,7 +417,11 @@ function EstadoCuenta({ user }) {
                   borderRadius: "12px",
                   padding: "0.75rem 1.5rem",
                   fontWeight: "600",
-                  backdropFilter: "blur(10px)"
+                  backdropFilter: "blur(10px)",
+                  "@media (max-width: 768px)": {
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.875rem"
+                  }
                 }}
               />
               <Button
@@ -415,7 +437,11 @@ function EstadoCuenta({ user }) {
                   borderRadius: "12px",
                   padding: "0.75rem 1.5rem",
                   fontWeight: "600",
-                  backdropFilter: "blur(10px)"
+                  backdropFilter: "blur(10px)",
+                  "@media (max-width: 768px)": {
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.875rem"
+                  }
                 }}
               />
               <Button
@@ -430,7 +456,11 @@ function EstadoCuenta({ user }) {
                   borderRadius: "12px",
                   padding: "0.75rem 1.5rem",
                   fontWeight: "600",
-                  backdropFilter: "blur(10px)"
+                  backdropFilter: "blur(10px)",
+                  "@media (max-width: 768px)": {
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.875rem"
+                  }
                 }}
               />
             </div>
@@ -440,36 +470,87 @@ function EstadoCuenta({ user }) {
         {/* Resumen de Totales */}
         <div className="grid mb-4">
           <div className="col-12 md:col-4">
-            <Card className="p-mb-2">
+            <Card className="p-mb-2" style={{
+              "@media (max-width: 768px)": {
+                marginBottom: "0.5rem"
+              }
+            }}>
               <div className="text-center">
-                <h3 style={{ color: "#dc2626", margin: "0 0 0.5rem 0" }}>
+                <h3 style={{ 
+                  color: "#dc2626", 
+                  margin: "0 0 0.5rem 0",
+                  "@media (max-width: 768px)": {
+                    fontSize: "1.25rem"
+                  }
+                }}>
                   {formatMonto(totales.totalAdeudado)}
                 </h3>
-                <p style={{ margin: "0", color: "#6b7280", fontWeight: "500" }}>
+                <p style={{ 
+                  margin: "0", 
+                  color: "#6b7280", 
+                  fontWeight: "500",
+                  "@media (max-width: 768px)": {
+                    fontSize: "0.875rem"
+                  }
+                }}>
                   Total Adeudado
                 </p>
               </div>
             </Card>
           </div>
           <div className="col-12 md:col-4">
-            <Card className="p-mb-2">
+            <Card className="p-mb-2" style={{
+              "@media (max-width: 768px)": {
+                marginBottom: "0.5rem"
+              }
+            }}>
               <div className="text-center">
-                <h3 style={{ color: "#059669", margin: "0 0 0.5rem 0" }}>
+                <h3 style={{ 
+                  color: "#059669", 
+                  margin: "0 0 0.5rem 0",
+                  "@media (max-width: 768px)": {
+                    fontSize: "1.25rem"
+                  }
+                }}>
                   {formatMonto(totales.totalPagado)}
                 </h3>
-                <p style={{ margin: "0", color: "#6b7280", fontWeight: "500" }}>
+                <p style={{ 
+                  margin: "0", 
+                  color: "#6b7280", 
+                  fontWeight: "500",
+                  "@media (max-width: 768px)": {
+                    fontSize: "0.875rem"
+                  }
+                }}>
                   Total Pagado
                 </p>
               </div>
             </Card>
           </div>
           <div className="col-12 md:col-4">
-            <Card className="p-mb-2">
+            <Card className="p-mb-2" style={{
+              "@media (max-width: 768px)": {
+                marginBottom: "0.5rem"
+              }
+            }}>
               <div className="text-center">
-                <h3 style={{ color: "#1f2937", margin: "0 0 0.5rem 0" }}>
+                <h3 style={{ 
+                  color: "#1f2937", 
+                  margin: "0 0 0.5rem 0",
+                  "@media (max-width: 768px)": {
+                    fontSize: "1.25rem"
+                  }
+                }}>
                   {formatMonto(totales.totalGeneral)}
                 </h3>
-                <p style={{ margin: "0", color: "#6b7280", fontWeight: "500" }}>
+                <p style={{ 
+                  margin: "0", 
+                  color: "#6b7280", 
+                  fontWeight: "500",
+                  "@media (max-width: 768px)": {
+                    fontSize: "0.875rem"
+                  }
+                }}>
                   Total General
                 </p>
               </div>
@@ -478,8 +559,20 @@ function EstadoCuenta({ user }) {
         </div>
 
         {/* Tabla de Boletas con filas expandibles para pagos */}
-        <div style={{ padding: "0 0.5rem" }}>
-          <h3 style={{ color: "#374151", marginBottom: "1rem" }}>
+        <div style={{ 
+          padding: "0 0.5rem",
+          "@media (max-width: 768px)": {
+            padding: "0"
+          }
+        }}>
+          <h3 style={{ 
+            color: "#374151", 
+            marginBottom: "1rem",
+            "@media (max-width: 768px)": {
+              fontSize: "1.25rem",
+              marginBottom: "0.75rem"
+            }
+          }}>
             Detalle de Boletas
           </h3>
           {loading ? (
@@ -490,18 +583,21 @@ function EstadoCuenta({ user }) {
               </p>
             </div>
           ) : (
-            <DataTable
-              value={boletas}
-              paginator
-              rows={10}
-              responsiveLayout="stack"
-              emptyMessage="No hay boletas para mostrar."
-              className="p-datatable-sm"
-              style={{
-                borderRadius: "12px",
-                overflow: "hidden",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-              }}
+                         <DataTable
+               value={boletas}
+               paginator
+               rows={10}
+               responsiveLayout="stack"
+               emptyMessage="No hay boletas para mostrar."
+               className="p-datatable-sm"
+               style={{
+                 borderRadius: "12px",
+                 overflow: "hidden",
+                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                 "@media (max-width: 768px)": {
+                   fontSize: "0.875rem"
+                 }
+               }}
               rowExpansionTemplate={(rowData) =>
                 rowData.pagos && rowData.pagos.length > 0 ? (
                   <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
@@ -527,52 +623,92 @@ function EstadoCuenta({ user }) {
               dataKey="numero"
             >
               <Column expander style={{ width: '3em' }} />
-              <Column
-                field="numero"
-                header="Número"
-                style={{ minWidth: "120px" }}
-              />
-              <Column
-                field="clienteNombre"
-                header="Cliente"
-                style={{ minWidth: "150px" }}
-              />
-              <Column
-                field="fechaEmision"
-                header="Fecha Emisión"
-                body={(row) => formatFecha(row.fechaEmision)}
-                style={{ minWidth: "110px" }}
-              />
-              <Column
-                field="fechaVencimiento"
-                header="Fecha Vencimiento"
-                body={(row) => formatFecha(row.fechaVencimiento)}
-                style={{ minWidth: "110px" }}
-              />
-              <Column
-                field="montoTotal"
-                header="Monto Total"
-                body={montoTemplate('montoTotal')}
-                style={{ minWidth: "110px" }}
-              />
-              <Column
-                field="montoPagado"
-                header="Monto Pagado"
-                body={montoTemplate('montoPagado')}
-                style={{ minWidth: "110px" }}
-              />
-              <Column
-                field="montoAdeudado"
-                header="Monto Adeudado"
-                body={rowData => formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
-                style={{ minWidth: "110px" }}
-              />
-              <Column
-                field="estado"
-                header="Estado"
-                body={estadoTemplate}
-                style={{ minWidth: "90px" }}
-              />
+                             <Column
+                 field="numero"
+                 header="Número"
+                 style={{ 
+                   minWidth: "120px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "80px"
+                   }
+                 }}
+               />
+               <Column
+                 field="clienteNombre"
+                 header="Cliente"
+                 style={{ 
+                   minWidth: "150px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "100px"
+                   }
+                 }}
+               />
+               <Column
+                 field="fechaEmision"
+                 header="Fecha Emisión"
+                 body={(row) => formatFecha(row.fechaEmision)}
+                 style={{ 
+                   minWidth: "110px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "90px"
+                   }
+                 }}
+               />
+               <Column
+                 field="fechaVencimiento"
+                 header="Fecha Vencimiento"
+                 body={(row) => formatFecha(row.fechaVencimiento)}
+                 style={{ 
+                   minWidth: "110px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "90px"
+                   }
+                 }}
+               />
+               <Column
+                 field="montoTotal"
+                 header="Monto Total"
+                 body={montoTemplate('montoTotal')}
+                 style={{ 
+                   minWidth: "110px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "90px"
+                   }
+                 }}
+               />
+               <Column
+                 field="montoPagado"
+                 header="Monto Pagado"
+                 body={montoTemplate('montoPagado')}
+                 style={{ 
+                   minWidth: "110px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "90px"
+                   }
+                 }}
+               />
+               <Column
+                 field="montoAdeudado"
+                 header="Monto Adeudado"
+                 body={rowData => formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
+                 style={{ 
+                   minWidth: "110px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "90px"
+                   }
+                 }}
+               />
+               <Column
+                 field="estado"
+                 header="Estado"
+                 body={estadoTemplate}
+                 style={{ 
+                   minWidth: "90px",
+                   "@media (max-width: 768px)": {
+                     minWidth: "70px"
+                   }
+                 }}
+               />
             </DataTable>
           )}
         </div>
