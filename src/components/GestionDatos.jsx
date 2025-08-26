@@ -122,6 +122,37 @@ function GestionDatos({ user }) {
     }
   };
 
+  // 🆕 Función para actualizar masivamente vendedorId de cobros existentes
+  const actualizarVendedorIdCobros = async () => {
+    setRefreshing(true);
+    try {
+      console.log('🔄 Iniciando actualización masiva de vendedorId en cobros...');
+      
+      const data = await api.updateVendedorBulk();
+      
+      if (data.success) {
+        toast.current?.show({
+          severity: 'success',
+          summary: 'Actualización Exitosa',
+          detail: `${data.actualizados} cobros actualizados con vendedorId`
+        });
+        
+        console.log('✅ Actualización masiva completada:', data);
+      } else {
+        throw new Error(data.message || 'Error en la actualización');
+      }
+    } catch (error) {
+      console.error('❌ Error en actualización masiva:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error de Actualización',
+        detail: 'No se pudieron actualizar los cobros: ' + error.message
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Función para verificar si hay datos desactualizados
   const verificarActualizaciones = () => {
     const ahora = Date.now();
@@ -492,6 +523,14 @@ function GestionDatos({ user }) {
                 className="p-button-info"
                 onClick={() => refrescarCache('productos')}
                 loading={refreshing}
+              />
+              <Button 
+                label="Actualizar VendedorId Cobros" 
+                icon="pi pi-user-edit" 
+                className="p-button-warning"
+                onClick={actualizarVendedorIdCobros}
+                loading={refreshing}
+                tooltip="Asigna automáticamente vendedorId a cobros existentes basándose en el usuario que los creó"
               />
             </div>
           </div>

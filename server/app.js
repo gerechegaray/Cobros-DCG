@@ -1637,7 +1637,7 @@ app.get("/api/cobros", async (req, res) => {
     console.log(`🔍 Tipo de vendedorId:`, typeof vendedorId);
     
     // 🆕 Construir query base
-    let query = adminDb.collection('cobros').orderBy('fechaCreacion', 'desc');
+    let query = adminDb.collection('cobros');
     console.log(`🔍 Query base construida:`, query);
     
     // 🆕 Aplicar filtros si se proporcionan
@@ -1662,6 +1662,10 @@ app.get("/api/cobros", async (req, res) => {
       query = query.where('vendedorId', '==', vendedorIdInt);
       console.log(`🔍 Filtro de vendedor aplicado: vendedorId=${vendedorIdInt}`);
     }
+    
+    // 🆕 Aplicar ordenamiento después de los filtros para evitar problemas de índice
+    query = query.orderBy('fechaCreacion', 'desc');
+    console.log(`🔍 Ordenamiento aplicado: fechaCreacion desc`);
     
     // 🆕 Aplicar filtros de fecha si se proporcionan
     if (fechaDesde) {
@@ -1732,11 +1736,35 @@ app.get("/api/cobros", async (req, res) => {
 // 🆕 Endpoint para crear un cobro
 app.post("/api/cobros", async (req, res) => {
   try {
+    console.log('🆕 Creando nuevo cobro con datos:', req.body);
+    
+    // 🆕 Determinar vendedorId automáticamente si no se proporciona
+    let vendedorId = req.body.vendedorId;
+    
+    if (!vendedorId && req.body.usuario) {
+      const usuarioLower = req.body.usuario.toLowerCase();
+      
+      if (usuarioLower.includes('santi') || usuarioLower.includes('santiago')) {
+        vendedorId = 2;
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}`);
+      } else if (usuarioLower.includes('guille') || usuarioLower.includes('guillermo')) {
+        vendedorId = 1;
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}`);
+      } else {
+        // Si es admin, permitir que asigne manualmente o usar por defecto
+        vendedorId = req.body.vendedorId || 1;
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId: ${vendedorId} (admin)`);
+      }
+    }
+    
     const cobroData = {
       ...req.body,
+      vendedorId: vendedorId, // 🆕 Asegurar que siempre tenga vendedorId
       fechaCreacion: new Date(),
       fechaActualizacion: new Date()
     };
+    
+    console.log(`🆕 Datos finales del cobro:`, cobroData);
     
     const docRef = await adminDb.collection('cobros').add(cobroData);
     
@@ -1779,6 +1807,83 @@ app.delete("/api/cobros/:id", async (req, res) => {
   } catch (error) {
     console.error('Error eliminando cobro:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para actualizar masivamente vendedorId de cobros existentes
+app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
+  try {
+    console.log('🔄 Iniciando actualización masiva de vendedorId en cobros...');
+    
+    // Obtener todos los cobros que no tienen vendedorId
+    const snapshot = await adminDb.collection('cobros')
+      .where('vendedorId', '==', null)
+      .get();
+    
+    console.log(`🆕 Cobros sin vendedorId encontrados: ${snapshot.size}`);
+    
+    if (snapshot.empty) {
+      return res.json({
+        success: true,
+        message: 'No hay cobros sin vendedorId para actualizar',
+        actualizados: 0
+      });
+    }
+    
+    // Actualizar en lotes
+    const batch = adminDb.batch();
+    let actualizados = 0;
+    
+    for (const doc of snapshot.docs) {
+      const cobroData = doc.data();
+      
+      // Determinar vendedorId basándose en el usuario que creó el cobro
+      let vendedorId = null;
+      
+      if (cobroData.usuario) {
+        // Buscar en el email o nombre del usuario
+        const usuarioLower = cobroData.usuario.toLowerCase();
+        
+        if (usuarioLower.includes('santi') || usuarioLower.includes('santiago')) {
+          vendedorId = 2;
+        } else if (usuarioLower.includes('guille') || usuarioLower.includes('guillermo')) {
+          vendedorId = 1;
+        }
+      }
+      
+      // Si no se pudo determinar, asignar por defecto al admin (vendedorId = 1)
+      if (!vendedorId) {
+        vendedorId = 1;
+        console.log(`🆕 Cobro ${doc.id}: No se pudo determinar vendedor, asignando por defecto: ${vendedorId}`);
+      }
+      
+      // Actualizar el documento
+      batch.update(doc.ref, { 
+        vendedorId: vendedorId,
+        fechaActualizacion: new Date()
+      });
+      
+      actualizados++;
+      console.log(`🆕 Cobro ${doc.id}: Usuario "${cobroData.usuario}" -> vendedorId: ${vendedorId}`);
+    }
+    
+    // Commit del batch
+    await batch.commit();
+    
+    console.log(`✅ Actualización masiva completada: ${actualizados} cobros actualizados`);
+    
+    res.json({
+      success: true,
+      message: `Actualización masiva completada: ${actualizados} cobros actualizados`,
+      actualizados: actualizados
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en actualización masiva:', error);
+    res.status(500).json({ 
+      error: error.message,
+      success: false 
+    });
   }
 });
 

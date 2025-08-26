@@ -112,6 +112,10 @@ export const api = {
     body: JSON.stringify(data),
   }),
   deleteCobro: (id) => apiRequest(`/api/cobros/${id}`, { method: 'DELETE' }),
+  // 🆕 Actualización masiva de vendedorId
+  updateVendedorBulk: () => apiRequest('/api/cobros/update-vendedor-bulk', {
+    method: 'POST'
+  }),
 
   // Visitas
   getVisitas: () => apiRequest('/api/visitas'),

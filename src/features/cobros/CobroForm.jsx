@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { db } from "../../services/firebase";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
@@ -12,6 +10,7 @@ import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { getClientesCatalogo, limpiarCacheClientes } from '../../services/firebase';
+import { api } from '../../services/api';
 
 function CobroForm({ user }) {
   const location = useLocation();
@@ -131,6 +130,20 @@ function CobroForm({ user }) {
 
     setLoading(true);
     try {
+      // 🆕 Determinar vendedorId automáticamente basándose en el rol del usuario
+      let vendedorId = null;
+      
+      if (user.role === 'Santi') {
+        vendedorId = 2;
+      } else if (user.role === 'Guille') {
+        vendedorId = 1;
+      } else if (user.role === 'admin') {
+        // Para admin, usar el cobrador seleccionado
+        vendedorId = cobrador === 'Santi' ? 2 : 1;
+      }
+      
+      console.log(`🆕 Usuario: ${user.role}, Cobrador: ${cobrador}, vendedorId: ${vendedorId}`);
+
       const cobroData = {
         fecha,
         cliente,
@@ -139,15 +152,21 @@ function CobroForm({ user }) {
         forma,
         nota,
         cargado,
+        usuario: user.email || user.name || user.role, // 🆕 Agregar usuario para el backend
+        vendedorId: vendedorId, // 🆕 Agregar vendedorId
         fechaCreacion: new Date()
       };
 
-      await addDoc(collection(db, "cobros"), cobroData);
+      console.log('🆕 Enviando cobro al backend:', cobroData);
+      
+      // 🆕 Usar la API del backend en lugar de Firebase directamente
+      const response = await api.createCobro(cobroData);
+      
+      console.log('🆕 Respuesta del backend:', response);
       
       setShowSuccess(true);
       setFecha(new Date());
       setCliente("");
-      setMonto("");
       setCobrador(user.role === "Santi" || user.role === "Guille" ? user.role : "");
       setForma("");
       setNota("");
