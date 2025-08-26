@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
 import BackendStatus from "../../components/BackendStatus";
 import { ALEGRA_CONFIG } from "../../config/alegra.js";
-import AlegraConfig from "../../components/AlegraConfig";
 
 function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   const navigate = useNavigate();
@@ -523,8 +522,7 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       <div className="dashboard-backend-status" style={{ maxWidth: 480, margin: '0 auto', marginBottom: 16, width: '100%' }}>
         <BackendStatus />
       
-      {/* 🆕 Configuración de Alegra */}
-      <AlegraConfig />
+
       </div>
 
       {/* Alertas de cobros pendientes */}

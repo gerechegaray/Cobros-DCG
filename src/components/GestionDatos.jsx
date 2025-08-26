@@ -14,6 +14,7 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import { Tag } from 'primereact/tag';
 import { api } from '../services/api';
 import * as XLSX from 'xlsx';
+import AlegraConfig from './AlegraConfig';
 
 function GestionDatos({ user }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -535,6 +536,11 @@ function GestionDatos({ user }) {
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* 🆕 Configuración de Alegra */}
+      <div className="col-12">
+        <AlegraConfig />
       </div>
 
       {/* Notificaciones de sincronización */}
