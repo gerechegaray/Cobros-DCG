@@ -142,7 +142,7 @@ function CobroForm({ user }) {
         fechaCreacion: new Date()
       };
 
-      await addDoc(collection(db, "cobranzas"), cobroData);
+      await addDoc(collection(db, "cobros"), cobroData);
       
       setShowSuccess(true);
       setFecha(new Date());

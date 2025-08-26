@@ -46,7 +46,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
         return;
       }
     }
-    const q = query(collection(db, "cobranzas"));
+    const q = query(collection(db, "cobros"));
     const querySnapshot = await getDocs(q);
     querySnapshot.forEach((doc) => {
       data.push({ id: doc.id, ...doc.data() });
@@ -62,7 +62,7 @@ function Alerts({ user, onNavigateToMyCobros }) {
   // 🆕 Real-time listener para actualización automática de alertas
   useEffect(() => {
     // Configurar listener en tiempo real
-    const q = query(collection(db, "cobranzas"), orderBy("fecha", "desc"));
+    const q = query(collection(db, "cobros"), orderBy("fecha", "desc"));
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const data = [];
