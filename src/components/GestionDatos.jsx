@@ -43,6 +43,12 @@ function GestionDatos({ user }) {
   const [exporting, setExporting] = useState(false);
   const [executing, setExecuting] = useState(false);
   
+  // Estados para sincronización
+  const [syncNotifications, setSyncNotifications] = useState({
+    clientes: false,
+    productos: false
+  });
+  
   const toast = useRef(null);
 
   // Función para obtener el nombre del vendedor desde el caché
@@ -84,6 +90,51 @@ function GestionDatos({ user }) {
       return obtenerNombreVendedor(registro.vendedorId);
     }
     return 'N/A';
+  };
+
+  // Función para sincronizar clientes desde Alegra
+  const sincronizarClientes = async () => {
+    setRefreshing(true);
+    try {
+      const data = await api.syncClientesAlegra();
+      
+      if (data.success) {
+        toast.current?.show({
+          severity: 'success',
+          summary: 'Sincronización Exitosa',
+          detail: `${data.total} clientes sincronizados desde Alegra`
+        });
+        
+        // Limpiar cache del frontend
+        localStorage.removeItem("clientes_catalogo");
+        
+        // Recargar estado
+        cargarEstado();
+      }
+    } catch (error) {
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error de Sincronización',
+        detail: 'No se pudieron sincronizar los clientes desde Alegra'
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Función para verificar si hay datos desactualizados
+  const verificarActualizaciones = () => {
+    const ahora = Date.now();
+    const ttlClientes = 7 * 24 * 60 * 60 * 1000; // 7 días
+    
+    if (estado?.clientes?.ultimaActualizacion) {
+      const ultimaActualizacion = new Date(estado.clientes.ultimaActualizacion).getTime();
+      const tiempoTranscurrido = ahora - ultimaActualizacion;
+      
+      if (tiempoTranscurrido > ttlClientes) {
+        setSyncNotifications(prev => ({ ...prev, clientes: true }));
+      }
+    }
   };
 
   // Configuración de colecciones para limpieza
@@ -379,6 +430,7 @@ function GestionDatos({ user }) {
     const interval = setInterval(() => {
       cargarEstado();
       obtenerEstadisticasLimpieza();
+      verificarActualizaciones(); // Agregar verificación de actualizaciones
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -416,6 +468,63 @@ function GestionDatos({ user }) {
 
   const renderCacheMonitor = () => (
     <div className="grid">
+      {/* Botón de sincronización prominente */}
+      <div className="col-12">
+        <Card title="Sincronización de Datos" className="mb-3">
+          <div className="flex align-items-center justify-content-between">
+            <div>
+              <h4 className="m-0 mb-2">Sincronizar desde Alegra</h4>
+              <p className="text-sm text-gray-600 m-0">
+                Obtiene los últimos clientes y productos desde Alegra y los sincroniza con Firebase
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                label="Sincronizar Clientes" 
+                icon="pi pi-sync" 
+                className="p-button-success"
+                onClick={sincronizarClientes}
+                loading={refreshing}
+              />
+              <Button 
+                label="Sincronizar Productos" 
+                icon="pi pi-sync" 
+                className="p-button-info"
+                onClick={() => refrescarCache('productos')}
+                loading={refreshing}
+              />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Notificaciones de sincronización */}
+      {(syncNotifications.clientes || syncNotifications.productos) && (
+        <div className="col-12">
+          <Card className="mb-3 border-orange-200 bg-orange-50">
+            <div className="flex align-items-center gap-2">
+              <i className="pi pi-exclamation-triangle text-orange-600"></i>
+              <div className="flex-1">
+                <h4 className="m-0 mb-1 text-orange-800">Datos Desactualizados</h4>
+                <p className="text-sm text-orange-700 m-0">
+                  Algunos datos han expirado y necesitan ser sincronizados desde Alegra
+                </p>
+              </div>
+              <Button 
+                label="Sincronizar Todo" 
+                icon="pi pi-sync" 
+                className="p-button-warning"
+                onClick={() => {
+                  sincronizarClientes();
+                  refrescarCache('productos');
+                  setSyncNotifications({ clientes: false, productos: false });
+                }}
+              />
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Clientes */}
       <div className="col-12 md:col-6">
         <Card title="Clientes" className="mb-2">
@@ -474,6 +583,13 @@ function GestionDatos({ user }) {
                 icon="pi pi-refresh" 
                 className="p-button-info p-button-sm"
                 onClick={() => refrescarCache('clientes')}
+                loading={refreshing}
+              />
+              <Button 
+                label="Sincronizar desde Alegra" 
+                icon="pi pi-sync" 
+                className="p-button-success p-button-sm"
+                onClick={sincronizarClientes}
                 loading={refreshing}
               />
             </div>
@@ -537,6 +653,13 @@ function GestionDatos({ user }) {
               <Button 
                 label="Actualizar" 
                 icon="pi pi-refresh" 
+                className="p-button-info p-button-sm"
+                onClick={() => refrescarCache('productos')}
+                loading={refreshing}
+              />
+              <Button 
+                label="Sincronizar desde Alegra" 
+                icon="pi pi-sync" 
                 className="p-button-info p-button-sm"
                 onClick={() => refrescarCache('productos')}
                 loading={refreshing}
