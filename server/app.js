@@ -1631,72 +1631,98 @@ app.get("/api/cobros", async (req, res) => {
   console.log('Entrando a /api/cobros');
   try {
     const { page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta, vendedorId } = req.query;
-    console.log(`Paginación: page=${page}, limit=${limit}`);
-    console.log(`Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}, vendedorId=${vendedorId}`);
+    console.log(`🔍 Parámetros recibidos:`, req.query);
+    console.log(`🔍 Paginación: page=${page}, limit=${limit}`);
+    console.log(`🔍 Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}, vendedorId=${vendedorId}`);
+    console.log(`🔍 Tipo de vendedorId:`, typeof vendedorId);
     
     // 🆕 Construir query base
     let query = adminDb.collection('cobros').orderBy('fechaCreacion', 'desc');
+    console.log(`🔍 Query base construida:`, query);
     
     // 🆕 Aplicar filtros si se proporcionan
     if (estado && estado !== 'todos') {
       query = query.where('estado', '==', estado);
+      console.log(`🔍 Filtro de estado aplicado: ${estado}`);
     }
     
     if (clienteId) {
       query = query.where('clienteId', '==', clienteId);
+      console.log(`🔍 Filtro de cliente aplicado: ${clienteId}`);
     }
     
     if (vendedorId) {
       console.log(`🔍 Aplicando filtro de vendedor en backend: vendedorId=${vendedorId}`);
-      query = query.where('vendedorId', '==', parseInt(vendedorId));
+      const vendedorIdInt = parseInt(vendedorId);
+      if (isNaN(vendedorIdInt)) {
+        console.error(`🔍 Error: vendedorId no es un número válido: ${vendedorId}`);
+        return res.status(400).json({ error: 'vendedorId debe ser un número válido' });
+      }
+      console.log(`🔍 vendedorId convertido a entero: ${vendedorIdInt}`);
+      query = query.where('vendedorId', '==', vendedorIdInt);
+      console.log(`🔍 Filtro de vendedor aplicado: vendedorId=${vendedorIdInt}`);
     }
     
     // 🆕 Aplicar filtros de fecha si se proporcionan
     if (fechaDesde) {
       const fechaDesdeObj = new Date(fechaDesde);
+      console.log(`🔍 Filtro de fecha desde aplicado: ${fechaDesdeObj}`);
       query = query.where('fechaCreacion', '>=', fechaDesdeObj);
     }
     
     if (fechaHasta) {
       const fechaHastaObj = new Date(fechaHasta);
       fechaHastaObj.setHours(23, 59, 59, 999);
+      console.log(`🔍 Filtro de fecha hasta aplicado: ${fechaHastaObj}`);
       query = query.where('fechaCreacion', '<=', fechaHastaObj);
     }
     
     // 🆕 Obtener total de documentos para paginación
     console.log(`🔍 Query construida para cobros:`, query);
-    const totalSnapshot = await query.get();
-    const total = totalSnapshot.size;
-    console.log(`🔍 Total de cobros encontrados: ${total}`);
-    
-    // 🆕 Aplicar paginación
-    const pageInt = parseInt(page);
-    const limitInt = parseInt(limit);
-    const offset = (pageInt - 1) * limitInt;
-    
-    query = query.limit(limitInt).offset(offset);
-    
-    const snapshot = await query.get();
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    // 🆕 Calcular información de paginación
-    const totalPages = Math.ceil(total / limitInt);
-    const hasNextPage = pageInt < totalPages;
-    const hasPrevPage = pageInt > 1;
-    
-    console.log(`🔍 Cobros obtenidos: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
-    
-    res.json({
-      data,
-      pagination: {
-        page: pageInt,
-        limit: limitInt,
-        total,
-        totalPages,
-        hasNextPage,
-        hasPrevPage
-      }
-    });
+    let totalSnapshot;
+    try {
+      totalSnapshot = await query.get();
+      const total = totalSnapshot.size;
+      console.log(`🔍 Total de cobros encontrados: ${total}`);
+      
+      // 🆕 Aplicar paginación
+      const pageInt = parseInt(page);
+      const limitInt = parseInt(limit);
+      const offset = (pageInt - 1) * limitInt;
+      
+      query = query.limit(limitInt).offset(offset);
+      
+      const snapshot = await query.get();
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 🆕 Calcular información de paginación
+      const totalPages = Math.ceil(total / limitInt);
+      const hasNextPage = pageInt < totalPages;
+      const hasPrevPage = pageInt > 1;
+      
+      console.log(`🔍 Cobros obtenidos: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
+      
+      res.json({
+        data,
+        pagination: {
+          page: pageInt,
+          limit: limitInt,
+          total,
+          totalPages,
+          hasNextPage,
+          hasPrevPage
+        }
+      });
+    } catch (queryError) {
+      console.error('🔍 Error ejecutando query de Firestore:', queryError);
+      console.error('🔍 Query que falló:', query);
+      res.status(500).json({ 
+        error: 'Error ejecutando consulta en Firestore', 
+        details: queryError.message,
+        query: 'Query falló al ejecutarse'
+      });
+      return;
+    }
   } catch (error) {
     console.error('Error en /api/cobros:', error);
     res.status(500).json({ error: error.message });
