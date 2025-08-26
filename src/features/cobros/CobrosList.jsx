@@ -63,6 +63,8 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
   const fetchCobranzas = async (force = false) => {
     setLoading(true);
     try {
+      console.log(`🔍 Usuario actual:`, { role: user.role, email: user.email });
+      
       // 🆕 Construir parámetros para la API con paginación
       const params = {
         page: currentPage,
@@ -84,14 +86,30 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
       
       // 🆕 Agregar filtro por vendedor si no es admin
       if (user.role !== 'admin') {
-        const vendedorId = user.role === 'Guille' ? 1 : 2;
-        params.vendedorId = vendedorId;
+        let vendedorId;
+        if (user.role === 'Guille') {
+          vendedorId = 1;
+        } else if (user.role === 'Santi') {
+          vendedorId = 2;
+        } else {
+          // Si no es un rol conocido, no aplicar filtro
+          console.warn(`Rol de usuario no reconocido: ${user.role}`);
+        }
+        
+        if (vendedorId) {
+          params.vendedorId = vendedorId;
+          console.log(`🔍 Aplicando filtro de vendedor: ${user.role} -> vendedorId: ${vendedorId}`);
+        }
       }
       
+      console.log(`🔍 Parámetros de búsqueda:`, params);
       const response = await api.getCobros(params);
       
       // 🆕 Extraer datos y paginación de la respuesta
       const { data, pagination: paginationData } = response;
+      
+      console.log(`🔍 Respuesta de la API:`, { data: data?.length || 0, pagination: paginationData });
+      console.log(`🔍 Datos crudos:`, data);
       
       // Limpiar datos antes de establecer el estado
       const datosLimpios = limpiarDatosParaRender(data);
@@ -228,13 +246,24 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
       // Filtrar clientes según el rol del usuario
       let clientesFiltrados = data;
       if (user.role !== 'admin') {
-        const sellerId = user.role === 'Guille' ? 1 : 2;
-        clientesFiltrados = data.filter(cliente => {
-          if (cliente.seller && cliente.seller.id) {
-            return cliente.seller.id === sellerId.toString();
-          }
-          return false;
-        });
+        let sellerId;
+        if (user.role === 'Guille') {
+          sellerId = 1;
+        } else if (user.role === 'Santi') {
+          sellerId = 2;
+        } else {
+          // Si no es un rol conocido, no aplicar filtro
+          console.warn(`Rol de usuario no reconocido para filtro de clientes: ${user.role}`);
+        }
+        
+        if (sellerId) {
+          clientesFiltrados = data.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+        }
       }
       
       // Convertir a formato para dropdown

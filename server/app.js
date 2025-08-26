@@ -1647,6 +1647,7 @@ app.get("/api/cobros", async (req, res) => {
     }
     
     if (vendedorId) {
+      console.log(`🔍 Aplicando filtro de vendedor en backend: vendedorId=${vendedorId}`);
       query = query.where('vendedorId', '==', parseInt(vendedorId));
     }
     
@@ -1663,8 +1664,10 @@ app.get("/api/cobros", async (req, res) => {
     }
     
     // 🆕 Obtener total de documentos para paginación
+    console.log(`🔍 Query construida para cobros:`, query);
     const totalSnapshot = await query.get();
     const total = totalSnapshot.size;
+    console.log(`🔍 Total de cobros encontrados: ${total}`);
     
     // 🆕 Aplicar paginación
     const pageInt = parseInt(page);
@@ -1681,7 +1684,7 @@ app.get("/api/cobros", async (req, res) => {
     const hasNextPage = pageInt < totalPages;
     const hasPrevPage = pageInt > 1;
     
-    console.log(`Cobros obtenidos: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
+    console.log(`🔍 Cobros obtenidos: ${data.length} de ${total} total (página ${pageInt} de ${totalPages})`);
     
     res.json({
       data,
