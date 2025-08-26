@@ -304,8 +304,8 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       if (user.role !== 'admin') return;
       
       try {
-        // 🆕 Obtener facturas de Alegra
-        const facturas = await api.getAlegraInvoices(5); // 🆕 Últimos 5 días por defecto
+        // 🆕 Obtener 60 facturas en lugar de 5 para mejor cobertura
+        const facturas = await api.getAlegraInvoices(5, 60);
         
         // 🆕 Obtener hojas de ruta para calcular estados
         const hojasDeRuta = await api.getHojasDeRuta();

@@ -60,7 +60,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 // Funciones específicas para cada endpoint
 export const api = {
   // Alegra
-  getAlegraInvoices: (dias = 5) => apiRequest(`/api/alegra/invoices?dias=${dias}`),
+  getAlegraInvoices: (dias = 5, limit = 60) => apiRequest(`/api/alegra/invoices?dias=${dias}&limit=${limit}`), // 🆕 Límite configurable
   getAlegraContacts: () => apiRequest('/api/alegra/contacts'),
   getAlegraItems: () => apiRequest('/api/alegra/items'),
   createAlegraQuote: (data) => apiRequest('/api/alegra/quotes', {

@@ -2,7 +2,7 @@
 
 import fetch from 'node-fetch';
 
-export async function getAlegraInvoices(dias = 5) {
+export async function getAlegraInvoices(dias = 5, limit = 30) {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
@@ -15,6 +15,12 @@ export async function getAlegraInvoices(dias = 5) {
   const rangosPermitidos = [1, 3, 5];
   if (!rangosPermitidos.includes(dias)) {
     throw new Error(`Rango de días no válido. Solo se permiten: ${rangosPermitidos.join(', ')} días`);
+  }
+  
+  // 🆕 Validar límite de facturas
+  const limitInt = parseInt(limit);
+  if (isNaN(limitInt) || limitInt < 1 || limitInt > 100) {
+    throw new Error('El límite debe ser un número entre 1 y 100');
   }
   
   // 🆕 Calcular fecha límite usando filtro nativo de Alegra
@@ -32,7 +38,7 @@ export async function getAlegraInvoices(dias = 5) {
     status: 'open', // 🆕 Solo facturas abiertas
     order_direction: 'DESC',
     order_field: 'date',
-    limit: '30'
+    limit: limitInt.toString() // 🆕 Límite configurable
   });
   
   const url = `https://api.alegra.com/api/v1/invoices?${params.toString()}`;

@@ -178,10 +178,11 @@ app.use(express.json());
 // Endpoint para obtener facturas de venta de Alegra
 app.get("/api/alegra/invoices", async (req, res) => {
   try {
-    const { dias = 5 } = req.query; // 🆕 Parámetro opcional, default 5 días
+    const { dias = 5, limit = 30 } = req.query; // 🆕 Parámetro opcional de límite
     const diasInt = parseInt(dias);
+    const limitInt = parseInt(limit);
     
-    // 🆕 Validar que el parámetro sea un número válido
+    // 🆕 Validar que los parámetros sean números válidos
     if (isNaN(diasInt)) {
       return res.status(400).json({ 
         error: 'El parámetro "dias" debe ser un número válido',
@@ -189,7 +190,14 @@ app.get("/api/alegra/invoices", async (req, res) => {
       });
     }
     
-    const facturas = await getAlegraInvoices(diasInt);
+    if (isNaN(limitInt) || limitInt < 1 || limitInt > 100) {
+      return res.status(400).json({ 
+        error: 'El parámetro "limit" debe ser un número entre 1 y 100',
+        rangosPermitidos: [1, 100]
+      });
+    }
+    
+    const facturas = await getAlegraInvoices(diasInt, limitInt);
     res.json(facturas);
   } catch (error) {
     console.error("Error al obtener facturas de Alegra:", error);
