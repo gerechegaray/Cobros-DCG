@@ -1816,13 +1816,32 @@ app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
     console.log('🔄 Iniciando actualización masiva de vendedorId en cobros...');
     
     // Obtener todos los cobros que no tienen vendedorId
-    const snapshot = await adminDb.collection('cobros')
+    // Primero buscar cobros donde vendedorId es null
+    const snapshotNull = await adminDb.collection('cobros')
       .where('vendedorId', '==', null)
       .get();
     
-    console.log(`🆕 Cobros sin vendedorId encontrados: ${snapshot.size}`);
+    // Luego buscar cobros que no tienen el campo vendedorId (usando get() y filtrando)
+    const snapshotAll = await adminDb.collection('cobros').get();
+    const cobrosSinVendedorId = snapshotAll.docs.filter(doc => {
+      const data = doc.data();
+      return !data.vendedorId || data.vendedorId === null || data.vendedorId === undefined;
+    });
     
-    if (snapshot.empty) {
+    console.log(`🆕 Cobros con vendedorId null: ${snapshotNull.size}`);
+    console.log(`🆕 Cobros sin campo vendedorId: ${cobrosSinVendedorId.length}`);
+    
+    // Combinar ambos resultados
+    const todosLosCobros = [...snapshotNull.docs, ...cobrosSinVendedorId];
+    
+    // Eliminar duplicados por ID
+    const cobrosUnicos = todosLosCobros.filter((cobro, index, self) => 
+      index === self.findIndex(c => c.id === cobro.id)
+    );
+    
+    console.log(`🆕 Total de cobros únicos sin vendedorId: ${cobrosUnicos.length}`);
+    
+    if (cobrosUnicos.length === 0) {
       return res.json({
         success: true,
         message: 'No hay cobros sin vendedorId para actualizar',
@@ -1830,18 +1849,31 @@ app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
       });
     }
     
+
+    
+
+    
     // Actualizar en lotes
     const batch = adminDb.batch();
     let actualizados = 0;
     
-    for (const doc of snapshot.docs) {
+    for (const doc of cobrosUnicos) {
       const cobroData = doc.data();
       
-      // Determinar vendedorId basándose en el usuario que creó el cobro
+        // Determinar vendedorId basándose en el cobrador o usuario que creó el cobro
       let vendedorId = null;
       
-      if (cobroData.usuario) {
-        // Buscar en el email o nombre del usuario
+      // Primero intentar con el campo cobrador
+      if (cobroData.cobrador) {
+        if (cobroData.cobrador === 'Santi' || cobroData.cobrador === 'Santiago') {
+          vendedorId = 2;
+        } else if (cobroData.cobrador === 'Guille' || cobroData.cobrador === 'Guillermo') {
+          vendedorId = 1;
+        }
+      }
+      
+      // Si no se pudo determinar con cobrador, intentar con usuario
+      if (!vendedorId && cobroData.usuario) {
         const usuarioLower = cobroData.usuario.toLowerCase();
         
         if (usuarioLower.includes('santi') || usuarioLower.includes('santiago')) {
@@ -1864,7 +1896,7 @@ app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
       });
       
       actualizados++;
-      console.log(`🆕 Cobro ${doc.id}: Usuario "${cobroData.usuario}" -> vendedorId: ${vendedorId}`);
+      console.log(`🆕 Cobro ${doc.id}: Cobrador "${cobroData.cobrador}", Usuario "${cobroData.usuario}" -> vendedorId: ${vendedorId}`);
     }
     
     // Commit del batch
