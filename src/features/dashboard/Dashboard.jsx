@@ -8,6 +8,8 @@ import Alerts from "./Alerts";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
 import BackendStatus from "../../components/BackendStatus";
+import { ALEGRA_CONFIG } from "../../config/alegra.js";
+import AlegraConfig from "../../components/AlegraConfig";
 
 function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
   const navigate = useNavigate();
@@ -298,14 +300,38 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
     fetchVisitas();
   }, [user]);
 
+  // 🆕 Obtener facturas de Alegra para mostrar en el dashboard
+  const cargarFacturasAlegra = async () => {
+    try {
+      setLoadingFacturas(true);
+      // 🆕 Obtener facturas usando configuración de Alegra con paginación múltiple
+      const facturas = await api.getAlegraInvoices(
+        ALEGRA_CONFIG.INVOICES.DEFAULT_DAYS,
+        ALEGRA_CONFIG.INVOICES.MAX_PER_REQUEST,
+        ALEGRA_CONFIG.INVOICES.DEFAULT_TOTAL
+      );
+      setFacturasAlegra(facturas);
+      console.log(`✅ Facturas de Alegra cargadas: ${facturas.length} (configuración: ${ALEGRA_CONFIG.INVOICES.DEFAULT_TOTAL} total, ${ALEGRA_CONFIG.INVOICES.MAX_PER_REQUEST} por petición)`);
+    } catch (error) {
+      console.error('❌ Error cargando facturas de Alegra:', error);
+      setFacturasAlegra([]);
+    } finally {
+      setLoadingFacturas(false);
+    }
+  };
+
   // Cargar estadísticas de facturas/envíos (solo para admin)
   useEffect(() => {
     const fetchFacturas = async () => {
       if (user.role !== 'admin') return;
       
       try {
-        // 🆕 Obtener 60 facturas en lugar de 5 para mejor cobertura
-        const facturas = await api.getAlegraInvoices(5, 60);
+        // 🆕 Obtener facturas usando configuración de Alegra con paginación múltiple
+        const facturas = await api.getAlegraInvoices(
+          ALEGRA_CONFIG.INVOICES.DEFAULT_DAYS,
+          ALEGRA_CONFIG.INVOICES.MAX_PER_REQUEST,
+          ALEGRA_CONFIG.INVOICES.DEFAULT_TOTAL
+        );
         
         // 🆕 Obtener hojas de ruta para calcular estados
         const hojasDeRuta = await api.getHojasDeRuta();
@@ -496,6 +522,9 @@ function Dashboard({ user, onNavigateToCobros, onNavigateToMyCobros }) {
       {/* Estado del Backend */}
       <div className="dashboard-backend-status" style={{ maxWidth: 480, margin: '0 auto', marginBottom: 16, width: '100%' }}>
         <BackendStatus />
+      
+      {/* 🆕 Configuración de Alegra */}
+      <AlegraConfig />
       </div>
 
       {/* Alertas de cobros pendientes */}

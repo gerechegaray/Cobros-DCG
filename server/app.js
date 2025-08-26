@@ -178,30 +178,49 @@ app.use(express.json());
 // Endpoint para obtener facturas de venta de Alegra
 app.get("/api/alegra/invoices", async (req, res) => {
   try {
-    const { dias = 5, limit = 30 } = req.query; // 🆕 Parámetro opcional de límite
+    const { dias = 5, limit = 30, maxInvoices = 30 } = req.query;
+    
+    console.log(`🔍 Parámetros recibidos: dias=${dias}, limit=${limit}, maxInvoices=${maxInvoices}`);
+    
     const diasInt = parseInt(dias);
     const limitInt = parseInt(limit);
+    const maxInvoicesInt = parseInt(maxInvoices);
     
-    // 🆕 Validar que los parámetros sean números válidos
-    if (isNaN(diasInt)) {
-      return res.status(400).json({ 
-        error: 'El parámetro "dias" debe ser un número válido',
+    // Validar parámetros
+    if (isNaN(diasInt) || ![1, 3, 5].includes(diasInt)) {
+      return res.status(400).json({
+        error: 'El parámetro "dias" debe ser 1, 3 o 5',
         rangosPermitidos: [1, 3, 5]
       });
     }
     
-    if (isNaN(limitInt) || limitInt < 1 || limitInt > 100) {
-      return res.status(400).json({ 
-        error: 'El parámetro "limit" debe ser un número entre 1 y 100',
-        rangosPermitidos: [1, 100]
+    if (isNaN(limitInt) || limitInt < 1 || limitInt > 30) {
+      return res.status(400).json({
+        error: 'El parámetro "limit" debe ser un número entre 1 y 30 (Alegra solo permite máximo 30 facturas por consulta)',
+        rangosPermitidos: [1, 30]
       });
     }
     
-    const facturas = await getAlegraInvoices(diasInt, limitInt);
+    if (isNaN(maxInvoicesInt) || maxInvoicesInt < 1) {
+      return res.status(400).json({
+        error: 'El parámetro "maxInvoices" debe ser un número mayor a 0',
+        rangosPermitidos: [1, '∞']
+      });
+    }
+    
+    console.log(`✅ Parámetros validados: dias=${diasInt}, limit=${limitInt}, maxInvoices=${maxInvoicesInt}`);
+    
+    const facturas = await getAlegraInvoices(diasInt, limitInt, maxInvoicesInt);
+    
+    console.log(`✅ Facturas obtenidas: ${facturas.length}`);
+    
     res.json(facturas);
   } catch (error) {
-    console.error("Error al obtener facturas de Alegra:", error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/alegra/invoices:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      detalles: error.message 
+    });
   }
 });
 

@@ -84,22 +84,11 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
         params.fechaHasta = filtroFechaHasta.toISOString().split('T')[0];
       }
       
-      // 🆕 Agregar filtro por vendedor si no es admin
+      // 🆕 Agregar filtro por cobrador si no es admin (igual que en dashboard)
       if (user.role !== 'admin') {
-        let vendedorId;
-        if (user.role === 'Guille') {
-          vendedorId = 1;
-        } else if (user.role === 'Santi') {
-          vendedorId = 2;
-        } else {
-          // Si no es un rol conocido, no aplicar filtro
-          console.warn(`Rol de usuario no reconocido: ${user.role}`);
-        }
-        
-        if (vendedorId) {
-          params.vendedorId = vendedorId;
-          console.log(`🔍 Aplicando filtro de vendedor: ${user.role} -> vendedorId: ${vendedorId}`);
-        }
+        // Usar el mismo filtrado que en dashboard: por campo cobrador
+        params.cobrador = user.role;
+        console.log(`🔍 Aplicando filtro de cobrador: ${user.role} -> cobrador: ${user.role}`);
       }
       
       console.log(`🔍 Parámetros de búsqueda:`, params);

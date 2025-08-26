@@ -2,6 +2,8 @@
 // Servicio centralizado para peticiones al backend
 // 🆕 FORZAR DEPLOY - Actualizado para usar nuevo backend
 
+import { ALEGRA_CONFIG, getDefaultConfig } from '../config/alegra.js';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sist-gestion-dcg.onrender.com';
 
 // Función helper para hacer peticiones al backend
@@ -59,8 +61,28 @@ export const apiRequest = async (endpoint, options = {}) => {
 
 // Funciones específicas para cada endpoint
 export const api = {
-  // Alegra
-  getAlegraInvoices: (dias = 5, limit = 60) => apiRequest(`/api/alegra/invoices?dias=${dias}&limit=${limit}`), // 🆕 Límite configurable
+  // 🆕 Servicios de Alegra
+  getAlegraInvoices: (dias = ALEGRA_CONFIG.INVOICES.DEFAULT_DAYS, limit = ALEGRA_CONFIG.INVOICES.MAX_PER_REQUEST, maxInvoices = ALEGRA_CONFIG.INVOICES.DEFAULT_TOTAL) => {
+    // 🆕 Intentar cargar configuración guardada localmente
+    let savedConfig = null;
+    try {
+      const saved = localStorage.getItem('alegra_config');
+      if (saved) {
+        savedConfig = JSON.parse(saved);
+      }
+    } catch (error) {
+      console.warn('Error cargando configuración guardada de Alegra:', error);
+    }
+    
+    const config = getDefaultConfig();
+    const finalDias = dias || savedConfig?.dias || config.dias;
+    const finalLimit = limit || savedConfig?.limit || config.limit;
+    const finalMaxInvoices = maxInvoices || savedConfig?.maxInvoices || config.maxInvoices;
+    
+    console.log(`🔧 API Alegra: usando configuración - días: ${finalDias}, limit: ${finalLimit}, maxInvoices: ${finalMaxInvoices}`);
+    
+    return apiRequest(`/api/alegra/invoices?dias=${finalDias}&limit=${finalLimit}&maxInvoices=${finalMaxInvoices}`);
+  }, // 🆕 Límite configurable con paginación múltiple
   getAlegraContacts: () => apiRequest('/api/alegra/contacts'),
   getAlegraItems: () => apiRequest('/api/alegra/items'),
   createAlegraQuote: (data) => apiRequest('/api/alegra/quotes', {
