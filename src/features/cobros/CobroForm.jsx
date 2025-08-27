@@ -9,6 +9,7 @@ import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Textarea } from "primereact/textarea";
 import { getClientesCatalogo, limpiarCacheClientes } from '../../services/firebase';
 import { api } from '../../services/api';
 
@@ -318,6 +319,21 @@ function CobroForm({ user }) {
                 onChange={(e) => setForma(e.value)} 
                 placeholder="Selecciona la forma de cobro"
                 className="p-fluid"
+              />
+            </div>
+
+            {/* Notas adicionales */}
+            <div className="p-col-12" style={{ marginBottom: '1.2rem' }}>
+              <label className="p-block p-mb-2 p-text-sm" style={{ fontWeight: "500", color: "#374151" }}>
+                Notas adicionales <span style={{ color: "#6b7280", fontWeight: "400" }}>(opcional)</span>
+              </label>
+              <Textarea
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+                placeholder="Agrega cualquier información adicional sobre el cobro..."
+                className="p-fluid"
+                rows={3}
+                autoResize
               />
             </div>
 

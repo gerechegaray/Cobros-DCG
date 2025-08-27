@@ -590,6 +590,22 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
           )}
         </Column>
         
+        <Column field="nota" header="Notas" sortable style={{ minWidth: '120px', maxWidth: '200px' }}>
+          {(rowData) => (
+            <div className="text-xs md:text-sm text-gray-700">
+              {rowData.nota ? (
+                <div className="max-w-xs">
+                  <span className="line-clamp-2" title={rowData.nota}>
+                    {rowData.nota}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-gray-400 italic">-</span>
+              )}
+            </div>
+          )}
+        </Column>
+        
         <Column field="cargado" header="Estado" sortable style={{ minWidth: '90px' }}
           body={(rowData) => {
             const valor = rowData.cargado ? "Cargado" : "No cargado";
@@ -772,6 +788,17 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
           {isMobile ? <MobileLayout /> : <DesktopLayout />}
         </>
       )}
+      
+      {/* Estilos CSS para truncamiento de texto */}
+      <style jsx>{`
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      `}</style>
     </div>
   );
 }
