@@ -59,7 +59,9 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
               });
               console.log('✅ Firebase Admin inicializado con credenciales de archivo');
             }
-                  } catch (error) {
+          }
+          global._firebaseAdminInitialized = true;
+        } catch (error) {
           console.error('❌ Error cargando credenciales de Firebase:', error);
           // Fallback a applicationDefault si el archivo no está disponible
           try {
@@ -73,8 +75,6 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
             console.warn('⚠️ Firebase no inicializado - usando modo de emergencia');
             // No lanzar error, permitir que la app funcione con endpoints de emergencia
           }
-          global._firebaseAdminInitialized = true;
-        }
         }
 const adminDb = getFirestore();
 
