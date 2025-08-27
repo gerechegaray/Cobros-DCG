@@ -1649,11 +1649,10 @@ app.get("/api/hojas-de-ruta", async (req, res) => {
 app.get("/api/cobros", async (req, res) => {
   console.log('Entrando a /api/cobros');
   try {
-    const { page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta, vendedorId } = req.query;
+    const { page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta, vendedorId, cobrador } = req.query;
     console.log(`🔍 Parámetros recibidos:`, req.query);
     console.log(`🔍 Paginación: page=${page}, limit=${limit}`);
-    console.log(`🔍 Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}, vendedorId=${vendedorId}`);
-    console.log(`🔍 Tipo de vendedorId:`, typeof vendedorId);
+    console.log(`🔍 Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}, vendedorId=${vendedorId}, cobrador=${cobrador}`);
     
     // 🆕 Construir query base
     let query = adminDb.collection('cobros');
@@ -1670,7 +1669,12 @@ app.get("/api/cobros", async (req, res) => {
       console.log(`🔍 Filtro de cliente aplicado: ${clienteId}`);
     }
     
-    if (vendedorId) {
+    // 🆕 Priorizar filtro por cobrador (campo string) sobre vendedorId
+    if (cobrador) {
+      console.log(`🔍 Aplicando filtro de cobrador: ${cobrador}`);
+      query = query.where('cobrador', '==', cobrador);
+      console.log(`🔍 Filtro de cobrador aplicado: ${cobrador}`);
+    } else if (vendedorId) {
       console.log(`🔍 Aplicando filtro de vendedor en backend: vendedorId=${vendedorId}`);
       const vendedorIdInt = parseInt(vendedorId);
       if (isNaN(vendedorIdInt)) {
@@ -1759,28 +1763,47 @@ app.post("/api/cobros", async (req, res) => {
     
     // 🆕 Determinar vendedorId automáticamente si no se proporciona
     let vendedorId = req.body.vendedorId;
+    let cobrador = req.body.cobrador;
     
     if (!vendedorId && req.body.usuario) {
       const usuarioLower = req.body.usuario.toLowerCase();
       
       if (usuarioLower.includes('santi') || usuarioLower.includes('santiago')) {
         vendedorId = 2;
-        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}`);
+        cobrador = 'Santi';
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}, cobrador: ${cobrador}`);
       } else if (usuarioLower.includes('guille') || usuarioLower.includes('guillermo')) {
         vendedorId = 1;
-        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}`);
+        cobrador = 'Guille';
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}, cobrador: ${cobrador}`);
       } else {
         // Si es admin, permitir que asigne manualmente o usar por defecto
         vendedorId = req.body.vendedorId || 1;
-        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId: ${vendedorId} (admin)`);
+        cobrador = req.body.cobrador || 'Guille';
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId: ${vendedorId}, cobrador: ${cobrador} (admin)`);
       }
     }
     
+    // 🆕 Asegurar que siempre tenga cobrador si no se proporcionó
+    if (!cobrador && req.body.cobrador) {
+      cobrador = req.body.cobrador;
+    }
+    
+    // 🆕 Formatear la fecha de creación como string dd/mm/aaaa
+    const formatearFechaCreacion = (fecha) => {
+      if (!fecha) return new Date().toLocaleDateString('es-AR');
+      const dia = fecha.getDate().toString().padStart(2, '0');
+      const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+      const año = fecha.getFullYear();
+      return `${dia}/${mes}/${año}`;
+    };
+
     const cobroData = {
       ...req.body,
       vendedorId: vendedorId, // 🆕 Asegurar que siempre tenga vendedorId
-      fechaCreacion: new Date(),
-      fechaActualizacion: new Date()
+      cobrador: cobrador, // 🆕 Asegurar que siempre tenga cobrador
+      fechaCreacion: formatearFechaCreacion(new Date()), // 🆕 Fecha como string dd/mm/aaaa
+      fechaActualizacion: formatearFechaCreacion(new Date()) // 🆕 Fecha como string dd/mm/aaaa
     };
     
     console.log(`🆕 Datos finales del cobro:`, cobroData);
@@ -1801,9 +1824,18 @@ app.post("/api/cobros", async (req, res) => {
 app.put("/api/cobros/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    // 🆕 Formatear la fecha de actualización como string dd/mm/aaaa
+    const formatearFechaActualizacion = (fecha) => {
+      if (!fecha) return new Date().toLocaleDateString('es-AR');
+      const dia = fecha.getDate().toString().padStart(2, '0');
+      const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+      const año = fecha.getFullYear();
+      return `${dia}/${mes}/${año}`;
+    };
+
     const updateData = {
       ...req.body,
-      fechaActualizacion: new Date()
+      fechaActualizacion: formatearFechaActualizacion(new Date())
     };
     
     await adminDb.collection('cobros').doc(id).update(updateData);
@@ -1879,11 +1911,13 @@ app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
     for (const doc of cobrosUnicos) {
       const cobroData = doc.data();
       
-        // Determinar vendedorId basándose en el cobrador o usuario que creó el cobro
+        // Determinar vendedorId y cobrador basándose en el cobrador o usuario que creó el cobro
       let vendedorId = null;
+      let cobrador = null;
       
       // Primero intentar con el campo cobrador
       if (cobroData.cobrador) {
+        cobrador = cobroData.cobrador;
         if (cobroData.cobrador === 'Santi' || cobroData.cobrador === 'Santiago') {
           vendedorId = 2;
         } else if (cobroData.cobrador === 'Guille' || cobroData.cobrador === 'Guillermo') {
@@ -1897,20 +1931,29 @@ app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
         
         if (usuarioLower.includes('santi') || usuarioLower.includes('santiago')) {
           vendedorId = 2;
+          cobrador = 'Santi';
         } else if (usuarioLower.includes('guille') || usuarioLower.includes('guillermo')) {
           vendedorId = 1;
+          cobrador = 'Guille';
         }
       }
       
       // Si no se pudo determinar, asignar por defecto al admin (vendedorId = 1)
       if (!vendedorId) {
         vendedorId = 1;
-        console.log(`🆕 Cobro ${doc.id}: No se pudo determinar vendedor, asignando por defecto: ${vendedorId}`);
+        cobrador = 'Guille';
+        console.log(`🆕 Cobro ${doc.id}: No se pudo determinar vendedor, asignando por defecto: vendedorId=${vendedorId}, cobrador=${cobrador}`);
+      }
+      
+      // Asegurar que siempre tenga cobrador
+      if (!cobrador) {
+        cobrador = vendedorId === 2 ? 'Santi' : 'Guille';
       }
       
       // Actualizar el documento
       batch.update(doc.ref, { 
         vendedorId: vendedorId,
+        cobrador: cobrador,
         fechaActualizacion: new Date()
       });
       
@@ -2259,3 +2302,4 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     });
   }
 });
+

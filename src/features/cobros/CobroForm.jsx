@@ -163,8 +163,8 @@ function CobroForm({ user }) {
         nota,
         cargado,
         usuario: user.email || user.name || user.role, // 🆕 Agregar usuario para el backend
-        vendedorId: vendedorId, // 🆕 Agregar vendedorId
-        fechaCreacion: new Date()
+        vendedorId: vendedorId // 🆕 Agregar vendedorId
+        // 🆕 fechaCreacion se maneja en el backend
       };
 
       console.log('🆕 Enviando cobro al backend:', cobroData);
