@@ -25,8 +25,8 @@ console.log('FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? '✅ C
 console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configurado' : '❌ No configurado');
 
         // Inicializar Firebase Admin si no está inicializado
-        if (!global._firebaseAdminInitialized) {
-          try {
+        try {
+          if (!global._firebaseAdminInitialized) {
             // Intentar usar variables de entorno primero
             if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
               console.log('🔄 Intentando inicializar Firebase con variables de entorno...');
@@ -73,8 +73,8 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
             console.warn('⚠️ Firebase no inicializado - usando modo de emergencia');
             // No lanzar error, permitir que la app funcione con endpoints de emergencia
           }
-        }
           global._firebaseAdminInitialized = true;
+        }
         }
 const adminDb = getFirestore();
 
