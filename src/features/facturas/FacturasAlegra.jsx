@@ -53,6 +53,10 @@ const FacturasAlegra = ({ user }) => {
   const [clientes, setClientes] = useState([]);
   const [activeTab, setActiveTab] = useState('todos');
   
+  // 🆕 Estados para paginación
+  const [currentPage, setCurrentPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  
   // 🆕 Estado para rango de días
   const [rangoDias, setRangoDias] = useState(5); // Default 5 días
   
@@ -117,6 +121,17 @@ const FacturasAlegra = ({ user }) => {
     } else {
       setSelectedFacturas(prev => [...prev, factura]);
     }
+  };
+
+  // 🆕 Función para manejar cambio de página
+  const onPageChange = (event) => {
+    setCurrentPage(event.page);
+  };
+
+  // 🆕 Función para manejar cambio de filas por página
+  const onRowsPerPageChange = (event) => {
+    setRowsPerPage(event.value);
+    setCurrentPage(0); // Resetear a la primera página cuando cambie el número de filas
   };
 
   // 🆕 Componente Card para facturas en móvil
@@ -370,22 +385,22 @@ const FacturasAlegra = ({ user }) => {
                    setPresupuestoDetalle(detalleData);
                  }}
                />
-               {user.role === 'admin' && (
-                 <>
-                   <Button
-                     label="Editar"
-                     icon="pi pi-pencil"
-                     className="p-button-sm p-button-outlined"
-                     onClick={() => editarHojaRuta(hoja)}
-                   />
-                   <Button
-                     label="Eliminar"
-                     icon="pi pi-trash"
-                     className="p-button-sm p-button-danger p-button-outlined"
-                     onClick={() => confirmarEliminacion(hoja.id)}
-                   />
-                 </>
-               )}
+                                {tieneAccesoCompleto && (
+                   <>
+                     <Button
+                       label="Editar"
+                       icon="pi pi-pencil"
+                       className="p-button-sm p-button-outlined"
+                       onClick={() => editarHojaRuta(hoja)}
+                     />
+                     <Button
+                       label="Eliminar"
+                       icon="pi pi-trash"
+                       className="p-button-sm p-button-danger p-button-outlined"
+                       onClick={() => confirmarEliminacion(hoja.id)}
+                     />
+                   </>
+                 )}
              </div>
           </div>
         )}
@@ -417,7 +432,12 @@ const FacturasAlegra = ({ user }) => {
       value={facturasFiltradasPorEstado} 
       dataKey="id" 
       paginator 
-      rows={10}
+      rows={rowsPerPage}
+      first={currentPage * rowsPerPage}
+      totalRecords={facturasFiltradasPorEstado.length}
+      onPage={onPageChange}
+      onRowsPerPageChange={onRowsPerPageChange}
+      rowsPerPageOptions={[10, 20, 50]}
       emptyMessage="No hay facturas disponibles"
       className="p-datatable-sm"
       selection={activeTab === 'pendiente' ? selectedFacturas : null}
@@ -511,16 +531,16 @@ const FacturasAlegra = ({ user }) => {
           );
         }}
       />
-      {!esAdmin && (
-        <Column header="Estado" style={{ width: '100px' }}>
-          {(rowData) => (
-            <Tag 
-              value={rowData.estado || 'pendiente'} 
-              severity={rowData.estado === 'completado' ? 'success' : 'warning'}
-            />
-          )}
-        </Column>
-      )}
+             {!tieneAccesoCompleto && (
+         <Column header="Estado" style={{ width: '100px' }}>
+           {(rowData) => (
+             <Tag 
+               value={rowData.estado || 'pendiente'} 
+               severity={rowData.estado === 'completado' ? 'success' : 'warning'}
+             />
+           )}
+         </Column>
+       )}
     </DataTable>
   );
 
@@ -636,15 +656,24 @@ const FacturasAlegra = ({ user }) => {
     }
   }, [user]);
 
-  // 🆕 Limpiar selección cuando cambie de pestaña
+  // 🆕 Limpiar selección cuando cambie de pestaña (pero mantener la página actual)
   useEffect(() => {
     if (activeTab !== 'pendiente') {
       setSelectedFacturas([]);
+      // 🆕 NO resetear la paginación para mantener la página actual
     }
   }, [activeTab]);
 
-  // 🆕 Verificar si el usuario es admin
+  // 🆕 Mantener la página actual cuando se seleccionen facturas
+  useEffect(() => {
+    // 🆕 No resetear la paginación cuando cambie la selección
+    // Esto permite mantener la página actual cuando se seleccionen facturas de diferentes páginas
+  }, [selectedFacturas]);
+
+  // 🆕 Verificar si el usuario es admin o Guille (acceso completo)
   const esAdmin = user?.role === 'admin';
+  const esGuille = user?.role === 'Guille';
+  const tieneAccesoCompleto = esAdmin || esGuille;
   
   // 🆕 Verificar si el usuario es vendedor (Guille o Santi)
   const esVendedor = user?.role === 'Guille' || user?.role === 'Santi';
@@ -759,8 +788,8 @@ const FacturasAlegra = ({ user }) => {
   };
 
   useEffect(() => {
-    // 🆕 Solo admin puede ver las facturas de Alegra
-    if (!esAdmin) {
+    // 🆕 Solo admin o Guille pueden ver las facturas de Alegra
+    if (!tieneAccesoCompleto) {
       setLoading(false);
       return;
     }
@@ -796,18 +825,18 @@ const FacturasAlegra = ({ user }) => {
       const data = [];
       querySnapshot.forEach((doc) => {
         const hoja = { id: doc.id, ...doc.data() };
-        if (hoja.estado === 'pendiente') {
-          // 🆕 Filtrar por responsable según el rol del usuario
-          if (esAdmin) {
-            // Admin ve todas las hojas de ruta
-            data.push(hoja);
-          } else if (esVendedor) {
-            // Vendedores solo ven hojas de ruta donde son responsables
-            if (hoja.responsable === user.role) {
-              data.push(hoja);
-            }
-          }
-        }
+                 if (hoja.estado === 'pendiente') {
+           // 🆕 Filtrar por responsable según el rol del usuario
+           if (tieneAccesoCompleto) {
+             // Admin y Guille ven todas las hojas de ruta
+             data.push(hoja);
+           } else if (esVendedor) {
+             // Vendedores solo ven hojas de ruta donde son responsables
+             if (hoja.responsable === user.role) {
+               data.push(hoja);
+             }
+           }
+         }
       });
       // 🆕 Limpiar datos antes de establecer el estado
       const datosLimpios = limpiarDatosParaRender(data);
@@ -1085,22 +1114,22 @@ const FacturasAlegra = ({ user }) => {
           onClick={() => exportarHojaRutaPDF(rowData)}
           tooltip="Exportar PDF"
         />
-        {esAdmin && (
-          <>
-            <Button
-              icon="pi pi-pencil"
-              className="p-button-sm p-button-text"
-              onClick={() => editarHojaRuta(rowData)}
-              tooltip="Editar"
-            />
-            <Button
-              icon="pi pi-trash"
-              className="p-button-sm p-button-text p-button-danger"
-              onClick={() => confirmarEliminacion(rowData.id)}
-              tooltip="Eliminar"
-            />
-          </>
-        )}
+                 {tieneAccesoCompleto && (
+           <>
+             <Button
+               icon="pi pi-pencil"
+               className="p-button-sm p-button-text"
+               onClick={() => editarHojaRuta(rowData)}
+               tooltip="Editar"
+             />
+             <Button
+               icon="pi pi-trash"
+               className="p-button-sm p-button-text p-button-danger"
+               onClick={() => confirmarEliminacion(rowData.id)}
+               tooltip="Eliminar"
+             />
+           </>
+         )}
       </div>
     );
   };
@@ -1445,8 +1474,8 @@ const FacturasAlegra = ({ user }) => {
         </Card>
       )}
 
-      {/* Lista de Facturas (solo para admin) */}
-      {esAdmin && (
+             {/* Lista de Facturas (solo para admin o Guille) */}
+       {tieneAccesoCompleto && (
         <div className="mb-6">
           <div className="mb-3">
             <h3 className="text-lg font-semibold">Facturas Disponibles</h3>
@@ -1499,9 +1528,9 @@ const FacturasAlegra = ({ user }) => {
         </div>
       )}
 
-      {/* Hojas de Ruta */}
-      <div className="mb-6">
-        <h3>{esAdmin ? 'Hojas de Ruta Pendientes' : 'Mis Hojas de Ruta Pendientes'}</h3>
+             {/* Hojas de Ruta */}
+       <div className="mb-6">
+         <h3>{tieneAccesoCompleto ? 'Hojas de Ruta Pendientes' : 'Mis Hojas de Ruta Pendientes'}</h3>
         {isMobile ? (
           <MobileHojasLayout />
         ) : (

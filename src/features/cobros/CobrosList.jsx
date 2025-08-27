@@ -147,6 +147,11 @@ function CobrosList({ user, showOnlyMyCobros = false, onNavigateToDashboard }) {
     if (!fecha) return '-';
     
     try {
+      // 🆕 Si ya es un string en formato dd/mm/aaaa, devolverlo tal como está
+      if (typeof fecha === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(fecha)) {
+        return fecha;
+      }
+      
       let fechaObj = null;
       
       // Si es un objeto de Firestore Timestamp con _seconds

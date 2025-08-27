@@ -145,8 +145,17 @@ function CobroForm({ user }) {
       
       console.log(`🆕 Usuario: ${user.role}, Cobrador: ${cobrador}, vendedorId: ${vendedorId}`);
 
+      // 🆕 Formatear la fecha en formato dd/mm/aaaa antes de enviar
+      const formatearFecha = (fecha) => {
+        if (!fecha) return '';
+        const dia = fecha.getDate().toString().padStart(2, '0');
+        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+        const año = fecha.getFullYear();
+        return `${dia}/${mes}/${año}`;
+      };
+
       const cobroData = {
-        fecha,
+        fecha: formatearFecha(fecha), // 🆕 Fecha formateada como string
         cliente,
         monto: parseFloat(monto),
         cobrador,
