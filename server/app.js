@@ -1686,11 +1686,7 @@ app.get("/api/cobros", async (req, res) => {
       console.log(`🔍 Filtro de vendedor aplicado: vendedorId=${vendedorIdInt}`);
     }
     
-    // 🆕 Aplicar ordenamiento después de los filtros para evitar problemas de índice
-    query = query.orderBy('fechaCreacion', 'desc');
-    console.log(`🔍 Ordenamiento aplicado: fechaCreacion desc`);
-    
-    // 🆕 Aplicar filtros de fecha si se proporcionan
+    // 🆕 Aplicar filtros de fecha si se proporcionan (ANTES del orderBy)
     if (fechaDesde) {
       const fechaDesdeObj = new Date(fechaDesde);
       console.log(`🔍 Filtro de fecha desde aplicado: ${fechaDesdeObj}`);
@@ -1703,6 +1699,10 @@ app.get("/api/cobros", async (req, res) => {
       console.log(`🔍 Filtro de fecha hasta aplicado: ${fechaHastaObj}`);
       query = query.where('fechaCreacion', '<=', fechaHastaObj);
     }
+    
+    // 🆕 Aplicar ordenamiento DESPUÉS de todos los filtros
+    query = query.orderBy('fechaCreacion', 'desc');
+    console.log(`🔍 Ordenamiento aplicado: fechaCreacion desc`);
     
     // 🆕 Obtener total de documentos para paginación
     console.log(`🔍 Query construida para cobros:`, query);
