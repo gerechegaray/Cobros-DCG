@@ -26,16 +26,19 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
   // 🆕 Verificar si el usuario es admin
   const esAdmin = user?.role === 'admin';
   
-  // 🆕 Verificar si el usuario es vendedor (Guille o Santi)
-  const esVendedor = user?.role === 'Guille' || user?.role === 'Santi';
+  // 🆕 Verificar si el usuario es Guille (puede crear hojas de ruta)
+  const esGuille = user?.role === 'Guille';
   
-  // 🆕 Establecer responsable automáticamente para vendedores
+  // 🆕 Verificar si el usuario puede crear hojas de ruta
+  const puedeCrearHojasDeRuta = esAdmin || esGuille;
+  
+  // 🆕 Establecer responsable automáticamente para Guille
   useEffect(() => {
-    if (!edicion && esVendedor && !responsable) {
-      // Si es vendedor y no es edición, establecer automáticamente el responsable
-      setResponsable(user.role);
+    if (!edicion && esGuille && !responsable) {
+      // Si es Guille y no es edición, establecer automáticamente el responsable como Guille
+      setResponsable('Guille');
     }
-  }, [edicion, esVendedor, responsable, user.role]);
+  }, [edicion, esGuille, responsable]);
 
   useEffect(() => {
     if (edicion && hojaData) {
@@ -181,7 +184,7 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
                       {pedido.entregado && <span className="text-green-600 ml-1">✅</span>}
                     </span>
                     <div className="flex gap-1">
-                      {(esAdmin || esVendedor) && ( // 🆕 Admin y vendedores pueden cambiar orden
+                      {(esAdmin || esGuille) && ( // 🆕 Admin y Guille pueden cambiar orden
                         <>
                           <Button
                             icon="pi pi-arrow-up"
