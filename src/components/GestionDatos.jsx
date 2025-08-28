@@ -131,7 +131,7 @@ function GestionDatos({ user }) {
       
       const data = await api.updateVendedorBulk();
       
-      if (data.success) {
+              if (data.success) {
         toast.current?.show({
           severity: 'success',
           summary: 'Actualización Exitosa',
@@ -148,6 +148,100 @@ function GestionDatos({ user }) {
         severity: 'error',
         summary: 'Error de Actualización',
         detail: 'No se pudieron actualizar los cobros: ' + error.message
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // 🆕 Función para diagnosticar el estado de los cobros
+  const diagnosticarCobros = async () => {
+    setRefreshing(true);
+    try {
+      console.log('🔍 Iniciando diagnóstico de cobros...');
+      
+      // Obtener todos los cobros sin filtros
+      const response = await fetch('/api/cobros?page=1&limit=1000');
+      const data = await response.json();
+      
+      if (data.data && Array.isArray(data.data)) {
+        const cobros = data.data;
+        console.log('🔍 Total de cobros encontrados:', cobros.length);
+        
+        // Analizar cada cobro
+        const diagnostico = {
+          total: cobros.length,
+          conCobrador: 0,
+          sinCobrador: 0,
+          conVendedorId: 0,
+          sinVendedorId: 0,
+          porCobrador: {},
+          porVendedorId: {},
+          problemas: []
+        };
+        
+        cobros.forEach((cobro, index) => {
+          // Contar cobros con/sin cobrador
+          if (cobro.cobrador) {
+            diagnostico.conCobrador++;
+            diagnostico.porCobrador[cobro.cobrador] = (diagnostico.porCobrador[cobro.cobrador] || 0) + 1;
+          } else {
+            diagnostico.sinCobrador++;
+            diagnostico.problemas.push(`Cobro ${index + 1} (ID: ${cobro.id}): Sin campo cobrador`);
+          }
+          
+          // Contar cobros con/sin vendedorId
+          if (cobro.vendedorId !== undefined && cobro.vendedorId !== null) {
+            diagnostico.conVendedorId++;
+            diagnostico.porVendedorId[cobro.vendedorId] = (diagnostico.porVendedorId[cobro.vendedorId] || 0) + 1;
+          } else {
+            diagnostico.sinVendedorId++;
+            diagnostico.problemas.push(`Cobro ${index + 1} (ID: ${cobro.id}): Sin campo vendedorId`);
+          }
+          
+          // Verificar inconsistencias
+          if (cobro.cobrador && cobro.vendedorId !== undefined) {
+            const vendedorIdEsperado = cobro.cobrador === 'Santi' ? 2 : cobro.cobrador === 'Guille' ? 1 : null;
+            if (vendedorIdEsperado !== null && cobro.vendedorId !== vendedorIdEsperado) {
+              diagnostico.problemas.push(`Cobro ${index + 1} (ID: ${cobro.id}): Inconsistencia - cobrador: "${cobro.cobrador}", vendedorId: ${cobro.vendedorId}, esperado: ${vendedorIdEsperado}`);
+            }
+          }
+        });
+        
+        console.log('🔍 Diagnóstico completo:', diagnostico);
+        
+        // Mostrar resultado en toast
+        const mensaje = `
+          Total: ${diagnostico.total}
+          Con cobrador: ${diagnostico.conCobrador}
+          Sin cobrador: ${diagnostico.sinCobrador}
+          Con vendedorId: ${diagnostico.conVendedorId}
+          Sin vendedorId: ${diagnostico.sinVendedorId}
+          Por cobrador: ${JSON.stringify(diagnostico.porCobrador)}
+          Problemas: ${diagnostico.problemas.length}
+        `;
+        
+        toast.current?.show({
+          severity: diagnostico.problemas.length > 0 ? 'warn' : 'info',
+          summary: 'Diagnóstico de Cobros',
+          detail: mensaje,
+          life: 10000
+        });
+        
+        // Mostrar problemas en consola
+        if (diagnostico.problemas.length > 0) {
+          console.warn('🔍 Problemas encontrados:', diagnostico.problemas);
+        }
+        
+      } else {
+        throw new Error('No se pudieron obtener los cobros');
+      }
+    } catch (error) {
+      console.error('❌ Error en diagnóstico:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error de Diagnóstico',
+        detail: 'No se pudo diagnosticar los cobros: ' + error.message
       });
     } finally {
       setRefreshing(false);
@@ -532,6 +626,14 @@ function GestionDatos({ user }) {
                 onClick={actualizarVendedorIdCobros}
                 loading={refreshing}
                 tooltip="Asigna automáticamente vendedorId a cobros existentes basándose en el usuario que los creó"
+              />
+              <Button 
+                label="🔍 Diagnosticar Cobros" 
+                icon="pi pi-search" 
+                className="p-button-secondary"
+                onClick={diagnosticarCobros}
+                loading={refreshing}
+                tooltip="Ver el estado actual de los cobros y su configuración de cobrador"
               />
             </div>
           </div>
