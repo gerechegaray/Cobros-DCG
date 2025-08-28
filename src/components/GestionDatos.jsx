@@ -160,11 +160,10 @@ function GestionDatos({ user }) {
     try {
       console.log('🔍 Iniciando diagnóstico de cobros...');
       
-      // Obtener todos los cobros sin filtros
-      const response = await fetch('/api/cobros?page=1&limit=1000');
-      const data = await response.json();
+      // Obtener todos los cobros sin filtros usando la API del frontend
+      const data = await api.getCobros({ page: 1, limit: 1000 });
       
-      if (data.data && Array.isArray(data.data)) {
+      if (data && data.data && Array.isArray(data.data)) {
         const cobros = data.data;
         console.log('🔍 Total de cobros encontrados:', cobros.length);
         
