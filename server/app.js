@@ -1798,8 +1798,29 @@ app.post("/api/cobros", async (req, res) => {
       return `${dia}/${mes}/${año}`;
     };
 
+    // 🆕 Formatear la fecha del cobro si viene como objeto Date
+    let fechaFormateada = req.body.fecha;
+    if (req.body.fecha && typeof req.body.fecha === 'object' && req.body.fecha.toISOString) {
+      // Si es un objeto Date, formatearlo
+      fechaFormateada = formatearFechaCreacion(req.body.fecha);
+      console.log(`🆕 Fecha convertida de Date a string: ${fechaFormateada}`);
+    } else if (req.body.fecha && typeof req.body.fecha === 'string') {
+      // Si ya es string, verificar formato
+      if (req.body.fecha.includes('T') || req.body.fecha.includes('Z')) {
+        // Si es formato ISO, convertirlo
+        const fechaObj = new Date(req.body.fecha);
+        fechaFormateada = formatearFechaCreacion(fechaObj);
+        console.log(`🆕 Fecha ISO convertida a dd/mm/aaaa: ${fechaFormateada}`);
+      } else {
+        // Si ya está en formato dd/mm/aaaa, mantenerla
+        fechaFormateada = req.body.fecha;
+        console.log(`🆕 Fecha ya en formato correcto: ${fechaFormateada}`);
+      }
+    }
+
     const cobroData = {
       ...req.body,
+      fecha: fechaFormateada, // 🆕 Fecha formateada como string dd/mm/aaaa
       vendedorId: vendedorId, // 🆕 Asegurar que siempre tenga vendedorId
       cobrador: cobrador, // 🆕 Asegurar que siempre tenga cobrador
       fechaCreacion: formatearFechaCreacion(new Date()), // 🆕 Fecha como string dd/mm/aaaa
