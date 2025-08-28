@@ -28,6 +28,14 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
   
   // 🆕 Verificar si el usuario es vendedor (Guille o Santi)
   const esVendedor = user?.role === 'Guille' || user?.role === 'Santi';
+  
+  // 🆕 Establecer responsable automáticamente para vendedores
+  useEffect(() => {
+    if (!edicion && esVendedor && !responsable) {
+      // Si es vendedor y no es edición, establecer automáticamente el responsable
+      setResponsable(user.role);
+    }
+  }, [edicion, esVendedor, responsable, user.role]);
 
   useEffect(() => {
     if (edicion && hojaData) {
