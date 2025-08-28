@@ -32,14 +32,6 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
   // 🆕 Verificar si el usuario puede crear hojas de ruta
   const puedeCrearHojasDeRuta = esAdmin || esGuille;
   
-  // 🆕 Establecer responsable automáticamente para Guille
-  useEffect(() => {
-    if (!edicion && esGuille && !responsable) {
-      // Si es Guille y no es edición, establecer automáticamente el responsable como Guille
-      setResponsable('Guille');
-    }
-  }, [edicion, esGuille, responsable]);
-
   useEffect(() => {
     if (edicion && hojaData) {
       setFecha(hojaData.fecha?.toDate ? hojaData.fecha.toDate() : hojaData.fecha);
@@ -49,9 +41,14 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
       setFecha(new Date());
       setResponsable(null);
       setOrdenPedidos([...pedidosSeleccionados]);
+      
+      // 🆕 Establecer responsable automáticamente para Guille DESPUÉS de resetear
+      if (esGuille) {
+        setResponsable('Guille');
+      }
     }
     // eslint-disable-next-line
-  }, [visible, edicion, hojaData, pedidosSeleccionados]);
+  }, [visible, edicion, hojaData, pedidosSeleccionados, esGuille]);
 
   // 🆕 Filtrar facturas disponibles (las que no están en la hoja de ruta)
   const facturasParaAgregar = facturasDisponibles.filter(factura => 
