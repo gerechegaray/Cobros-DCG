@@ -541,49 +541,7 @@ function PresupuestosList({ user }) {
     }
   };
 
-  // 🆕 Sincronizar presupuestos desde Alegra
-  const sincronizarDesdeAlegra = async () => {
-    try {
-      setLoading(true);
-      toast.current.show({
-        severity: 'info',
-        summary: 'Sincronizando...',
-        detail: 'Buscando presupuestos nuevos en Alegra',
-        life: 3000
-      });
 
-      const response = await api.sincronizarPresupuestosDesdeAlegra();
-      
-      if (response.success) {
-        toast.current.show({
-          severity: 'success',
-          summary: 'Sincronización completada',
-          detail: response.message,
-          life: 5000
-        });
-        
-        // Refrescar lista después de sincronizar
-        await fetchPresupuestos();
-      } else {
-        toast.current.show({
-          severity: 'error',
-          summary: 'Error en sincronización',
-          detail: response.error || 'Error desconocido',
-          life: 5000
-        });
-      }
-    } catch (error) {
-      console.error('Error sincronizando desde Alegra:', error);
-      toast.current.show({
-        severity: 'error',
-        summary: 'Error en sincronización',
-        detail: error.message || 'Error desconocido',
-        life: 5000
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Utilidad para formatear fecha en formato DD/MM/YYYY
   const formatFecha = (fecha) => {
@@ -713,13 +671,6 @@ function PresupuestosList({ user }) {
             icon="pi pi-refresh" 
             severity="info"
             onClick={sincronizarEstados}
-          />
-          <Button 
-            label="Sincronizar desde Alegra" 
-            icon="pi pi-download" 
-            severity="warning"
-            onClick={sincronizarDesdeAlegra}
-            disabled={loading}
           />
         </div>
       </div>
