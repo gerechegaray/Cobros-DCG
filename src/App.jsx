@@ -11,6 +11,7 @@ import FacturasAlegra from "./features/facturas/FacturasAlegra";
 import UserProfile from "./features/auth/UserProfile";
 import GestionDatos from "./components/GestionDatos";
 import VisitasDashboard from "./features/visitas/VisitasDashboard";
+import GastosMain from "./features/gastos/GastosMain";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -60,9 +61,10 @@ function App() {
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
     ];
 
-    // Agregar Gestión de Datos solo para admin
+    // Agregar opciones solo para admin
     if (user && user.role === 'admin') {
       baseItems.push({ label: "Gestión de Datos", icon: "pi pi-database", path: "/gestion-datos" });
+      baseItems.push({ label: "Gastos", icon: "pi pi-money-bill", path: "/gastos" });
     }
 
     return baseItems;
@@ -91,6 +93,11 @@ function App() {
             <Route path="/gestion-datos" element={
               user && user.role === 'admin' ? 
               <GestionDatos user={user} /> : 
+              <Navigate to="/dashboard" replace />
+            } />
+            <Route path="/gastos" element={
+              user && user.role === 'admin' ? 
+              <GastosMain user={user} /> : 
               <Navigate to="/dashboard" replace />
             } />
           </Routes>

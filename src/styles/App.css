@@ -5,6 +5,72 @@
   text-align: center;
 }
 
+/* Estilos para el calendario de gastos */
+.rbc-calendar {
+  font-family: inherit;
+}
+
+.rbc-event {
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rbc-event-content {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rbc-toolbar {
+  margin-bottom: 1rem;
+}
+
+.rbc-toolbar button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin: 0 2px;
+  cursor: pointer;
+}
+
+.rbc-toolbar button:hover {
+  background: #2563eb;
+}
+
+.rbc-toolbar button.rbc-active {
+  background: #1d4ed8;
+}
+
+.rbc-today {
+  background-color: #f0f9ff;
+}
+
+.rbc-off-range-bg {
+  background-color: #f8fafc;
+}
+
+/* Estilos para gráficos */
+.recharts-wrapper {
+  font-family: inherit;
+}
+
+/* Estilos para el sistema de gastos */
+.gastos-main .p-tabview-nav {
+  background: #f8fafc;
+  border-radius: 8px 8px 0 0;
+}
+
+.gastos-main .p-tabview-panels {
+  background: white;
+  border-radius: 0 0 8px 8px;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
