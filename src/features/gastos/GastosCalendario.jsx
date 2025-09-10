@@ -22,7 +22,7 @@ import GastoForm from './GastoForm';
 import GastoRecurrenteForm from './GastoRecurrenteForm';
 import BusquedaCompacta from './BusquedaCompacta';
 import TemplatesGastos from './TemplatesGastos';
-import PagosParciales from './pagosParciales';
+import PagosParciales from './PagosParciales';
 import AlertasGastos from './AlertasGastos';
 import { permitePagosParciales, formatearResumenPagos } from './pagosUtils';
 import { generarTodasLasAlertas, obtenerResumenAlertas } from './notificaciones';
