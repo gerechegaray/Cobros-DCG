@@ -6,12 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import Navbar from "./components/layout/Navbar";
 import Login from "./features/auth/Login";
 import Dashboard from "./features/dashboard/Dashboard";
-import PresupuestosList from "./features/presupuestos/PresupuestosList";
-import PresupuestoForm from "./features/presupuestos/PresupuestoForm";
-import CobrosList from "./features/cobros/CobrosList";
-import CobroForm from "./features/cobros/CobroForm";
 import EstadoCuenta from "./features/clientes/EstadoCuenta";
-import SelectorCliente from "./features/pedidos/SelectorCliente";
 import FacturasAlegra from "./features/facturas/FacturasAlegra";
 import UserProfile from "./features/auth/UserProfile";
 import GestionDatos from "./components/GestionDatos";
@@ -59,15 +54,13 @@ function App() {
   const getMenuItems = () => {
     const baseItems = [
       { label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" },
-      { label: "Pedidos", icon: "pi pi-file", path: "/presupuestos" },
-      { label: "Lista de Cobranzas", icon: "pi pi-list", path: "/list" },
-      { label: "Clientes", icon: "pi pi-users", path: "/clientes" },
-      { label: "Envios", icon: "pi pi-file-o", path: "/facturas" },
+      { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
+      { label: "Envíos", icon: "pi pi-file-o", path: "/facturas" },
       { label: "Visitas", icon: "pi pi-calendar", path: "/visitas" },
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
     ];
 
-    // 🆕 Agregar Gestión de Datos solo para admin
+    // Agregar Gestión de Datos solo para admin
     if (user && user.role === 'admin') {
       baseItems.push({ label: "Gestión de Datos", icon: "pi pi-database", path: "/gestion-datos" });
     }
@@ -91,11 +84,6 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard user={user} />} />
-            <Route path="/presupuestos" element={<PresupuestosList user={user} />} />
-            <Route path="/presupuestos/new" element={<PresupuestoForm user={user} />} />
-            <Route path="/list" element={<CobrosList user={user} />} />
-            <Route path="/list/new" element={<CobroForm user={user} />} />
-            <Route path="/clientes" element={<SelectorCliente user={user} />} />
             <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
             <Route path="/facturas" element={<FacturasAlegra user={user} />} />
             <Route path="/visitas" element={<VisitasDashboard user={user} />} />

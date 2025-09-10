@@ -8,7 +8,9 @@ import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Dropdown } from "primereact/dropdown";
 import { getEstadoCuenta } from "../../services/alegra";
+import { api } from "../../services/api";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -18,8 +20,10 @@ function EstadoCuenta({ user }) {
   const toast = useRef(null);
   
   const [cliente, setCliente] = useState(null);
+  const [clientes, setClientes] = useState([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
   const [boletas, setBoletas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [totales, setTotales] = useState({
     totalAdeudado: 0,
@@ -27,16 +31,91 @@ function EstadoCuenta({ user }) {
     totalGeneral: 0
   });
 
+  // Obtener el sellerId según el rol del usuario
+  const getSellerId = () => {
+    if (user?.role === 'Guille') return 1;
+    if (user?.role === 'Santi') return 2;
+    if (user?.role === 'admin') return null; // Admin ve todos
+    return null;
+  };
+
+  // Cargar clientes al montar el componente
   useEffect(() => {
-    // Obtener cliente desde navegación
-    if (location.state?.cliente) {
-      setCliente(location.state.cliente);
-      cargarEstadoCuenta(location.state.cliente);
+    const fetchClientes = async () => {
+      setLoadingClientes(true);
+      try {
+        const data = await api.getClientesFirebase();
+        
+        // Filtrar clientes según el rol del usuario
+        const sellerId = getSellerId();
+        let clientesFiltrados = data;
+        
+        if (sellerId !== null) {
+          // Filtrar por sellerId específico - el seller es un objeto con id
+          clientesFiltrados = data.filter(cliente => {
+            if (cliente.seller && cliente.seller.id) {
+              return cliente.seller.id === sellerId.toString();
+            }
+            return false;
+          });
+        } else if (user?.role === 'admin') {
+          clientesFiltrados = data;
+        } else {
+          clientesFiltrados = [];
+        }
+        
+        // Ordenar clientes alfabéticamente
+        const clientesOrdenados = clientesFiltrados
+          .sort((a, b) => {
+            const nombreA = a.name || a.nombre || a['Razón Social'] || '';
+            const nombreB = b.name || b.nombre || b['Razón Social'] || '';
+            return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
+          });
+        
+        setClientes(clientesOrdenados);
+        
+        // Si hay un cliente desde navegación, seleccionarlo automáticamente
+        if (location.state?.cliente && clientesOrdenados.length > 0) {
+          const clienteEncontrado = clientesOrdenados.find(c => 
+            c.id === location.state.cliente.id || 
+            c.name === location.state.cliente.name ||
+            c.nombre === location.state.cliente.nombre ||
+            c['Razón Social'] === location.state.cliente['Razón Social']
+          );
+          if (clienteEncontrado) {
+            setCliente(clienteEncontrado);
+            cargarEstadoCuenta(clienteEncontrado);
+          }
+        }
+      } catch (error) {
+        console.error('Error al cargar clientes:', error);
+        toast.current?.show({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Error al cargar la lista de clientes'
+        });
+      } finally {
+        setLoadingClientes(false);
+      }
+    };
+    
+    fetchClientes();
+  }, [user, location.state]);
+
+  const handleClienteChange = (clienteSeleccionado) => {
+    setCliente(clienteSeleccionado);
+    if (clienteSeleccionado) {
+      cargarEstadoCuenta(clienteSeleccionado);
     } else {
-      // Si no hay cliente, redirigir
-      navigate('/clientes');
+      // Limpiar datos si no hay cliente seleccionado
+      setBoletas([]);
+      setTotales({
+        totalAdeudado: 0,
+        totalPagado: 0,
+        totalGeneral: 0
+      });
     }
-  }, [location.state, navigate]);
+  };
 
   const cargarEstadoCuenta = async (clienteData) => {
     setLoading(true);
@@ -326,11 +405,11 @@ function EstadoCuenta({ user }) {
     }
   };
 
-  if (!cliente) {
+  if (loadingClientes) {
     return (
       <div style={{ padding: "2rem", textAlign: "center" }}>
         <ProgressSpinner />
-        <p>Cargando...</p>
+        <p>Cargando clientes...</p>
       </div>
     );
   }
@@ -342,10 +421,7 @@ function EstadoCuenta({ user }) {
         margin: "0 auto",
         padding: "1rem",
         background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-        minHeight: "100vh",
-        "@media (max-width: 768px)": {
-          padding: "0.5rem"
-        }
+        minHeight: "100vh"
       }}
     >
       <Toast ref={toast} />
@@ -364,10 +440,6 @@ function EstadoCuenta({ user }) {
             padding: "2rem",
             color: "white",
             margin: "-1.5rem -1.5rem 2rem -1.5rem",
-            "@media (max-width: 768px)": {
-              padding: "1rem",
-              margin: "-1rem -1rem 1rem -1rem"
-            }
           }}
         >
           <div className="flex justify-content-between align-items-center flex-wrap gap-3">
@@ -377,39 +449,41 @@ function EstadoCuenta({ user }) {
                   margin: "0 0 0.5rem 0",
                   fontSize: "1.875rem",
                   fontWeight: "700",
-                  letterSpacing: "-0.025em",
-                  "@media (max-width: 768px)": {
-                    fontSize: "1.5rem"
-                  }
+                  letterSpacing: "-0.025em"
                 }}
               >
                 Estado de Cuenta
               </h1>
-              <p
-                style={{
-                  margin: "0",
-                  fontSize: "1rem",
-                  opacity: "0.9",
-                  fontWeight: "400",
-                  "@media (max-width: 768px)": {
-                    fontSize: "0.875rem"
-                  }
-                }}
-              >
-                Cliente: <strong>{cliente.razonSocial || cliente.id}</strong>
-              </p>
+              {cliente ? (
+                <p
+                  style={{
+                    margin: "0",
+                    fontSize: "1rem",
+                    opacity: "0.9",
+                    fontWeight: "400"
+                  }}
+                >
+                  Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
+                </p>
+              ) : (
+                <p
+                  style={{
+                    margin: "0",
+                    fontSize: "1rem",
+                    opacity: "0.9",
+                    fontWeight: "400"
+                  }}
+                >
+                  Selecciona un cliente para ver su estado de cuenta
+                </p>
+              )}
             </div>
-            <div className="flex gap-2" style={{ 
-              "@media (max-width: 768px)": {
-                flexDirection: "column",
-                gap: "0.5rem"
-              }
-            }}>
+            <div className="flex gap-2">
               <Button
                 label="Volver"
                 icon="pi pi-arrow-left"
                 className="p-button-outlined"
-                onClick={() => navigate('/clientes')}
+                onClick={() => navigate('/dashboard')}
                 style={{
                   background: "rgba(255, 255, 255, 0.1)",
                   border: "2px solid rgba(255, 255, 255, 0.3)",
@@ -417,71 +491,78 @@ function EstadoCuenta({ user }) {
                   borderRadius: "12px",
                   padding: "0.75rem 1.5rem",
                   fontWeight: "600",
-                  backdropFilter: "blur(10px)",
-                  "@media (max-width: 768px)": {
-                    padding: "0.5rem 1rem",
-                    fontSize: "0.875rem"
-                  }
+                  backdropFilter: "blur(10px)"
                 }}
               />
-              <Button
-                label={updating ? "Actualizando..." : "Actualizar"}
-                icon={updating ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
-                className="p-button-outlined"
-                onClick={actualizarDesdeAlegra}
-                disabled={updating}
-                style={{
-                  background: "rgba(255, 255, 255, 0.1)",
-                  border: "2px solid rgba(255, 255, 255, 0.3)",
-                  color: "white",
-                  borderRadius: "12px",
-                  padding: "0.75rem 1.5rem",
-                  fontWeight: "600",
-                  backdropFilter: "blur(10px)",
-                  "@media (max-width: 768px)": {
-                    padding: "0.5rem 1rem",
-                    fontSize: "0.875rem"
-                  }
-                }}
-              />
-              <Button
-                label="Exportar PDF"
-                icon="pi pi-file-pdf"
-                className="p-button-outlined"
-                onClick={exportarPDF}
-                style={{
-                  background: "rgba(255, 255, 255, 0.1)",
-                  border: "2px solid rgba(255, 255, 255, 0.3)",
-                  color: "white",
-                  borderRadius: "12px",
-                  padding: "0.75rem 1.5rem",
-                  fontWeight: "600",
-                  backdropFilter: "blur(10px)",
-                  "@media (max-width: 768px)": {
-                    padding: "0.5rem 1rem",
-                    fontSize: "0.875rem"
-                  }
-                }}
-              />
+              {cliente && (
+                <>
+                  <Button
+                    label={updating ? "Actualizando..." : "Actualizar"}
+                    icon={updating ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
+                    className="p-button-outlined"
+                    onClick={actualizarDesdeAlegra}
+                    disabled={updating}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.1)",
+                      border: "2px solid rgba(255, 255, 255, 0.3)",
+                      color: "white",
+                      borderRadius: "12px",
+                      padding: "0.75rem 1.5rem",
+                      fontWeight: "600",
+                      backdropFilter: "blur(10px)"
+                    }}
+                  />
+                  <Button
+                    label="Exportar PDF"
+                    icon="pi pi-file-pdf"
+                    className="p-button-outlined"
+                    onClick={exportarPDF}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.1)",
+                      border: "2px solid rgba(255, 255, 255, 0.3)",
+                      color: "white",
+                      borderRadius: "12px",
+                      padding: "0.75rem 1.5rem",
+                      fontWeight: "600",
+                      backdropFilter: "blur(10px)"
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Resumen de Totales */}
-        <div className="grid mb-4">
+        {/* Selector de Cliente */}
+        <div className="p-mb-4">
+          <div className="p-field">
+            <label className="p-block p-mb-2" style={{ fontWeight: "500", color: "#374151" }}>
+              Seleccionar Cliente
+            </label>
+            <Dropdown
+              value={cliente}
+              options={clientes}
+              onChange={(e) => handleClienteChange(e.value)}
+              optionLabel="name"
+              placeholder="Selecciona un cliente"
+              filter
+              filterPlaceholder="Buscar cliente..."
+              showClear
+              className="p-fluid"
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+
+        {/* Resumen de Totales - Solo mostrar si hay cliente seleccionado */}
+        {cliente && (
+          <div className="grid mb-4">
           <div className="col-12 md:col-4">
-            <Card className="p-mb-2" style={{
-              "@media (max-width: 768px)": {
-                marginBottom: "0.5rem"
-              }
-            }}>
+            <Card className="p-mb-2">
               <div className="text-center">
                 <h3 style={{ 
                   color: "#dc2626", 
-                  margin: "0 0 0.5rem 0",
-                  "@media (max-width: 768px)": {
-                    fontSize: "1.25rem"
-                  }
+                  margin: "0 0 0.5rem 0"
                 }}>
                   {formatMonto(totales.totalAdeudado)}
                 </h3>
@@ -489,9 +570,6 @@ function EstadoCuenta({ user }) {
                   margin: "0", 
                   color: "#6b7280", 
                   fontWeight: "500",
-                  "@media (max-width: 768px)": {
-                    fontSize: "0.875rem"
-                  }
                 }}>
                   Total Adeudado
                 </p>
@@ -499,18 +577,11 @@ function EstadoCuenta({ user }) {
             </Card>
           </div>
           <div className="col-12 md:col-4">
-            <Card className="p-mb-2" style={{
-              "@media (max-width: 768px)": {
-                marginBottom: "0.5rem"
-              }
-            }}>
+            <Card className="p-mb-2">
               <div className="text-center">
                 <h3 style={{ 
                   color: "#059669", 
-                  margin: "0 0 0.5rem 0",
-                  "@media (max-width: 768px)": {
-                    fontSize: "1.25rem"
-                  }
+                  margin: "0 0 0.5rem 0"
                 }}>
                   {formatMonto(totales.totalPagado)}
                 </h3>
@@ -518,9 +589,6 @@ function EstadoCuenta({ user }) {
                   margin: "0", 
                   color: "#6b7280", 
                   fontWeight: "500",
-                  "@media (max-width: 768px)": {
-                    fontSize: "0.875rem"
-                  }
                 }}>
                   Total Pagado
                 </p>
@@ -528,18 +596,11 @@ function EstadoCuenta({ user }) {
             </Card>
           </div>
           <div className="col-12 md:col-4">
-            <Card className="p-mb-2" style={{
-              "@media (max-width: 768px)": {
-                marginBottom: "0.5rem"
-              }
-            }}>
+            <Card className="p-mb-2">
               <div className="text-center">
                 <h3 style={{ 
                   color: "#1f2937", 
-                  margin: "0 0 0.5rem 0",
-                  "@media (max-width: 768px)": {
-                    fontSize: "1.25rem"
-                  }
+                  margin: "0 0 0.5rem 0"
                 }}>
                   {formatMonto(totales.totalGeneral)}
                 </h3>
@@ -547,9 +608,6 @@ function EstadoCuenta({ user }) {
                   margin: "0", 
                   color: "#6b7280", 
                   fontWeight: "500",
-                  "@media (max-width: 768px)": {
-                    fontSize: "0.875rem"
-                  }
                 }}>
                   Total General
                 </p>
@@ -557,33 +615,28 @@ function EstadoCuenta({ user }) {
             </Card>
           </div>
         </div>
+        )}
 
-        {/* Tabla de Boletas con filas expandibles para pagos */}
-        <div style={{ 
-          padding: "0 0.5rem",
-          "@media (max-width: 768px)": {
-            padding: "0"
-          }
-        }}>
-          <h3 style={{ 
-            color: "#374151", 
-            marginBottom: "1rem",
-            "@media (max-width: 768px)": {
-              fontSize: "1.25rem",
-              marginBottom: "0.75rem"
-            }
+        {/* Tabla de Boletas con filas expandibles para pagos - Solo mostrar si hay cliente seleccionado */}
+        {cliente && (
+          <div style={{ 
+            padding: "0 0.5rem"
           }}>
-            Detalle de Boletas
-          </h3>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "2rem" }}>
-              <ProgressSpinner />
-              <p style={{ marginTop: "1rem", color: "#6b7280" }}>
-                Cargando estado de cuenta...
-              </p>
-            </div>
-          ) : (
-                         <DataTable
+            <h3 style={{ 
+              color: "#374151", 
+              marginBottom: "1rem"
+            }}>
+              Detalle de Boletas
+            </h3>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                <ProgressSpinner />
+                <p style={{ marginTop: "1rem", color: "#6b7280" }}>
+                  Cargando estado de cuenta...
+                </p>
+              </div>
+            ) : (
+              <DataTable
                value={boletas}
                paginator
                rows={10}
@@ -593,10 +646,7 @@ function EstadoCuenta({ user }) {
                style={{
                  borderRadius: "12px",
                  overflow: "hidden",
-                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                 "@media (max-width: 768px)": {
-                   fontSize: "0.875rem"
-                 }
+                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
                }}
               rowExpansionTemplate={(rowData) =>
                 rowData.pagos && rowData.pagos.length > 0 ? (
@@ -627,20 +677,14 @@ function EstadoCuenta({ user }) {
                  field="numero"
                  header="Número"
                  style={{ 
-                   minWidth: "120px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "80px"
-                   }
+                   minWidth: "120px"
                  }}
                />
                <Column
                  field="clienteNombre"
                  header="Cliente"
                  style={{ 
-                   minWidth: "150px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "100px"
-                   }
+                   minWidth: "150px"
                  }}
                />
                <Column
@@ -648,10 +692,7 @@ function EstadoCuenta({ user }) {
                  header="Fecha Emisión"
                  body={(row) => formatFecha(row.fechaEmision)}
                  style={{ 
-                   minWidth: "110px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "90px"
-                   }
+                   minWidth: "110px"
                  }}
                />
                <Column
@@ -659,10 +700,7 @@ function EstadoCuenta({ user }) {
                  header="Fecha Vencimiento"
                  body={(row) => formatFecha(row.fechaVencimiento)}
                  style={{ 
-                   minWidth: "110px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "90px"
-                   }
+                   minWidth: "110px"
                  }}
                />
                <Column
@@ -670,10 +708,7 @@ function EstadoCuenta({ user }) {
                  header="Monto Total"
                  body={montoTemplate('montoTotal')}
                  style={{ 
-                   minWidth: "110px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "90px"
-                   }
+                   minWidth: "110px"
                  }}
                />
                <Column
@@ -681,10 +716,7 @@ function EstadoCuenta({ user }) {
                  header="Monto Pagado"
                  body={montoTemplate('montoPagado')}
                  style={{ 
-                   minWidth: "110px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "90px"
-                   }
+                   minWidth: "110px"
                  }}
                />
                <Column
@@ -692,10 +724,7 @@ function EstadoCuenta({ user }) {
                  header="Monto Adeudado"
                  body={rowData => formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
                  style={{ 
-                   minWidth: "110px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "90px"
-                   }
+                   minWidth: "110px"
                  }}
                />
                <Column
@@ -703,15 +732,13 @@ function EstadoCuenta({ user }) {
                  header="Estado"
                  body={estadoTemplate}
                  style={{ 
-                   minWidth: "90px",
-                   "@media (max-width: 768px)": {
-                     minWidth: "70px"
-                   }
+                   minWidth: "90px"
                  }}
                />
             </DataTable>
           )}
-        </div>
+          </div>
+        )}
       </Card>
     </div>
   );
