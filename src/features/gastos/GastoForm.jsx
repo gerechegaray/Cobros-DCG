@@ -64,13 +64,24 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
   useEffect(() => {
     if (gasto) {
       const esPagado = gasto.estado === 'pagado';
+      
+      // Convertir fechas ISO a objetos Date para los campos Calendar
+      const fechaVencimiento = gasto.fechaVencimiento ? new Date(gasto.fechaVencimiento) : null;
+      const fechaPago = gasto.fechaPago ? new Date(gasto.fechaPago) : null;
+      
+      console.log('Cargando gasto para edición:', gasto);
+      console.log('fechaVencimiento original:', gasto.fechaVencimiento);
+      console.log('fechaVencimiento convertida:', fechaVencimiento);
+      console.log('fechaPago original:', gasto.fechaPago);
+      console.log('fechaPago convertida:', fechaPago);
+      
       reset({
         categoria: gasto.categoria || '',
         subcategoria: gasto.subcategoria || '',
-        montoTotal: gasto.montoTotal || 0,
+        montoTotal: gasto.montoTotal || gasto.monto || 0,
         valorRecibido: gasto.valorRecibido || 0,
-        fechaVencimiento: gasto.fechaVencimiento || '',
-        fechaPago: gasto.fechaPago || '',
+        fechaVencimiento: fechaVencimiento,
+        fechaPago: fechaPago,
         nota: gasto.nota || '',
         tipoPago: gasto.tipoPago || 'efectivo',
         subcategoriaTipoPago: gasto.subcategoriaTipoPago || ''
@@ -134,6 +145,26 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
+      // Validar monto total manualmente
+      if (!data.montoTotal || data.montoTotal <= 0) {
+        setToast({ severity: 'error', summary: 'Error', detail: 'El monto debe ser mayor a 0' });
+        setLoading(false);
+        return;
+      }
+
+      // Validar fechas según el estado de pago
+      if (estadoPago === 'por_pagar' && !data.fechaVencimiento) {
+        setToast({ severity: 'error', summary: 'Error', detail: 'La fecha de vencimiento es requerida' });
+        setLoading(false);
+        return;
+      }
+
+      if (estadoPago === 'pagado' && !data.fechaPago) {
+        setToast({ severity: 'error', summary: 'Error', detail: 'La fecha de pago es requerida' });
+        setLoading(false);
+        return;
+      }
+
       // Generar título automático basado en categoría y subcategoría
       const categoria = categoriasGastos.find(c => c.id === data.categoria);
       const subcategorias = getSubcategoriasByCategoria(data.categoria);
@@ -152,8 +183,19 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
         tipo: 'gasto', // Gasto real (no recordatorio)
         estado: estadoPago === 'pagado' ? 'pagado' : 'pendiente',
         cuotasPagadas: 0,
-        fechaPago: estadoPago === 'pagado' ? data.fechaPago : null
+        fechaPago: estadoPago === 'pagado' ? (data.fechaPago ? data.fechaPago.toISOString() : null) : null,
+        fechaVencimiento: estadoPago === 'por_pagar' ? (data.fechaVencimiento ? data.fechaVencimiento.toISOString() : null) : null
       };
+
+      // Debug: Log de los datos que se van a guardar
+      console.log('Datos del formulario:', data);
+      console.log('Estado de pago:', estadoPago);
+      console.log('Fecha de pago:', data.fechaPago);
+      console.log('Fecha de pago tipo:', typeof data.fechaPago);
+      console.log('Fecha de pago instanceof Date:', data.fechaPago instanceof Date);
+      console.log('Datos finales del gasto:', gastoData);
+      console.log('fechaPago en gastoData:', gastoData.fechaPago);
+      console.log('fechaPago en gastoData tipo:', typeof gastoData.fechaPago);
 
       if (gasto) {
         await actualizarGasto(gasto.id, gastoData, user);
@@ -247,14 +289,16 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
               <label htmlFor="montoTotal" className="block mb-2">
                 Monto Total <span className="text-red-500">*</span>
               </label>
-                  <InputNumber
-                    id="montoTotal"
-                    {...register('montoTotal', validacionesGastos.montoTotal)}
-                    mode="currency"
-                    currency="ARS"
-                    locale="es-AR"
-                    className={errors.montoTotal ? 'p-invalid' : ''}
-                  />
+              <InputNumber
+                id="montoTotal"
+                value={watchedValues.montoTotal}
+                onValueChange={(e) => setValue('montoTotal', e.value)}
+                mode="currency"
+                currency="ARS"
+                locale="es-AR"
+                className={errors.montoTotal ? 'p-invalid' : ''}
+                placeholder="0"
+              />
               {errors.montoTotal && <small className="text-red-500">{errors.montoTotal.message}</small>}
             </div>
 
@@ -263,14 +307,16 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
                 <label htmlFor="valorRecibido" className="block mb-2">
                   Valor Recibido <span className="text-red-500">*</span>
                 </label>
-                    <InputNumber
-                      id="valorRecibido"
-                      {...register('valorRecibido', validacionesGastos.valorRecibido)}
-                      mode="currency"
-                      currency="ARS"
-                      locale="es-AR"
-                      className={errors.valorRecibido ? 'p-invalid' : ''}
-                    />
+                <InputNumber
+                  id="valorRecibido"
+                  value={watchedValues.valorRecibido}
+                  onValueChange={(e) => setValue('valorRecibido', e.value)}
+                  mode="currency"
+                  currency="ARS"
+                  locale="es-AR"
+                  className={errors.valorRecibido ? 'p-invalid' : ''}
+                  placeholder="0"
+                />
                 {errors.valorRecibido && <small className="text-red-500">{errors.valorRecibido.message}</small>}
               </div>
             )}
@@ -302,7 +348,8 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
                 </label>
                 <Calendar
                   id="fechaVencimiento"
-                  {...register('fechaVencimiento', { required: 'La fecha de vencimiento es requerida' })}
+                  value={watchedValues.fechaVencimiento ? new Date(watchedValues.fechaVencimiento) : null}
+                  onChange={(e) => setValue('fechaVencimiento', e.value)}
                   dateFormat="dd/mm/yy"
                   className={errors.fechaVencimiento ? 'p-invalid' : ''}
                   showIcon
@@ -318,7 +365,8 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
                 </label>
                 <Calendar
                   id="fechaPago"
-                  {...register('fechaPago', { required: 'La fecha de pago es requerida' })}
+                  value={watchedValues.fechaPago ? new Date(watchedValues.fechaPago) : null}
+                  onChange={(e) => setValue('fechaPago', e.value)}
                   dateFormat="dd/mm/yy"
                   className={errors.fechaPago ? 'p-invalid' : ''}
                   showIcon

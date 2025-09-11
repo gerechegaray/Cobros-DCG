@@ -156,5 +156,24 @@ export const formatMonto = (monto) => {
 
 // Función para formatear fecha
 export const formatFecha = (fecha) => {
-  return moment(fecha).format('DD/MM/YYYY');
+  if (!fecha) {
+    return 'Sin fecha';
+  }
+  
+  // Manejar tanto strings ISO como objetos Date
+  let fechaParaMoment = fecha;
+  if (fecha instanceof Date) {
+    fechaParaMoment = fecha.toISOString();
+  } else if (typeof fecha === 'string' && !fecha.includes('T')) {
+    // Si es un string sin formato ISO, intentar parsearlo
+    fechaParaMoment = new Date(fecha).toISOString();
+  }
+  
+  const momentFecha = moment(fechaParaMoment);
+  if (!momentFecha.isValid()) {
+    console.log('Fecha inválida recibida:', fecha, 'tipo:', typeof fecha);
+    return 'Fecha inválida';
+  }
+  
+  return momentFecha.format('DD/MM/YYYY');
 };

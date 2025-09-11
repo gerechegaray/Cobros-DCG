@@ -15,7 +15,7 @@ import {
   ProgressSpinner,
   Divider
 } from 'primereact';
-import { getGastosRealtime } from './gastosService';
+import { getGastosRealtime, eliminarGasto } from './gastosService';
 import { formatMonto, formatFecha } from './utils';
 import { getEventColor, categoriasGastos, estadosGastos, getSubcategoriasByCategoria } from './constants';
 import GastoForm from './GastoForm';
@@ -149,16 +149,30 @@ const GastosCalendario = ({ user }) => {
           titulo += ` - ${formatMonto(gasto.monto)}`;
         }
         
-        eventosCalendario.push({
-          id: gasto.id,
-          title: titulo,
-          start: new Date(gasto.fechaVencimiento),
-          end: new Date(gasto.fechaVencimiento),
-          resource: {
-            ...gasto,
-            tipo: 'gasto'
+        // Usar la fecha correcta según el estado del gasto
+        const fechaEvento = gasto.estado === 'pagado' ? gasto.fechaPago : gasto.fechaVencimiento;
+        
+        // Solo crear el evento si hay una fecha válida
+        if (fechaEvento) {
+          // Convertir a Date si es necesario
+          const fechaDate = fechaEvento instanceof Date ? fechaEvento : new Date(fechaEvento);
+          
+          // Verificar que la fecha es válida
+          if (!isNaN(fechaDate.getTime())) {
+            eventosCalendario.push({
+              id: gasto.id,
+              title: titulo,
+              start: fechaDate,
+              end: fechaDate,
+              resource: {
+                ...gasto,
+                tipo: 'gasto'
+              }
+            });
+          } else {
+            console.log('Fecha inválida para evento:', fechaEvento, 'tipo:', typeof fechaEvento);
           }
-        });
+        }
       }
     });
 
@@ -220,6 +234,17 @@ const GastosCalendario = ({ user }) => {
     }));
   };
 
+  // Manejar eliminación de gasto
+  const handleEliminarGasto = async (gastoId) => {
+    try {
+      await eliminarGasto(gastoId, user);
+      setToast({ severity: 'success', summary: 'Éxito', detail: 'Gasto eliminado correctamente' });
+    } catch (error) {
+      console.error('Error eliminando gasto:', error);
+      setToast({ severity: 'error', summary: 'Error', detail: 'Error al eliminar el gasto' });
+    }
+  };
+
   // Formatear monto en tabla
   const montoTemplate = (rowData) => {
     return formatMonto(rowData.monto || rowData.montoTotal);
@@ -227,7 +252,9 @@ const GastosCalendario = ({ user }) => {
 
   // Formatear fecha en tabla
   const fechaTemplate = (rowData) => {
-    return formatFecha(rowData.fechaVencimiento);
+    // Usar la fecha correcta según el estado del gasto
+    const fecha = rowData.estado === 'pagado' ? rowData.fechaPago : rowData.fechaVencimiento;
+    return formatFecha(fecha);
   };
 
   // Template de estado
@@ -434,6 +461,26 @@ const GastosCalendario = ({ user }) => {
                   );
                 }}
               />
+              <Column 
+                field="nota" 
+                header="Nota" 
+                body={(rowData) => (
+                  <span className="text-sm" style={{ maxWidth: '200px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {rowData.nota || '-'}
+                  </span>
+                )}
+              />
+              <Column 
+                header="Acciones" 
+                body={(rowData) => (
+                  <Button
+                    icon="pi pi-trash"
+                    className="p-button-danger p-button-sm"
+                    onClick={() => handleEliminarGasto(rowData.id)}
+                    tooltip="Eliminar gasto"
+                  />
+                )}
+              />
             </DataTable>
           </Card>
         </div>
@@ -545,6 +592,19 @@ const GastosCalendario = ({ user }) => {
             <div className="col-6">
               {estadoTemplate(selectedGasto)}
             </div>
+            
+            {selectedGasto.nota && (
+              <>
+                <div className="col-6">
+                  <strong>Nota:</strong>
+                </div>
+                <div className="col-6">
+                  <span className="text-sm" style={{ wordBreak: 'break-word' }}>
+                    {selectedGasto.nota}
+                  </span>
+                </div>
+              </>
+            )}
             
             {selectedGasto.descripcion && (
               <>
