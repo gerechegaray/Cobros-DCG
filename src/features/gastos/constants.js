@@ -17,6 +17,7 @@ export const categoriasGastos = [
   { id: 'dgr', nombre: 'DGR', color: '#dc2626', icono: 'pi-file-pdf' },
   { id: 'publicidad', nombre: 'Publicidad', color: '#ea580c', icono: 'pi-megaphone' },
   { id: 'servicios_oficina', nombre: 'Servicios Oficina', color: '#059669', icono: 'pi-desktop' },
+  { id: 'fletes', nombre: 'Fletes', color: '#8b5cf6', icono: 'pi-truck' },
   { id: 'otros_gastos', nombre: 'Otros Gastos', color: '#6b7280', icono: 'pi-ellipsis-h' }
 ];
 

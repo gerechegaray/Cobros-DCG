@@ -290,10 +290,12 @@ function EstadoCuenta({ user }) {
       pdfContainer.style.position = 'absolute';
       pdfContainer.style.left = '-9999px';
       pdfContainer.style.top = '0';
-      pdfContainer.style.width = '800px';
+      pdfContainer.style.width = '794px'; // A4 width in pixels (210mm * 3.78)
       pdfContainer.style.backgroundColor = 'white';
-      pdfContainer.style.padding = '40px';
+      pdfContainer.style.padding = '20px 30px'; // Márgenes más conservadores
       pdfContainer.style.fontFamily = 'Arial, sans-serif';
+      pdfContainer.style.fontSize = '12px';
+      pdfContainer.style.lineHeight = '1.4';
       
       // Crear el contenido del PDF
       pdfContainer.innerHTML = `
@@ -321,28 +323,28 @@ function EstadoCuenta({ user }) {
         
         <div style="margin-bottom: 20px;">
           <h2 style="color: #2c3e50; margin-bottom: 15px;">DETALLE DE BOLETAS</h2>
-          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; font-size: 11px;">
             <thead>
               <tr style="background-color: #34495e; color: white;">
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Número</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Fecha Emisión</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Fecha Vencimiento</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Monto Total</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Monto Pagado</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Monto Adeudado</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Estado</th>
+                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px;">Número</th>
+                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px;">Fecha Emisión</th>
+                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px;">Fecha Vencimiento</th>
+                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px;">Monto Total</th>
+                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px;">Monto Pagado</th>
+                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px;">Monto Adeudado</th>
+                <th style="padding: 8px 6px; text-align: center; border: 1px solid #ddd; font-size: 10px;">Estado</th>
               </tr>
             </thead>
             <tbody>
               ${boletas.map(boleta => `
                 <tr style="background-color: ${boletas.indexOf(boleta) % 2 === 0 ? '#f8f9fa' : 'white'};">
-                  <td style="padding: 12px; border: 1px solid #ddd;">${boleta.numero || 'N/A'}</td>
-                  <td style="padding: 12px; border: 1px solid #ddd;">${formatFecha(boleta.fechaEmision)}</td>
-                  <td style="padding: 12px; border: 1px solid #ddd;">${formatFecha(boleta.fechaVencimiento)}</td>
-                  <td style="padding: 12px; border: 1px solid #ddd;">${formatMonto(boleta.montoTotal || 0)}</td>
-                  <td style="padding: 12px; border: 1px solid #ddd;">${formatMonto(boleta.montoPagado || 0)}</td>
-                  <td style="padding: 12px; border: 1px solid #ddd;">${formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}</td>
-                  <td style="padding: 12px; border: 1px solid #ddd;">${boleta.estado || 'N/A'}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px;">${boleta.numero || 'N/A'}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px;">${formatFecha(boleta.fechaEmision)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px;">${formatFecha(boleta.fechaVencimiento)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right;">${formatMonto(boleta.montoTotal || 0)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right;">${formatMonto(boleta.montoPagado || 0)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right;">${formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: center;">${boleta.estado || 'N/A'}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -355,10 +357,12 @@ function EstadoCuenta({ user }) {
       
       // Capturar la imagen
       html2canvas(pdfContainer, {
-        scale: 2,
+        scale: 1.5, // Reducir escala para mejor ajuste
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: 794, // Ancho fijo para A4
+        height: pdfContainer.scrollHeight
       }).then(canvas => {
         // Remover el contenedor temporal
         document.body.removeChild(pdfContainer);

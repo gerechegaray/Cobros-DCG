@@ -15,7 +15,7 @@ import {
   ProgressSpinner,
   Divider
 } from 'primereact';
-import { getGastosRealtime, eliminarGasto } from './gastosService';
+import { getGastosRealtime, eliminarGasto, marcarComoPagado } from './gastosService';
 import { formatMonto, formatFecha } from './utils';
 import { getEventColor, categoriasGastos, estadosGastos, getSubcategoriasByCategoria } from './constants';
 import GastoForm from './GastoForm';
@@ -245,6 +245,28 @@ const GastosCalendario = ({ user }) => {
     }
   };
 
+  // Manejar marcado como pagado
+  const handleMarcarComoPagado = async (gastoId) => {
+    try {
+      await marcarComoPagado(gastoId, user);
+      
+      // Forzar actualización completa de la vista
+      setTimeout(() => {
+        // Recargar los gastos desde la base de datos
+        const unsubscribe = getGastosRealtime((gastosData) => {
+          setGastos(gastosData);
+          setGastosFiltrados(gastosData);
+          unsubscribe(); // Desuscribirse después de la primera actualización
+        });
+      }, 500); // Pequeño delay para asegurar que la BD se actualice
+      
+      setToast({ severity: 'success', summary: 'Éxito', detail: 'Gasto marcado como pagado correctamente' });
+    } catch (error) {
+      console.error('Error marcando gasto como pagado:', error);
+      setToast({ severity: 'error', summary: 'Error', detail: 'No se pudo marcar el gasto como pagado' });
+    }
+  };
+
   // Formatear monto en tabla
   const montoTemplate = (rowData) => {
     return formatMonto(rowData.monto || rowData.montoTotal);
@@ -305,6 +327,31 @@ const GastosCalendario = ({ user }) => {
         {/* Búsqueda y Filtros */}
         <div className="col-12">
           <Card>
+            <div className="flex justify-content-between align-items-center mb-3">
+              <h5 className="m-0">Filtros de Búsqueda</h5>
+              <div className="flex gap-2">
+                <Button
+                  label="Actualizar"
+                  icon="pi pi-refresh"
+                  className="p-button-outlined p-button-sm"
+                  onClick={() => {
+                    const unsubscribe = getGastosRealtime((gastosData) => {
+                      setGastos(gastosData);
+                      setGastosFiltrados(gastosData);
+                      unsubscribe();
+                    });
+                  }}
+                  tooltip="Actualizar datos desde la base de datos"
+                />
+                <Button
+                  label="Mostrar Todos"
+                  icon="pi pi-eye"
+                  className="p-button-outlined p-button-sm"
+                  onClick={() => setGastosFiltrados(gastos)}
+                  tooltip="Mostrar todos los gastos sin filtros"
+                />
+              </div>
+            </div>
             <BusquedaCompacta
               gastos={gastos}
               onFiltrar={setGastosFiltrados}
@@ -473,12 +520,22 @@ const GastosCalendario = ({ user }) => {
               <Column 
                 header="Acciones" 
                 body={(rowData) => (
-                  <Button
-                    icon="pi pi-trash"
-                    className="p-button-danger p-button-sm"
-                    onClick={() => handleEliminarGasto(rowData.id)}
-                    tooltip="Eliminar gasto"
-                  />
+                  <div className="flex gap-2">
+                    {rowData.estado === 'pendiente' && (
+                      <Button
+                        icon="pi pi-check"
+                        className="p-button-success p-button-sm"
+                        onClick={() => handleMarcarComoPagado(rowData.id)}
+                        tooltip="Marcar como pagado"
+                      />
+                    )}
+                    <Button
+                      icon="pi pi-trash"
+                      className="p-button-danger p-button-sm"
+                      onClick={() => handleEliminarGasto(rowData.id)}
+                      tooltip="Eliminar gasto"
+                    />
+                  </div>
                 )}
               />
             </DataTable>
