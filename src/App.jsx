@@ -12,6 +12,7 @@ import UserProfile from "./features/auth/UserProfile";
 import GestionDatos from "./components/GestionDatos";
 import VisitasDashboard from "./features/visitas/VisitasDashboard";
 import GastosMain from "./features/gastos/GastosMain";
+import MenuClientes from "./components/MenuClientes";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -55,6 +56,7 @@ function App() {
   const getMenuItems = () => {
     const baseItems = [
       { label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" },
+      { label: "Clientes", icon: "pi pi-users", path: "/menu-clientes" },
       { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
       { label: "Envíos", icon: "pi pi-file-o", path: "/facturas" },
       { label: "Visitas", icon: "pi pi-calendar", path: "/visitas" },
@@ -100,6 +102,7 @@ function App() {
               <GastosMain user={user} /> : 
               <Navigate to="/dashboard" replace />
             } />
+            <Route path="/menu-clientes" element={<MenuClientes user={user} />} />
           </Routes>
         </div>
       </div>

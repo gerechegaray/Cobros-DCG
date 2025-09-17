@@ -95,6 +95,10 @@ export const api = {
   // Clientes
   getClientesFirebase: () => apiRequest('/api/clientes-firebase'),
   syncClientesAlegra: () => apiRequest('/api/sync-clientes-alegra', { method: 'POST' }),
+  updateClienteUbicacion: (clienteId, ubicacion) => apiRequest(`/api/clientes-firebase/${clienteId}/ubicacion`, {
+    method: 'PUT',
+    body: JSON.stringify({ ubicacion }),
+  }),
 
   // Productos
   getProductosFirebase: () => apiRequest('/api/productos-firebase'),

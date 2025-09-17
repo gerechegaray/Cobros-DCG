@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -17,6 +17,7 @@ import jsPDF from 'jspdf';
 function EstadoCuenta({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useRef(null);
   
   const [cliente, setCliente] = useState(null);
@@ -74,18 +75,41 @@ function EstadoCuenta({ user }) {
         
         setClientes(clientesOrdenados);
         
-        // Si hay un cliente desde navegación, seleccionarlo automáticamente
+        // Si hay un cliente desde navegación o parámetros URL, seleccionarlo automáticamente
+        let clienteAPreseleccionar = null;
+        
+        // Verificar si viene desde location.state (navegación programática)
         if (location.state?.cliente && clientesOrdenados.length > 0) {
-          const clienteEncontrado = clientesOrdenados.find(c => 
+          clienteAPreseleccionar = clientesOrdenados.find(c => 
             c.id === location.state.cliente.id || 
             c.name === location.state.cliente.name ||
             c.nombre === location.state.cliente.nombre ||
             c['Razón Social'] === location.state.cliente['Razón Social']
           );
-          if (clienteEncontrado) {
-            setCliente(clienteEncontrado);
-            cargarEstadoCuenta(clienteEncontrado);
-          }
+        }
+        
+        // Verificar si viene desde parámetros URL (navegación desde MenuClientes)
+        const clienteParam = searchParams.get('cliente');
+        // console.log('[EstadoCuenta] Parámetro cliente de URL:', clienteParam, 'tipo:', typeof clienteParam);
+        // console.log('[EstadoCuenta] Primeros 5 clientes con sus tipos de ID:', clientesOrdenados.slice(0, 5).map(c => ({ id: c.id, idType: typeof c.id, name: c.name })));
+        
+        if (clienteParam && clientesOrdenados.length > 0 && !clienteAPreseleccionar) {
+          // Convertir el parámetro a número para comparar con el ID
+          const clienteParamNum = Number(clienteParam);
+          
+          clienteAPreseleccionar = clientesOrdenados.find(c => 
+            c.id === clienteParamNum ||  // Comparar como número
+            c.id === clienteParam ||     // También comparar como string por si acaso
+            c.name === clienteParam ||
+            c.nombre === clienteParam ||
+            c['Razón Social'] === clienteParam
+          );
+          // console.log('[EstadoCuenta] Cliente encontrado para preseleccionar:', clienteAPreseleccionar);
+        }
+        
+        if (clienteAPreseleccionar) {
+          setCliente(clienteAPreseleccionar);
+          cargarEstadoCuenta(clienteAPreseleccionar);
         }
       } catch (error) {
         console.error('Error al cargar clientes:', error);
@@ -100,7 +124,7 @@ function EstadoCuenta({ user }) {
     };
     
     fetchClientes();
-  }, [user, location.state]);
+  }, [user, location.state, searchParams]);
 
   const handleClienteChange = (clienteSeleccionado) => {
     setCliente(clienteSeleccionado);

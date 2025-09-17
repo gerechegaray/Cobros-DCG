@@ -724,9 +724,30 @@ app.post("/api/sync-clientes-alegra", async (req, res) => {
       if (!Array.isArray(data) || data.length === 0) {
         hasMore = false;
       } else {
-        // Guardar/actualizar en Firestore
+        // Guardar/actualizar en Firestore preservando solo la ubicación personalizada
         for (const cliente of data) {
-          await adminDb.collection('clientesAlegra').doc(cliente.id.toString()).set(cliente, { merge: true });
+          const clienteId = cliente.id.toString();
+          
+          // Obtener el cliente existente para preservar solo la ubicación
+          const clienteExistente = await adminDb.collection('clientesAlegra').doc(clienteId).get();
+          const ubicacionPersonalizada = {};
+          
+          if (clienteExistente.exists) {
+            const datosExistentes = clienteExistente.data();
+            // Preservar SOLO la ubicación personalizada
+            if (datosExistentes.ubicacion) ubicacionPersonalizada.ubicacion = datosExistentes.ubicacion;
+            if (datosExistentes.ubicacionActualizada) ubicacionPersonalizada.ubicacionActualizada = datosExistentes.ubicacionActualizada;
+            if (datosExistentes.ubicacionActualizadaPor) ubicacionPersonalizada.ubicacionActualizadaPor = datosExistentes.ubicacionActualizadaPor;
+          }
+          
+          // Combinar datos de Alegra con ubicación personalizada
+          const clienteCompleto = {
+            ...cliente,
+            ...ubicacionPersonalizada,
+            ultimaSincronizacion: new Date().toISOString()
+          };
+          
+          await adminDb.collection('clientesAlegra').doc(clienteId).set(clienteCompleto);
           total++;
         }
         page++;
@@ -776,6 +797,51 @@ app.get("/api/clientes-firebase", async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('❌ Error en /api/clientes-firebase:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para actualizar la ubicación de un cliente
+app.put("/api/clientes-firebase/:id/ubicacion", async (req, res) => {
+  console.log('🔄 Entrando a /api/clientes-firebase/:id/ubicacion');
+  
+  try {
+    const { id } = req.params;
+    const { ubicacion } = req.body;
+    
+    if (!id || !ubicacion) {
+      return res.status(400).json({ error: 'ID del cliente y ubicación son requeridos' });
+    }
+    
+    // Verificar si Firebase está inicializado
+    if (!adminDb) {
+      console.warn('⚠️ Firebase no inicializado');
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    // Actualizar en Firebase
+    await adminDb.collection('clientesAlegra').doc(id).update({
+      ubicacion: ubicacion.trim(),
+      ubicacionActualizada: new Date().toISOString(),
+      ubicacionActualizadaPor: req.headers['user-agent'] || 'unknown'
+    });
+    
+    // Invalidar cache de clientes para forzar recarga
+    if (cacheCompartido.clientes) {
+      delete cacheCompartido.clientes;
+      console.log('🗑️ Cache de clientes invalidado después de actualización');
+    }
+    
+    console.log(`✅ Ubicación actualizada para cliente ${id}: ${ubicacion}`);
+    res.json({ 
+      success: true, 
+      message: 'Ubicación actualizada correctamente',
+      clienteId: id,
+      ubicacion: ubicacion.trim()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error actualizando ubicación del cliente:', error);
     res.status(500).json({ error: error.message });
   }
 });
