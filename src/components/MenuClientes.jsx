@@ -89,7 +89,18 @@ function MenuClientes({ user }) {
   // Abrir Google Maps
   const verUbicacion = () => {
     if (clienteSeleccionado?.ubicacion) {
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clienteSeleccionado.ubicacion)}`;
+      let url;
+      
+      // Si es un link de Google Maps, abrirlo directamente
+      if (clienteSeleccionado.ubicacion.startsWith('https://maps.app.goo.gl/') || 
+          clienteSeleccionado.ubicacion.startsWith('https://www.google.com/maps/') ||
+          clienteSeleccionado.ubicacion.startsWith('https://goo.gl/maps/')) {
+        url = clienteSeleccionado.ubicacion;
+      } else {
+        // Si es una dirección real, buscar en Google Maps
+        url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clienteSeleccionado.ubicacion)}`;
+      }
+      
       window.open(url, '_blank');
     }
   };
@@ -175,23 +186,35 @@ function MenuClientes({ user }) {
                     <strong>Nombre:</strong> {clienteSeleccionado.name || clienteSeleccionado.nombre || clienteSeleccionado['Razón Social']}
                   </div>
                   <div className="col-12">
-                    <strong>ID:</strong> {clienteSeleccionado.id}
+                    <strong>Vendedor:</strong> {
+                      (() => {
+                        if (typeof clienteSeleccionado.seller === 'object' && clienteSeleccionado.seller) {
+                          return clienteSeleccionado.seller.name || 'Sin asignar';
+                        }
+                        if (clienteSeleccionado.seller === 1 || clienteSeleccionado.seller === '1') return 'Guille';
+                        if (clienteSeleccionado.seller === 2 || clienteSeleccionado.seller === '2') return 'Santi';
+                        return clienteSeleccionado.seller || 'Sin asignar';
+                      })()
+                    }
                   </div>
-                  {clienteSeleccionado.telefono && (
+                  {clienteSeleccionado.phonePrimary && (
                     <div className="col-12">
-                      <strong>Teléfono:</strong> {clienteSeleccionado.telefono}
+                      <strong>Teléfono:</strong> {clienteSeleccionado.phonePrimary}
                     </div>
                   )}
-                  {clienteSeleccionado.email && (
+                  {clienteSeleccionado.address && (
                     <div className="col-12">
-                      <strong>Email:</strong> {clienteSeleccionado.email}
+                      <strong>Domicilio:</strong> {
+                        typeof clienteSeleccionado.address === 'string' ? 
+                          clienteSeleccionado.address : 
+                          clienteSeleccionado.address.address || 
+                          JSON.stringify(clienteSeleccionado.address)
+                      }
                     </div>
                   )}
-                  {clienteSeleccionado.ubicacion && (
-                    <div className="col-12">
-                      <strong>Ubicación:</strong> {clienteSeleccionado.ubicacion}
-                    </div>
-                  )}
+                  <div className="col-12">
+                    <strong>Ubicación:</strong> {clienteSeleccionado.ubicacion ? 'Sí' : 'No'}
+                  </div>
                 </div>
               </div>
             </div>
