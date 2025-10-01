@@ -936,6 +936,8 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
     
     console.log(`[ESTADO CUENTA] Cliente ID solicitado: ${clienteId}`);
+    console.log(`[ESTADO CUENTA] Headers de la petición:`, req.headers);
+    console.log(`[ESTADO CUENTA] URL completa:`, req.url);
     
     // Primero obtener información del cliente para verificar que existe
     const clienteUrl = `https://api.alegra.com/api/v1/contacts/${clienteId}`;
@@ -976,11 +978,27 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     const facturasDelCliente = await facturasResponse.json();
     console.log(`[ESTADO CUENTA] Facturas del cliente ${clienteId}: ${facturasDelCliente.length}`);
     
+    // 🆕 Debug completo de la primera factura para ver la estructura
+    if (facturasDelCliente.length > 0) {
+      console.log(`[ESTADO CUENTA] 🔍 DEBUG - Primera factura completa:`, JSON.stringify(facturasDelCliente[0], null, 2));
+    }
+    
+    // 🆕 Debug específico para verificar numberTemplate en todas las facturas
+    console.log(`[ESTADO CUENTA] 🔍 DEBUG - Verificando numberTemplate en todas las facturas:`);
+    facturasDelCliente.forEach((factura, index) => {
+      console.log(`  Factura ${index + 1}:`);
+      console.log(`    - id: ${factura.id}`);
+      console.log(`    - numberTemplate:`, factura.numberTemplate);
+      console.log(`    - numberTemplate?.number: ${factura.numberTemplate?.number}`);
+      console.log(`    - number: ${factura.number}`);
+    });
+    
     // 🆕 Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
     console.log(`[ESTADO CUENTA] Todas las facturas antes del filtro:`, facturasDelCliente.map(f => ({ 
-      numero: f.number, 
+      numero: f.numberTemplate?.number || f.number, 
       status: f.status,
-      id: f.id
+      id: f.id,
+      numberTemplate: f.numberTemplate
     })));
     
     const facturasValidas = facturasDelCliente.filter(factura => {
@@ -997,7 +1015,9 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     console.log(`[ESTADO CUENTA] Facturas válidas (sin anuladas/cerradas/pagadas): ${facturasValidas.length} de ${facturasDelCliente.length}`);
     
     console.log(`[ESTADO CUENTA] Facturas finales después del filtro:`, facturasValidas.map(f => ({ 
-      numero: f.number, 
+      numero: f.numberTemplate?.number || f.number, 
+      numberTemplate: f.numberTemplate,
+      id: f.id,
       client: f.client,
       clientName: f.clientName,
       status: f.status
@@ -1010,8 +1030,16 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
       const montoPagado = pagosAsociados.reduce((sum, pago) => sum + (pago.amount || 0), 0);
       const montoTotal = factura.total || 0;
       const montoAdeudado = montoTotal - montoPagado;
+      const numeroFinal = factura.numberTemplate?.number || factura.number || factura.id;
+      console.log(`[ESTADO CUENTA] 🔍 TRANSFORMACIÓN - Factura ID ${factura.id}:`);
+      console.log(`  - numberTemplate:`, factura.numberTemplate);
+      console.log(`  - numberTemplate?.number:`, factura.numberTemplate?.number);
+      console.log(`  - number:`, factura.number);
+      console.log(`  - id:`, factura.id);
+      console.log(`  - ✅ RESULTADO FINAL: "${numeroFinal}"`);
+      
       return {
-        numero: factura.number || factura.id,
+        numero: numeroFinal,
         fechaEmision: factura.date,
         fechaVencimiento: factura.dueDate,
         montoTotal: montoTotal,
