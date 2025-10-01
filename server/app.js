@@ -170,7 +170,20 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Cache-Control', 
+    'Pragma',
+    'Expires',
+    'If-Modified-Since',
+    'If-None-Match',
+    'Accept',
+    'Accept-Language',
+    'Accept-Encoding',
+    'User-Agent',
+    'X-Requested-With'
+  ]
 }));
 
 app.use(express.json());
