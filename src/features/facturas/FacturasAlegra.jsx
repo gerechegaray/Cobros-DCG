@@ -209,8 +209,8 @@ const FacturasAlegra = ({ user }) => {
           <div className="pt-3 border-t border-gray-200 space-y-3">
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-gray-500">🆔 ID:</span>
-                <div className="font-medium">{factura.id}</div>
+                <span className="text-gray-500">📄 Número:</span>
+                <div className="font-medium">{factura.numberTemplate?.number || factura.number || factura.id}</div>
               </div>
               <div>
                 <span className="text-gray-500">📊 Estado:</span>
@@ -451,7 +451,11 @@ const FacturasAlegra = ({ user }) => {
       {activeTab === 'pendiente' && (
         <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
       )}
-      <Column field="id" header="ID" />
+      <Column 
+        field="id" 
+        header="Número" 
+        body={(rowData) => rowData.numberTemplate?.number || rowData.number || rowData.id}
+      />
       <Column 
         field="date" 
         header="Fecha" 
@@ -1645,7 +1649,11 @@ const FacturasAlegra = ({ user }) => {
                 emptyMessage="No hay facturas pendientes disponibles"
               >
                 <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
-                <Column field="id" header="ID" />
+                <Column 
+                  field="id" 
+                  header="Número" 
+                  body={(rowData) => rowData.numberTemplate?.number || rowData.number || rowData.id}
+                />
                 <Column 
                   field="date" 
                   header="Fecha" 
