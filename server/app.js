@@ -1011,6 +1011,7 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
         estado: montoPagado >= montoTotal ? 'PAGADO' : 
                 new Date(factura.dueDate) < new Date() ? 'VENCIDO' : 'PENDIENTE',
         pagos: pagosAsociados,
+        productos: factura.items || [], // 🆕 Incluir productos de la factura
         clienteNombre: factura.clientName || (clienteInfo ? clienteInfo.name || clienteInfo.organization : 'Cliente no identificado')
       };
     });

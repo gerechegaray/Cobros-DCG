@@ -26,6 +26,8 @@ function EstadoCuenta({ user }) {
   const [boletas, setBoletas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [expandedProductos, setExpandedProductos] = useState({}); // 🆕 Estado para productos expandidos
+  const [expandedRows, setExpandedRows] = useState({}); // 🆕 Estado combinado para expansión
   const [totales, setTotales] = useState({
     totalAdeudado: 0,
     totalPagado: 0,
@@ -39,6 +41,34 @@ function EstadoCuenta({ user }) {
     if (user?.role === 'admin') return null; // Admin ve todos
     return null;
   };
+
+  // 🆕 Función para alternar la expansión de productos
+  const toggleProductos = (numero) => {
+    setExpandedProductos(prev => ({
+      ...prev,
+      [numero]: !prev[numero]
+    }));
+
+    // También actualizar el estado combinado de expansión
+    setExpandedRows(prev => ({
+      ...prev,
+      [numero]: !prev[numero]
+    }));
+  };
+
+  // 🆕 Inicializar estado de expansión cuando se cargan las boletas
+  useEffect(() => {
+    if (boletas.length > 0) {
+      const estadoInicial = {};
+      boletas.forEach(boleta => {
+        // Expandir automáticamente si tiene pagos
+        if (boleta.pagos && boleta.pagos.length > 0) {
+          estadoInicial[boleta.numero] = true;
+        }
+      });
+      setExpandedRows(estadoInicial);
+    }
+  }, [boletas]);
 
   // Cargar clientes al montar el componente
   useEffect(() => {
@@ -673,31 +703,97 @@ function EstadoCuenta({ user }) {
                  overflow: "hidden",
                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
                }}
-              rowExpansionTemplate={(rowData) =>
-                rowData.pagos && rowData.pagos.length > 0 ? (
-                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
+              rowExpansionTemplate={(rowData) => (
+                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
+                  {/* Sección de Pagos */}
+                  <div style={{ marginBottom: expandedProductos[rowData.numero] ? 20 : 0 }}>
                     <strong>Pagos asociados:</strong>
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {rowData.pagos.map((pago, idx) => (
-                        <li key={idx} style={{ marginBottom: 4 }}>
-                          <span>Fecha: {formatFecha(pago.date)}</span> | <span>Monto: {formatMonto(pago.amount)}</span> {pago.notes ? `| Nota: ${pago.notes}` : ''}
-                        </li>
-                      ))}
-                    </ul>
+                    {rowData.pagos && rowData.pagos.length > 0 ? (
+                      <ul style={{ margin: 0, paddingLeft: 20 }}>
+                        {rowData.pagos.map((pago, idx) => (
+                          <li key={idx} style={{ marginBottom: 4 }}>
+                            <span>Fecha: {formatFecha(pago.date)}</span> | <span>Monto: {formatMonto(pago.amount)}</span> {pago.notes ? `| Nota: ${pago.notes}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div style={{ color: '#6b7280', marginLeft: 20 }}>
+                        Sin pagos registrados para esta factura.
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, color: '#6b7280' }}>
-                    Sin pagos registrados para esta factura.
-                  </div>
-                )
-              }
-              expandedRows={boletas.reduce((acc, b) => {
-                if (b.pagos && b.pagos.length > 0) acc[b.numero] = true;
-                return acc;
-              }, {})}
+
+                  {/* Sección de Productos */}
+                  {expandedProductos[rowData.numero] && (
+                    <div>
+                      <strong>Productos:</strong>
+                      {rowData.productos && rowData.productos.length > 0 ? (
+                        <ul style={{ margin: 0, paddingLeft: 20 }}>
+                          {rowData.productos.map((producto, idx) => (
+                            <li key={idx} style={{ marginBottom: 4 }}>
+                              <span><strong>{producto.quantity || 1}x</strong> {producto.name || producto.description || 'Producto'}</span>
+                              {producto.total && (
+                                <span style={{ color: '#6b7280' }}> - {formatMonto(producto.total)}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div style={{ color: '#6b7280', marginLeft: 20 }}>
+                          Sin productos registrados para esta factura.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              expandedRows={expandedRows}
               dataKey="numero"
             >
               <Column expander style={{ width: '3em' }} />
+              <Column 
+                header="Productos" 
+                body={(rowData) => (
+                  <span
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleProductos(rowData.numero);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#e5e7eb';
+                      e.target.style.cursor = 'pointer';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                    }}
+                    style={{
+                      display: 'inline-block',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '18px',
+                      color: (!rowData.productos || rowData.productos.length === 0) ? '#9ca3af' : '#3b82f6',
+                      backgroundColor: 'transparent',
+                      border: '1px solid #d1d5db',
+                      minWidth: '40px',
+                      minHeight: '40px',
+                      textAlign: 'center',
+                      lineHeight: '24px',
+                      opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
+                      transition: 'all 0.2s ease',
+                      userSelect: 'none'
+                    }}
+                    title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
+                  >
+                    {expandedProductos[rowData.numero] ? "👁️‍🗨️" : "👁️"}
+                  </span>
+                )}
+                style={{ 
+                  minWidth: "100px",
+                  textAlign: "center"
+                }}
+              />
                              <Column
                  field="numero"
                  header="Número"
