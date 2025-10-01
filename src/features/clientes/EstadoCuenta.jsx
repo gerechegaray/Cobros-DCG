@@ -144,8 +144,6 @@ function EstadoCuenta({ user }) {
   const cargarEstadoCuenta = async (clienteData) => {
     setLoading(true);
     try {
-      console.log('[ESTADO CUENTA FRONTEND] Cliente recibido:', clienteData);
-      console.log('[ESTADO CUENTA FRONTEND] Cliente ID:', clienteData.id);
       // Obtener datos reales de Alegra
       const datosAlegra = await getEstadoCuenta(clienteData.id);
       
@@ -167,7 +165,7 @@ function EstadoCuenta({ user }) {
         toast.current.show({
           severity: 'info',
           summary: 'Estado de cuenta cargado',
-          detail: `Se muestran ${datosAlegra.length} facturas válidas. Las facturas anuladas, cerradas y pagadas han sido excluidas automáticamente.`
+          detail: `Se muestran ${datosAlegra.length} facturas válidas.`
         });
       } else {
         // Si no hay datos, mostrar tabla vacía
@@ -181,7 +179,7 @@ function EstadoCuenta({ user }) {
         toast.current.show({
           severity: 'info',
           summary: 'Sin datos',
-          detail: 'No se encontraron movimientos válidos para este cliente en Alegra (las facturas anuladas, cerradas y pagadas han sido excluidas)'
+          detail: 'No se encontraron movimientos válidos para este cliente'
         });
       }
 
@@ -199,7 +197,7 @@ function EstadoCuenta({ user }) {
       toast.current.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'No se pudo conectar con Alegra. Verifica que el cliente exista y tenga movimientos.'
+        detail: 'No se pudo conectar con Alegra'
       });
     } finally {
       setLoading(false);
@@ -255,9 +253,8 @@ function EstadoCuenta({ user }) {
         currency: 'ARS'
       }).format(numMonto);
       
-      // Asegurar que devuelva string y agregar log para debugging
+      // Asegurar que devuelva string
       const result = String(formatted);
-      console.log('formatMonto input:', monto, 'output:', result, 'type:', typeof result);
       return result;
     } catch (error) {
       console.error('Error formateando monto:', error, monto);
