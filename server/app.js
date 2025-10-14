@@ -862,6 +862,7 @@ app.put("/api/clientes-firebase/:id/ubicacion", async (req, res) => {
 // Endpoint para sincronizar todos los productos de Alegra a Firestore
 app.post("/api/sync-productos-alegra", async (req, res) => {
   try {
+    console.log('🔄 Iniciando sincronización de productos desde Alegra...');
     const email = process.env.ALEGRA_EMAIL?.trim();
     const apiKey = process.env.ALEGRA_API_KEY?.trim();
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
@@ -870,6 +871,7 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
     let total = 0;
     while (hasMore) {
       const url = `https://api.alegra.com/api/v1/items?start=${(page - 1) * 30}`;
+      console.log(`📄 Obteniendo página ${page} de productos...`);
       const response = await fetch(url, {
         headers: {
           accept: 'application/json',
@@ -878,6 +880,7 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
       });
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Error obteniendo productos de Alegra:', errorText);
         return res.status(500).json({ error: errorText });
       }
       const data = await response.json();
@@ -886,15 +889,30 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
       } else {
         // Guardar/actualizar en Firestore
         for (const producto of data) {
+          // 🆕 Log para ver estructura del primer producto
+          if (total === 0) {
+            console.log('📦 Estructura del primer producto de Alegra:', JSON.stringify(producto, null, 2));
+          }
           await adminDb.collection('productosAlegra').doc(producto.id.toString()).set(producto, { merge: true });
           total++;
         }
+        console.log(`✅ Página ${page}: ${data.length} productos guardados en Firebase`);
         page++;
         if (data.length < 30) hasMore = false;
       }
     }
+    
+    // 🆕 IMPORTANTE: Invalidar el cache del servidor después de sincronizar
+    console.log('🗑️ Invalidando cache de productos en el servidor...');
+    cacheCompartido.productos = null;
+    cacheCompartido.ultimaActualizacion.productos = null;
+    
+    console.log(`✅ Sincronización completada: ${total} productos sincronizados`);
+    console.log('✅ Cache del servidor invalidado - próxima petición cargará desde Firebase');
+    
     res.json({ success: true, total });
   } catch (error) {
+    console.error('❌ Error en sincronización de productos:', error);
     res.status(500).json({ error: error.message });
   }
 });

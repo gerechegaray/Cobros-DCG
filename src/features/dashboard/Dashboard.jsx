@@ -5,6 +5,7 @@ import { api } from "../../services/api";
 import BackendStatus from "../../components/BackendStatus";
 import { ALEGRA_CONFIG } from "../../config/alegra.js";
 import { getCobros, getCobrosByVendedor } from "../../features/cobros/cobrosService";
+import { getPedidos, getPedidosByVendedor } from "../../features/pedidos/pedidosService";
 
 function Dashboard({ user }) {
   const navigate = useNavigate();
@@ -33,6 +34,14 @@ function Dashboard({ user }) {
     totalMonto: 0,
     pendientesPorCargar: 0,
     cargadosEnSistema: 0
+  });
+
+  // Estado para estadísticas de pedidos
+  const [pedidosStats, setPedidosStats] = useState({
+    totalMes: 0,
+    totalMonto: 0,
+    pendientes: 0,
+    facturados: 0
   });
 
   // Eliminamos las funciones de cobros que ya no se usan
@@ -223,6 +232,55 @@ function Dashboard({ user }) {
     fetchCobros();
   }, [user]);
 
+  // Cargar estadísticas de pedidos
+  useEffect(() => {
+    const fetchPedidos = async () => {
+      try {
+        // Obtener pedidos del mes actual
+        const mesActual = new Date();
+        const primerDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth(), 1);
+        const ultimoDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 0);
+        
+        // Determinar si es admin o vendedor
+        const esAdmin = user.role === 'admin';
+        
+        // Obtener pedidos según el rol
+        const pedidos = esAdmin 
+          ? await getPedidos() 
+          : await getPedidosByVendedor(user.email);
+        
+        // Filtrar pedidos del mes actual
+        const pedidosDelMes = pedidos.filter(pedido => {
+          const fechaPedido = pedido.fechaPedido?.toDate ? pedido.fechaPedido.toDate() : new Date(pedido.fechaPedido);
+          return fechaPedido >= primerDiaMes && fechaPedido <= ultimoDiaMes;
+        });
+        
+        // Calcular estadísticas
+        const totalMes = pedidosDelMes.length;
+        const totalMonto = pedidosDelMes.reduce((sum, pedido) => sum + (pedido.total || 0), 0);
+        const pendientes = pedidosDelMes.filter(pedido => pedido.estado === 'pendiente').length;
+        const facturados = pedidosDelMes.filter(pedido => pedido.estado === 'facturado').length;
+        
+        setPedidosStats({
+          totalMes,
+          totalMonto,
+          pendientes,
+          facturados
+        });
+      } catch (error) {
+        console.error('Error cargando estadísticas de pedidos:', error);
+        setPedidosStats({
+          totalMes: 0,
+          totalMonto: 0,
+          pendientes: 0,
+          facturados: 0
+        });
+      }
+    };
+    
+    fetchPedidos();
+  }, [user]);
+
   // Eliminamos las funciones de presupuestos y pedidos que ya no se usan
 
   // Eliminamos las funciones de filtrado que ya no se usan
@@ -323,6 +381,35 @@ function Dashboard({ user }) {
               <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
                 <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cargados en Sistema</span></span>
                 <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 12 }}>{cobrosStats.cargadosEnSistema}</span>
+              </li>
+            </ul>
+          </Card>
+        </div>
+      )}
+
+      {/* Grupo de Pedidos */}
+      {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
+        <div className="dashboard-pedidos-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
+          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>
+            {user.role === 'admin' ? 'Pedidos del Mes' : 'Mis Pedidos del Mes'}
+          </h3>
+          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-shopping-cart p-mr-2" style={{ color: '#3b82f6', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Pedidos del Mes</span></span>
+                <span style={{ color: '#3b82f6', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.totalMes}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-money-bill p-mr-2" style={{ color: '#10b981', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Monto</span></span>
+                <span style={{ color: '#10b981', fontWeight: 600, marginLeft: 12 }}>{formatCurrency(pedidosStats.totalMonto)}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes</span></span>
+                <span style={{ color: '#f59e0b', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.pendientes}</span>
+              </li>
+              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
+                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Facturados</span></span>
+                <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.facturados}</span>
               </li>
             </ul>
           </Card>

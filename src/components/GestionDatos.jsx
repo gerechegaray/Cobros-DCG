@@ -132,6 +132,34 @@ function GestionDatos({ user }) {
     }
   };
 
+  // Función para sincronizar productos desde Alegra
+  const sincronizarProductos = async () => {
+    setRefreshing(true);
+    try {
+      const data = await api.syncProductosAlegra();
+      
+      if (data.success) {
+        toast.current?.show({
+          severity: 'success',
+          summary: 'Sincronización Exitosa',
+          detail: `${data.total} productos sincronizados desde Alegra a Firebase`
+        });
+        
+        // Recargar estado
+        cargarEstado();
+      }
+    } catch (error) {
+      console.error('Error sincronizando productos:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error de Sincronización',
+        detail: 'No se pudieron sincronizar los productos desde Alegra'
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Función para verificar si hay datos desactualizados
   const verificarActualizaciones = () => {
     const ahora = Date.now();
@@ -717,7 +745,7 @@ function GestionDatos({ user }) {
                 label="Sincronizar Productos" 
                 icon="pi pi-sync" 
                 className="p-button-info"
-                onClick={() => refrescarCache('productos')}
+                onClick={sincronizarProductos}
                 loading={refreshing}
               />
             </div>
