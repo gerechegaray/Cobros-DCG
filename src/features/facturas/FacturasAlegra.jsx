@@ -409,13 +409,83 @@ const FacturasAlegra = ({ user }) => {
   };
 
   // 🆕 Componente Layout para facturas en móvil
-  const MobileFacturasLayout = () => (
-    <div className="space-y-2">
-      {facturasFiltradasPorEstado.map((factura) => (
-        <MobileFacturaCard key={factura.id} factura={factura} />
-      ))}
-    </div>
-  );
+  const MobileFacturasLayout = () => {
+    // Calcular las facturas para la página actual
+    const startIndex = currentPage * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    const facturasPagina = facturasFiltradasPorEstado.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(facturasFiltradasPorEstado.length / rowsPerPage);
+
+    return (
+      <div>
+        <div className="space-y-2">
+          {facturasPagina.map((factura) => (
+            <MobileFacturaCard key={factura.id} factura={factura} />
+          ))}
+        </div>
+        
+        {/* Paginación para móvil */}
+        {facturasFiltradasPorEstado.length > rowsPerPage && (
+          <div className="mt-4 p-3 border-round surface-100">
+            <div className="flex justify-content-between align-items-center mb-3">
+              <span className="text-sm text-gray-600">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, facturasFiltradasPorEstado.length)} de {facturasFiltradasPorEstado.length} facturas
+              </span>
+              <Dropdown
+                value={rowsPerPage}
+                options={[
+                  { label: '10 por página', value: 10 },
+                  { label: '20 por página', value: 20 },
+                  { label: '50 por página', value: 50 }
+                ]}
+                onChange={(e) => {
+                  setRowsPerPage(e.value);
+                  setCurrentPage(0); // Reset to first page when changing rows per page
+                }}
+                className="w-auto"
+              />
+            </div>
+            
+            <div className="flex justify-content-center align-items-center gap-2">
+              <Button
+                icon="pi pi-angle-double-left"
+                className="p-button-text p-button-sm"
+                onClick={() => setCurrentPage(0)}
+                disabled={currentPage === 0}
+                tooltip="Primera página"
+              />
+              <Button
+                icon="pi pi-angle-left"
+                className="p-button-text p-button-sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 0}
+                tooltip="Página anterior"
+              />
+              
+              <span className="mx-3 text-sm">
+                Página {currentPage + 1} de {totalPages}
+              </span>
+              
+              <Button
+                icon="pi pi-angle-right"
+                className="p-button-text p-button-sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1}
+                tooltip="Página siguiente"
+              />
+              <Button
+                icon="pi pi-angle-double-right"
+                className="p-button-text p-button-sm"
+                onClick={() => setCurrentPage(totalPages - 1)}
+                disabled={currentPage >= totalPages - 1}
+                tooltip="Última página"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // 🆕 Componente Layout para hojas de ruta en móvil
   const MobileHojasLayout = () => (

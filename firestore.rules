@@ -1,7 +1,48 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permitir acceso a usuarios autenticados
+    
+    // Helper function para verificar si es admin
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.role == 'admin';
+    }
+    
+    // Helper function para verificar si es el vendedor del cobro
+    function isVendedor(cobroData) {
+      return request.auth != null && cobroData.vendedor == request.auth.token.email;
+    }
+    
+    // Reglas para la colección de cobros
+    match /cobros/{cobroId} {
+      // Leer: vendedor solo sus cobros, admin todos
+      allow read: if request.auth != null && 
+        (resource.data.vendedor == request.auth.token.email || isAdmin());
+      
+      // Crear: usuarios autenticados
+      allow create: if request.auth != null && 
+        request.resource.data.vendedor == request.auth.token.email;
+      
+      // Actualizar: admin puede todo, vendedor solo sus cobros pendientes
+      allow update: if request.auth != null && 
+        (isAdmin() || 
+         (isVendedor(resource.data) && resource.data.estado == 'pendiente'));
+      
+      // Eliminar: solo admin
+      allow delete: if isAdmin();
+    }
+    
+    // Reglas para logs de cobros
+    match /cobros_logs/{logId} {
+      // Solo lectura para usuarios autenticados
+      allow read: if request.auth != null;
+      // Solo creación (auditoría)
+      allow create: if request.auth != null;
+      // No se puede modificar ni eliminar logs
+      allow update, delete: if false;
+    }
+    
+    // Reglas generales para otras colecciones (temporal - ajustar según necesidad)
     match /{document=**} {
       allow read, write: if request.auth != null;
     }

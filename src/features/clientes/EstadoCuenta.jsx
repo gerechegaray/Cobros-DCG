@@ -13,6 +13,7 @@ import { getEstadoCuenta } from "../../services/alegra";
 import { api } from "../../services/api";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import './EstadoCuenta.css';
 
 function EstadoCuenta({ user }) {
   const location = useLocation();
@@ -307,15 +308,33 @@ function EstadoCuenta({ user }) {
     };
 
     return (
-      <Tag
-        value={rowData.estado}
-        severity={getSeverity(rowData.estado)}
-        style={{
-          borderRadius: "15px",
-          fontSize: "0.75rem",
-          fontWeight: "500"
-        }}
-      />
+      <div>
+        <span className="p-hidden md:inline">
+          <Tag
+            value={rowData.estado}
+            severity={getSeverity(rowData.estado)}
+            style={{
+              borderRadius: "15px",
+              fontSize: "0.75rem",
+              fontWeight: "500"
+            }}
+          />
+        </span>
+        <div className="md:hidden">
+          <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+            Estado:
+          </span>
+          <Tag
+            value={rowData.estado}
+            severity={getSeverity(rowData.estado)}
+            style={{
+              borderRadius: "15px",
+              fontSize: "0.75rem",
+              fontWeight: "500"
+            }}
+          />
+        </div>
+      </div>
     );
   };
 
@@ -323,6 +342,55 @@ function EstadoCuenta({ user }) {
     <span style={{ fontWeight: "600", color: "#1f2937" }}>
       {formatMonto(rowData[field])}
     </span>
+  );
+
+  // Template para celdas con label en responsive
+  const cellWithLabelTemplate = (field, label) => (rowData) => (
+    <div>
+      <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
+        {rowData[field]}
+      </span>
+      <div className="md:hidden">
+        <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+          {label}:
+        </span>
+        <span style={{ fontWeight: "600", color: "#1f2937" }}>
+          {rowData[field]}
+        </span>
+      </div>
+    </div>
+  );
+
+  const fechaWithLabelTemplate = (field, label) => (rowData) => (
+    <div>
+      <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
+        {formatFecha(rowData[field])}
+      </span>
+      <div className="md:hidden">
+        <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+          {label}:
+        </span>
+        <span style={{ fontWeight: "600", color: "#1f2937" }}>
+          {formatFecha(rowData[field])}
+        </span>
+      </div>
+    </div>
+  );
+
+  const montoWithLabelTemplate = (field, label) => (rowData) => (
+    <div>
+      <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
+        {formatMonto(rowData[field])}
+      </span>
+      <div className="md:hidden">
+        <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+          {label}:
+        </span>
+        <span style={{ fontWeight: "600", color: "#1f2937" }}>
+          {formatMonto(rowData[field])}
+        </span>
+      </div>
+    </div>
   );
 
   const exportarPDF = () => {
@@ -474,10 +542,11 @@ function EstadoCuenta({ user }) {
       style={{
         maxWidth: "100%",
         margin: "0 auto",
-        padding: "1rem",
+        padding: "0.5rem",
         background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
         minHeight: "100vh"
       }}
+      className="p-2 md:p-4"
     >
       <Toast ref={toast} />
 
@@ -497,15 +566,16 @@ function EstadoCuenta({ user }) {
             margin: "-1.5rem -1.5rem 2rem -1.5rem",
           }}
         >
-          <div className="flex justify-content-between align-items-center flex-wrap gap-3">
+          <div className="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center flex-wrap gap-3">
             <div style={{ flex: "1", minWidth: "0" }}>
               <h1
                 style={{
                   margin: "0 0 0.5rem 0",
-                  fontSize: "1.875rem",
+                  fontSize: "1.5rem",
                   fontWeight: "700",
                   letterSpacing: "-0.025em"
                 }}
+                className="text-xl md:text-3xl"
               >
                 Estado de Cuenta
               </h1>
@@ -513,10 +583,11 @@ function EstadoCuenta({ user }) {
                 <p
                   style={{
                     margin: "0",
-                    fontSize: "1rem",
+                    fontSize: "0.875rem",
                     opacity: "0.9",
                     fontWeight: "400"
                   }}
+                  className="text-sm md:text-base"
                 >
                   Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
                 </p>
@@ -524,20 +595,21 @@ function EstadoCuenta({ user }) {
                 <p
                   style={{
                     margin: "0",
-                    fontSize: "1rem",
+                    fontSize: "0.875rem",
                     opacity: "0.9",
                     fontWeight: "400"
                   }}
+                  className="text-sm md:text-base"
                 >
                   Selecciona un cliente para ver su estado de cuenta
                 </p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <Button
                 label="Volver"
                 icon="pi pi-arrow-left"
-                className="p-button-outlined"
+                className="p-button-outlined flex-1 md:flex-none"
                 onClick={() => navigate('/dashboard')}
                 style={{
                   background: "rgba(255, 255, 255, 0.1)",
@@ -554,7 +626,7 @@ function EstadoCuenta({ user }) {
                   <Button
                     label={updating ? "Actualizando..." : "Actualizar"}
                     icon={updating ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
-                    className="p-button-outlined"
+                    className="p-button-outlined flex-1 md:flex-none"
                     onClick={actualizarDesdeAlegra}
                     disabled={updating}
                     style={{
@@ -570,7 +642,7 @@ function EstadoCuenta({ user }) {
                   <Button
                     label="Exportar PDF"
                     icon="pi pi-file-pdf"
-                    className="p-button-outlined"
+                    className="p-button-outlined flex-1 md:flex-none"
                     onClick={exportarPDF}
                     style={{
                       background: "rgba(255, 255, 255, 0.1)",
@@ -691,19 +763,21 @@ function EstadoCuenta({ user }) {
                 </p>
               </div>
             ) : (
-              <DataTable
-               value={boletas}
-               paginator
-               rows={10}
-               responsiveLayout="stack"
-               emptyMessage="No hay boletas para mostrar."
-               className="p-datatable-sm"
-               style={{
-                 borderRadius: "12px",
-                 overflow: "hidden",
-                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-               }}
-              rowExpansionTemplate={(rowData) => (
+              <>
+                {/* Vista Desktop - DataTable */}
+                <div className="vista-desktop">
+                  <DataTable
+                   value={boletas}
+                   paginator
+                   rows={10}
+                   emptyMessage="No hay boletas para mostrar."
+                   className="p-datatable-sm"
+                   style={{
+                     borderRadius: "12px",
+                     overflow: "hidden",
+                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                   }}
+                  rowExpansionTemplate={(rowData) => (
                 <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
                   {/* Sección de Pagos */}
                   <div style={{ marginBottom: expandedProductos[rowData.numero] ? 20 : 0 }}>
@@ -750,102 +824,170 @@ function EstadoCuenta({ user }) {
               expandedRows={expandedRows}
               dataKey="numero"
             >
-              <Column expander style={{ width: '3em' }} />
+              <Column 
+                expander 
+                style={{ width: '5%' }}
+                body={(rowData) => (
+                  <div>
+                    <span className="p-hidden md:inline">
+                      <i className="pi pi-chevron-right" style={{ fontSize: '0.8rem' }}></i>
+                    </span>
+                    <div className="md:hidden">
+                      <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+                        Expandir:
+                      </span>
+                      <i className="pi pi-chevron-down" style={{ fontSize: '1rem', color: '#3b82f6' }}></i>
+                    </div>
+                  </div>
+                )}
+              />
               <Column 
                 header="Productos" 
                 body={(rowData) => (
-                  <span
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleProductos(rowData.numero);
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#e5e7eb';
-                      e.target.style.cursor = 'pointer';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                    }}
-                    style={{
-                      display: 'inline-block',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '18px',
-                      color: (!rowData.productos || rowData.productos.length === 0) ? '#9ca3af' : '#3b82f6',
-                      backgroundColor: 'transparent',
-                      border: '1px solid #d1d5db',
-                      minWidth: '40px',
-                      minHeight: '40px',
-                      textAlign: 'center',
-                      lineHeight: '24px',
-                      opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
-                      transition: 'all 0.2s ease',
-                      userSelect: 'none'
-                    }}
-                    title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
-                  >
-                    {expandedProductos[rowData.numero] ? "👁️‍🗨️" : "👁️"}
-                  </span>
+                  <div>
+                    <span className="p-hidden md:inline">
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleProductos(rowData.numero);
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#e5e7eb';
+                          e.target.style.cursor = 'pointer';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                        }}
+                        style={{
+                          display: 'inline-block',
+                          padding: '4px 6px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          color: (!rowData.productos || rowData.productos.length === 0) ? '#9ca3af' : '#3b82f6',
+                          backgroundColor: 'transparent',
+                          border: '1px solid #d1d5db',
+                          minWidth: '30px',
+                          minHeight: '30px',
+                          textAlign: 'center',
+                          lineHeight: '20px',
+                          opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
+                          transition: 'all 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
+                      >
+                        {expandedProductos[rowData.numero] ? "👁️‍🗨️" : "👁️"}
+                      </span>
+                    </span>
+                    <div className="md:hidden">
+                      <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+                        Productos:
+                      </span>
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleProductos(rowData.numero);
+                        }}
+                        style={{
+                          display: 'inline-block',
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          color: (!rowData.productos || rowData.productos.length === 0) ? '#9ca3af' : '#3b82f6',
+                          backgroundColor: 'transparent',
+                          border: '1px solid #d1d5db',
+                          minWidth: '40px',
+                          minHeight: '40px',
+                          textAlign: 'center',
+                          lineHeight: '28px',
+                          opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
+                          transition: 'all 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
+                      >
+                        {expandedProductos[rowData.numero] ? "👁️‍🗨️" : "👁️"} {(!rowData.productos || rowData.productos.length === 0) ? "Sin productos" : "Ver productos"}
+                      </span>
+                    </div>
+                  </div>
                 )}
                 style={{ 
-                  minWidth: "100px",
+                  width: "8%",
                   textAlign: "center"
                 }}
               />
-                             <Column
+              <Column
                  field="numero"
                  header="Número"
+                 body={cellWithLabelTemplate('numero', 'Número')}
                  style={{ 
-                   minWidth: "120px"
+                   width: "12%"
                  }}
                />
                <Column
                  field="clienteNombre"
                  header="Cliente"
+                 body={cellWithLabelTemplate('clienteNombre', 'Cliente')}
                  style={{ 
-                   minWidth: "150px"
+                   width: "20%"
                  }}
                />
                <Column
                  field="fechaEmision"
                  header="Fecha Emisión"
-                 body={(row) => formatFecha(row.fechaEmision)}
+                 body={fechaWithLabelTemplate('fechaEmision', 'Fecha Emisión')}
                  style={{ 
-                   minWidth: "110px"
+                   width: "15%"
                  }}
                />
                <Column
                  field="fechaVencimiento"
                  header="Fecha Vencimiento"
-                 body={(row) => formatFecha(row.fechaVencimiento)}
+                 body={fechaWithLabelTemplate('fechaVencimiento', 'Fecha Vencimiento')}
                  style={{ 
-                   minWidth: "110px"
+                   width: "15%"
                  }}
                />
                <Column
                  field="montoTotal"
                  header="Monto Total"
-                 body={montoTemplate('montoTotal')}
+                 body={montoWithLabelTemplate('montoTotal', 'Monto Total')}
                  style={{ 
-                   minWidth: "110px"
+                   width: "15%"
                  }}
                />
                <Column
                  field="montoPagado"
                  header="Monto Pagado"
-                 body={montoTemplate('montoPagado')}
+                 body={montoWithLabelTemplate('montoPagado', 'Monto Pagado')}
                  style={{ 
-                   minWidth: "110px"
+                   width: "15%"
                  }}
                />
                <Column
                  field="montoAdeudado"
                  header="Monto Adeudado"
-                 body={rowData => formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
+                 body={rowData => (
+                   <div>
+                     <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
+                       {formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
+                     </span>
+                     <div className="md:hidden">
+                       <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+                         Monto Adeudado:
+                       </span>
+                       <span style={{ fontWeight: "600", color: "#1f2937" }}>
+                         {formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
+                       </span>
+                     </div>
+                   </div>
+                 )}
                  style={{ 
-                   minWidth: "110px"
+                   width: "15%"
                  }}
                />
                <Column
@@ -853,11 +995,193 @@ function EstadoCuenta({ user }) {
                  header="Estado"
                  body={estadoTemplate}
                  style={{ 
-                   minWidth: "90px"
+                   width: "10%"
                  }}
                />
-            </DataTable>
-          )}
+                  </DataTable>
+                </div>
+
+                {/* Vista Móvil - Cards personalizados */}
+                <div className="vista-movil">
+                  {boletas.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "#6b7280" }}>
+                      No hay boletas para mostrar.
+                    </div>
+                  ) : (
+                    <div>
+                      {boletas.map((boleta, index) => (
+                        <Card key={boleta.numero || index} className="mb-3" style={{ borderRadius: "12px" }}>
+                          <div style={{ padding: "1rem" }}>
+                            <div className="grid">
+                              <div className="col-12">
+                                <div style={{ 
+                                  display: "flex", 
+                                  justifyContent: "space-between", 
+                                  alignItems: "center",
+                                  marginBottom: "0.75rem"
+                                }}>
+                                  <h4 style={{ margin: 0, color: "#1f2937" }}>
+                                    Factura #{boleta.numero}
+                                  </h4>
+                                  <Tag
+                                    value={boleta.estado}
+                                    severity={boleta.estado === "PAGADO" ? "success" : boleta.estado === "PENDIENTE" ? "warning" : "danger"}
+                                    style={{
+                                      borderRadius: "15px",
+                                      fontSize: "0.75rem",
+                                      fontWeight: "500"
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="col-12">
+                                <div style={{ marginBottom: "0.5rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Cliente:</span>
+                                  <span style={{ marginLeft: "0.5rem", color: "#1f2937" }}>
+                                    {boleta.clienteNombre}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="col-6">
+                                <div style={{ marginBottom: "0.5rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Emisión:</span>
+                                  <div style={{ color: "#1f2937" }}>
+                                    {formatFecha(boleta.fechaEmision)}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="col-6">
+                                <div style={{ marginBottom: "0.5rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Vencimiento:</span>
+                                  <div style={{ color: "#1f2937" }}>
+                                    {formatFecha(boleta.fechaVencimiento)}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="col-12">
+                                <div style={{ marginBottom: "0.5rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Monto Total:</span>
+                                  <span style={{ 
+                                    marginLeft: "0.5rem", 
+                                    color: "#1f2937", 
+                                    fontWeight: "600",
+                                    fontSize: "1.1rem"
+                                  }}>
+                                    {formatMonto(boleta.montoTotal)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="col-6">
+                                <div style={{ marginBottom: "0.5rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Pagado:</span>
+                                  <div style={{ color: "#059669", fontWeight: "600" }}>
+                                    {formatMonto(boleta.montoPagado)}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="col-6">
+                                <div style={{ marginBottom: "0.5rem" }}>
+                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Adeudado:</span>
+                                  <div style={{ color: "#dc2626", fontWeight: "600" }}>
+                                    {formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Botones de acción */}
+                              <div className="col-12">
+                                <div style={{ 
+                                  display: "flex", 
+                                  gap: "0.5rem", 
+                                  marginTop: "0.75rem",
+                                  flexWrap: "wrap"
+                                }}>
+                                  <Button
+                                    icon="pi pi-eye"
+                                    className="p-button-sm p-button-outlined"
+                                    onClick={() => {
+                                      const newExpanded = { ...expandedRows };
+                                      newExpanded[boleta.numero] = !newExpanded[boleta.numero];
+                                      setExpandedRows(newExpanded);
+                                    }}
+                                    label={expandedRows[boleta.numero] ? "Ocultar detalles" : "Ver detalles"}
+                                  />
+                                  
+                                  {(boleta.productos && boleta.productos.length > 0) && (
+                                    <Button
+                                      icon={expandedProductos[boleta.numero] ? "pi pi-eye-slash" : "pi pi-eye"}
+                                      className="p-button-sm p-button-outlined"
+                                      onClick={() => toggleProductos(boleta.numero)}
+                                      label={expandedProductos[boleta.numero] ? "Ocultar productos" : "Ver productos"}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Detalles expandibles */}
+                            {expandedRows[boleta.numero] && (
+                              <div style={{ 
+                                marginTop: "1rem", 
+                                padding: "1rem", 
+                                backgroundColor: "#f8fafc", 
+                                borderRadius: "8px",
+                                border: "1px solid #e5e7eb"
+                              }}>
+                                <strong>Pagos asociados:</strong>
+                                {boleta.pagos && boleta.pagos.length > 0 ? (
+                                  <ul style={{ margin: "0.5rem 0 0 1rem", padding: 0 }}>
+                                    {boleta.pagos.map((pago, idx) => (
+                                      <li key={idx} style={{ marginBottom: "0.25rem" }}>
+                                        <span>Fecha: {formatFecha(pago.date)}</span> | 
+                                        <span> Monto: {formatMonto(pago.amount)}</span>
+                                        {pago.notes && <span> | Nota: {pago.notes}</span>}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <div style={{ color: '#6b7280', marginTop: "0.5rem" }}>
+                                    Sin pagos registrados para esta factura.
+                                  </div>
+                                )}
+                                
+                                {expandedProductos[boleta.numero] && (
+                                  <div style={{ marginTop: "1rem" }}>
+                                    <strong>Productos:</strong>
+                                    {boleta.productos && boleta.productos.length > 0 ? (
+                                      <ul style={{ margin: "0.5rem 0 0 1rem", padding: 0 }}>
+                                        {boleta.productos.map((producto, idx) => (
+                                          <li key={idx} style={{ marginBottom: "0.25rem" }}>
+                                            <span><strong>{producto.quantity || 1}x</strong> {producto.name || producto.description || 'Producto'}</span>
+                                            {producto.total && (
+                                              <span style={{ color: '#6b7280' }}> - {formatMonto(producto.total)}</span>
+                                            )}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <div style={{ color: '#6b7280', marginTop: "0.5rem" }}>
+                                        Sin productos registrados para esta factura.
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </Card>
