@@ -25,8 +25,7 @@ import {
   formatearFecha, 
   getFormaPagoLabel, 
   getEstadoLabel,
-  exportarCobrosCsv,
-  descargarCsv 
+  exportarCobrosExcel
 } from './utils';
 import CobroForm from './CobroForm';
 
@@ -190,13 +189,11 @@ const CobrosLista = ({ user }) => {
 
   const handleExportar = () => {
     const cobrosParaExportar = getCobrosFiltrados();
-    const csv = exportarCobrosCsv(cobrosParaExportar);
-    const fecha = new Date().toISOString().split('T')[0];
-    descargarCsv(csv, `cobros_${fecha}.csv`);
+    exportarCobrosExcel(cobrosParaExportar);
     toast.current?.show({
       severity: 'success',
       summary: 'Éxito',
-      detail: 'Cobros exportados correctamente',
+      detail: `Se exportaron ${cobrosParaExportar.length} cobros a Excel`,
       life: 3000
     });
   };
@@ -313,13 +310,15 @@ const CobrosLista = ({ user }) => {
         {isAdmin ? 'Todos los Cobros' : 'Mis Cobros'}
       </h2>
       <div className="flex gap-2 w-full md:w-auto">
-        <Button
-          label="Exportar"
-          icon="pi pi-download"
-          className="p-button-help flex-1 md:flex-none"
-          onClick={handleExportar}
-          disabled={cobros.length === 0}
-        />
+        {isAdmin && (
+          <Button
+            label="Exportar Excel"
+            icon="pi pi-file-excel"
+            className="p-button-success flex-1 md:flex-none"
+            onClick={handleExportar}
+            disabled={cobros.length === 0}
+          />
+        )}
         <Button
           label="Nuevo Cobro"
           icon="pi pi-plus"

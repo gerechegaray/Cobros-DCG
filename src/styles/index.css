@@ -1,8 +1,12 @@
+/* Importar paleta de colores DCG */
+@import './colors.css';
+
 body {
-  background: #f4f6fb;
+  background: var(--dcg-bg-secondary);
   min-height: 100vh;
   margin: 0;
   font-family: "Segoe UI", Arial, sans-serif;
+  color: var(--dcg-text-primary);
 }
 
 #root {
@@ -13,14 +17,72 @@ body {
 }
 
 form {
-  background: #fff;
+  background: var(--dcg-bg-primary);
   border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--dcg-shadow-md);
+  border: 1px solid var(--dcg-border);
   padding: 32px 24px 24px 24px;
 }
 
 h2 {
   text-align: center;
-  color: #2c3e50;
+  color: var(--dcg-azul-oscuro);
   margin-bottom: 24px;
+  font-weight: 600;
+}
+
+/* Estilos globales con colores DCG */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--dcg-text-primary);
+}
+
+/* Links con colores DCG */
+a {
+  color: var(--dcg-azul-claro);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--dcg-azul-oscuro);
+  text-decoration: underline;
+}
+
+/* Inputs con estilo DCG */
+input, textarea, select {
+  border: 1px solid var(--dcg-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--dcg-azul-claro);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Botones con estilo DCG */
+button {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dcg-gris-claro);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dcg-gris-medio);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dcg-azul-claro);
 }

@@ -1,4 +1,5 @@
 import moment from 'moment';
+import * as XLSX from 'xlsx';
 import { FORMAS_PAGO, ESTADO_LABELS, ACCION_LABELS } from './constants';
 
 // Formatear monto con separador de miles
@@ -198,7 +199,52 @@ export const exportarCobrosCsv = (cobros) => {
   return csvContent;
 };
 
-// Descargar archivo CSV
+// Exportar cobros a Excel
+export const exportarCobrosExcel = (cobros) => {
+  // Preparar datos para Excel
+  const data = cobros.map(cobro => ({
+    'Fecha': formatearFecha(cobro.fechaCobro),
+    'Cliente': cobro.cliente,
+    'Monto': cobro.monto,
+    'Forma de Pago': getFormaPagoLabel(cobro.formaPago),
+    'Estado': getEstadoLabel(cobro.estado),
+    'Vendedor': cobro.vendedor,
+    'Notas': cobro.notas || ''
+  }));
+
+  // Crear workbook y worksheet
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+
+  // Configurar ancho de columnas
+  const colWidths = [
+    { wch: 12 }, // Fecha
+    { wch: 25 }, // Cliente
+    { wch: 15 }, // Monto
+    { wch: 15 }, // Forma de Pago
+    { wch: 12 }, // Estado
+    { wch: 20 }, // Vendedor
+    { wch: 30 }  // Notas
+  ];
+  ws['!cols'] = colWidths;
+
+  // Formatear la columna de monto como moneda
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+    const cellAddress = XLSX.utils.encode_cell({ r: R, c: 2 }); // Columna Monto (índice 2)
+    if (!ws[cellAddress]) continue;
+    ws[cellAddress].z = '"$"#,##0.00'; // Formato de moneda
+  }
+
+  // Agregar worksheet al workbook
+  XLSX.utils.book_append_sheet(wb, ws, 'Cobros');
+
+  // Generar archivo Excel
+  const fileName = `cobros_${moment().format('YYYY-MM-DD_HH-mm')}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+};
+
+// Descargar archivo CSV (mantener para compatibilidad)
 export const descargarCsv = (contenido, nombreArchivo = 'cobros.csv') => {
   const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');

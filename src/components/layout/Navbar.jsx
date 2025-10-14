@@ -49,10 +49,11 @@ function Navbar({ user, onLogout, menuItems }) {
     <>
       {/* Navbar */}
       <nav
+        className="navbar-dcg"
         style={{
-          background: "linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #2563eb 100%)",
+          background: "linear-gradient(135deg, var(--dcg-azul-oscuro) 0%, var(--dcg-azul-claro) 50%, var(--dcg-azul-oscuro) 100%)",
           padding: "1rem 2rem",
-          boxShadow: "0 4px 20px rgba(37, 99, 235, 0.3), 0 2px 4px rgba(0,0,0,0.1)",
+          boxShadow: "var(--dcg-shadow-lg)",
           position: "sticky",
           top: 0,
           zIndex: 1000,
@@ -69,20 +70,40 @@ function Navbar({ user, onLogout, menuItems }) {
             flexWrap: "wrap"
           }}
         >
-          {/* Logo */}
+          {/* Logo DCG */}
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <div
               style={{
                 background: "rgba(255, 255, 255, 0.15)",
                 padding: "0.75rem",
-                borderRadius: "12px"
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}
             >
-              <i className="pi pi-dollar" style={{ fontSize: "1.75rem", color: "white" }}></i>
+              <div style={{ 
+                fontSize: "1.5rem", 
+                fontWeight: "bold",
+                color: "white",
+                textShadow: "0 2px 4px rgba(0,0,0,0.3)"
+              }}>
+                DCG
+              </div>
             </div>
-            <h1 style={{ color: "white", margin: 0, fontSize: "1.5rem", fontWeight: "700" }}>
-              Sistema de Gestión
-            </h1>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <h1 style={{ color: "white", margin: 0, fontSize: "1.5rem", fontWeight: "700" }}>
+                Sistema de Gestión DCG
+              </h1>
+              <div style={{ 
+                color: "rgba(255, 255, 255, 0.8)", 
+                fontSize: "0.875rem", 
+                fontWeight: "500",
+                marginTop: "-4px"
+              }}>
+                DISTRIBUCIONES
+              </div>
+            </div>
           </div>
 
           {/* Desktop Menu */}
@@ -115,7 +136,8 @@ function Navbar({ user, onLogout, menuItems }) {
                       ? "1px solid rgba(255, 255, 255, 0.3)"
                       : "1px solid transparent",
                   borderRadius: "12px",
-                  padding: "0.75rem 1.25rem"
+                  padding: "0.75rem 1.25rem",
+                  transition: "all 0.2s ease"
                 }}
                 onClick={() => navigate(item.path)}
               />
@@ -165,7 +187,7 @@ function Navbar({ user, onLogout, menuItems }) {
         onHide={() => setSidebarVisible(false)}
         style={{
           width: "280px",
-          background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)"
+          background: "linear-gradient(180deg, var(--dcg-bg-secondary) 0%, var(--dcg-bg-tertiary) 100%)"
         }}
       >
         <div style={{ padding: "1.5rem" }}>
@@ -173,7 +195,7 @@ function Navbar({ user, onLogout, menuItems }) {
             style={{
               marginBottom: "2rem",
               padding: "1.5rem",
-              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+              background: "linear-gradient(135deg, var(--dcg-azul-claro) 0%, var(--dcg-azul-oscuro) 100%)",
               borderRadius: "16px",
               color: "white"
             }}
@@ -205,8 +227,8 @@ function Navbar({ user, onLogout, menuItems }) {
                 width: "100%",
                 justifyContent: "flex-start",
                 backgroundColor:
-                  currentPath === item.path.replace("/", "") ? "#dbeafe" : "transparent",
-                color: currentPath === item.path.replace("/", "") ? "#1e40af" : "#374151",
+                  currentPath === item.path.replace("/", "") ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                color: currentPath === item.path.replace("/", "") ? "var(--dcg-azul-oscuro)" : "var(--dcg-text-primary)",
                 fontWeight: 600,
                 borderRadius: "10px",
                 marginBottom: "0.5rem"

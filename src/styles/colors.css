@@ -1,0 +1,126 @@
+/* Paleta de colores DCG - Sistema de Gestión */
+
+:root {
+  /* Colores principales del logo DCG */
+  --dcg-azul-oscuro: #1e3a8a;      /* Azul oscuro de la "D" */
+  --dcg-azul-claro: #3b82f6;       /* Azul claro de la "C" */
+  --dcg-naranja: #ea580c;          /* Naranja de la "G" */
+  --dcg-naranja-claro: #fb923c;    /* Naranja más claro de "DISTRIBUCIONES" */
+  --dcg-blanco: #ffffff;           /* Fondo blanco */
+  
+  /* Colores de apoyo */
+  --dcg-gris-oscuro: #374151;
+  --dcg-gris-medio: #6b7280;
+  --dcg-gris-claro: #f3f4f6;
+  --dcg-gris-borde: #e5e7eb;
+  
+  /* Estados del sistema */
+  --dcg-success: #10b981;
+  --dcg-warning: #f59e0b;
+  --dcg-error: #ef4444;
+  --dcg-info: var(--dcg-azul-claro);
+  
+  /* Fondos */
+  --dcg-bg-primary: var(--dcg-blanco);
+  --dcg-bg-secondary: #f8fafc;
+  --dcg-bg-tertiary: var(--dcg-gris-claro);
+  
+  /* Textos */
+  --dcg-text-primary: var(--dcg-gris-oscuro);
+  --dcg-text-secondary: var(--dcg-gris-medio);
+  --dcg-text-muted: #9ca3af;
+  
+  /* Bordes */
+  --dcg-border: var(--dcg-gris-borde);
+  --dcg-border-light: #f3f4f6;
+  
+  /* Sombras */
+  --dcg-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --dcg-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --dcg-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --dcg-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Clases de utilidad para colores DCG */
+.text-dcg-azul-oscuro { color: var(--dcg-azul-oscuro) !important; }
+.text-dcg-azul-claro { color: var(--dcg-azul-claro) !important; }
+.text-dcg-naranja { color: var(--dcg-naranja) !important; }
+.text-dcg-naranja-claro { color: var(--dcg-naranja-claro) !important; }
+
+.bg-dcg-azul-oscuro { background-color: var(--dcg-azul-oscuro) !important; }
+.bg-dcg-azul-claro { background-color: var(--dcg-azul-claro) !important; }
+.bg-dcg-naranja { background-color: var(--dcg-naranja) !important; }
+.bg-dcg-naranja-claro { background-color: var(--dcg-naranja-claro) !important; }
+
+.border-dcg-azul-oscuro { border-color: var(--dcg-azul-oscuro) !important; }
+.border-dcg-azul-claro { border-color: var(--dcg-azul-claro) !important; }
+.border-dcg-naranja { border-color: var(--dcg-naranja) !important; }
+
+/* Botones con colores DCG */
+.btn-dcg-primary {
+  background-color: var(--dcg-azul-oscuro) !important;
+  border-color: var(--dcg-azul-oscuro) !important;
+  color: white !important;
+}
+
+.btn-dcg-primary:hover {
+  background-color: #1e40af !important;
+  border-color: #1e40af !important;
+}
+
+.btn-dcg-secondary {
+  background-color: var(--dcg-azul-claro) !important;
+  border-color: var(--dcg-azul-claro) !important;
+  color: white !important;
+}
+
+.btn-dcg-secondary:hover {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.btn-dcg-accent {
+  background-color: var(--dcg-naranja) !important;
+  border-color: var(--dcg-naranja) !important;
+  color: white !important;
+}
+
+.btn-dcg-accent:hover {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+/* Cards con estilo DCG */
+.card-dcg {
+  background: var(--dcg-bg-primary);
+  border: 1px solid var(--dcg-border);
+  border-radius: 12px;
+  box-shadow: var(--dcg-shadow);
+}
+
+.card-dcg-header {
+  background: linear-gradient(135deg, var(--dcg-azul-oscuro), var(--dcg-azul-claro));
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+/* Tags con colores DCG */
+.tag-dcg-pendiente {
+  background-color: var(--dcg-warning) !important;
+  color: white !important;
+}
+
+.tag-dcg-completado {
+  background-color: var(--dcg-success) !important;
+  color: white !important;
+}
+
+.tag-dcg-facturado {
+  background-color: var(--dcg-azul-claro) !important;
+  color: white !important;
+}
+
+.tag-dcg-cancelado {
+  background-color: var(--dcg-error) !important;
+  color: white !important;
+}
