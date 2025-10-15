@@ -10,10 +10,12 @@ import './VerPedido.css';
 
 const VerPedido = ({ visible, onHide, pedido }) => {
   const [loading, setLoading] = useState(false);
+  const [mostrarTodosProductos, setMostrarTodosProductos] = useState(false);
 
   useEffect(() => {
     if (visible && pedido) {
       setLoading(true);
+      setMostrarTodosProductos(false); // Resetear estado al abrir modal
       // Simular un pequeño delay para mostrar el spinner
       const timer = setTimeout(() => {
         setLoading(false);
@@ -123,27 +125,41 @@ const VerPedido = ({ visible, onHide, pedido }) => {
         {pedido.productos && Array.isArray(pedido.productos) && pedido.productos.length > 0 && (
           <div className="col-12">
             <div className="p-3 border-1 border-200 border-round mb-3">
-              <h4 className="mt-0 mb-3 text-900">Productos ({pedido.productos.length})</h4>
-              {pedido.productos.slice(0, 5).map((producto, index) => (
-                <div key={index} className="mb-2 p-2 border-1 border-100 border-round">
-                  <div className="flex justify-content-between">
-                    <div className="flex-1">
-                      <div className="font-bold">{producto.nombre}</div>
-                      <div className="text-sm text-600">
-                        {producto.cantidad} × {formatearMoneda(producto.precioUnitario || 0)}
-                        {producto.descuento && producto.descuento > 0 && (
-                          <span className="text-orange-600"> (Desc: {producto.descuento}%)</span>
-                        )}
+              <div className="flex justify-content-between align-items-center mb-3">
+                <h4 className="mt-0 mb-0 text-900">Productos ({pedido.productos.length})</h4>
+                {pedido.productos.length > 5 && (
+                  <Button
+                    label={mostrarTodosProductos ? "Ver menos" : `Ver todos (${pedido.productos.length})`}
+                    icon={mostrarTodosProductos ? "pi pi-angle-up" : "pi pi-angle-down"}
+                    className="p-button-sm p-button-outlined"
+                    onClick={() => setMostrarTodosProductos(!mostrarTodosProductos)}
+                  />
+                )}
+              </div>
+              
+              <div style={{ maxHeight: mostrarTodosProductos ? 'none' : '400px', overflowY: mostrarTodosProductos ? 'visible' : 'auto' }}>
+                {(mostrarTodosProductos ? pedido.productos : pedido.productos.slice(0, 5)).map((producto, index) => (
+                  <div key={index} className="mb-2 p-2 border-1 border-100 border-round">
+                    <div className="flex justify-content-between">
+                      <div className="flex-1">
+                        <div className="font-bold">{producto.nombre}</div>
+                        <div className="text-sm text-600">
+                          {producto.cantidad} × {formatearMoneda(producto.precioUnitario || 0)}
+                          {producto.descuento && producto.descuento > 0 && (
+                            <span className="text-orange-600"> (Desc: {producto.descuento}%)</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="font-bold text-green-600">
+                        {formatearMoneda(producto.total || (producto.cantidad * producto.precioUnitario))}
                       </div>
                     </div>
-                    <div className="font-bold text-green-600">
-                      {formatearMoneda(producto.total || (producto.cantidad * producto.precioUnitario))}
-                    </div>
                   </div>
-                </div>
-              ))}
-              {pedido.productos.length > 5 && (
-                <div className="text-center text-600 text-sm">
+                ))}
+              </div>
+              
+              {!mostrarTodosProductos && pedido.productos.length > 5 && (
+                <div className="text-center text-600 text-sm mt-2">
                   ... y {pedido.productos.length - 5} productos más
                 </div>
               )}
