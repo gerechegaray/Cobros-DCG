@@ -1,0 +1,446 @@
+/* ============================================
+   ESTILOS PEDIDOS - Sistema de Gestión DCG
+   ============================================ */
+
+/* Importar design tokens */
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   HEADER DEL MÓDULO
+   ============================================ */
+.pedidos-main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-6) var(--spacing-4);
+}
+
+.pedidos-main-header {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-5) var(--spacing-6);
+  margin-bottom: var(--spacing-6);
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+.pedidos-main-header h1 {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-3xl) !important;
+  font-weight: var(--font-weight-bold) !important;
+  margin: 0 0 var(--spacing-2) 0 !important;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.pedidos-main-header h1 i {
+  color: var(--dcg-azul-claro);
+  margin-right: var(--spacing-3);
+}
+
+.pedidos-main-header p {
+  color: var(--dcg-text-secondary) !important;
+  font-size: var(--font-size-base) !important;
+  margin: 0 !important;
+  font-weight: var(--font-weight-normal);
+}
+
+/* ============================================
+   DASHBOARD DE PEDIDOS
+   ============================================ */
+.pedidos-dashboard {
+  width: 100%;
+}
+
+.pedidos-dashboard-periodo {
+  margin-bottom: var(--spacing-6);
+}
+
+.pedidos-dashboard-periodo label {
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important;
+  font-size: var(--font-size-sm) !important;
+  margin-bottom: var(--spacing-2) !important;
+}
+
+.pedidos-dashboard-periodo .p-dropdown {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  color: var(--dcg-text-primary);
+}
+
+.pedidos-dashboard-periodo .p-dropdown:not(.p-disabled):hover {
+  border-color: var(--dcg-azul-claro);
+}
+
+.pedidos-dashboard-periodo .p-dropdown:not(.p-disabled).p-focus {
+  border-color: var(--dcg-azul-claro);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2);
+}
+
+/* ============================================
+   KPIs PRINCIPALES
+   ============================================ */
+.pedidos-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-8);
+}
+
+.pedidos-kpi-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  padding: var(--spacing-5);
+  text-align: center;
+  transition: all var(--transition-base);
+  cursor: default;
+}
+
+.pedidos-kpi-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--dcg-border-hover);
+}
+
+.pedidos-kpi-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.pedidos-kpi-icon {
+  font-size: var(--font-size-2xl);
+  opacity: 0.8;
+  margin-bottom: var(--spacing-1);
+}
+
+.pedidos-kpi-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dcg-text-primary);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.pedidos-kpi-value.warning {
+  color: var(--dcg-warning);
+}
+
+.pedidos-kpi-value.info {
+  color: var(--dcg-azul-claro);
+}
+
+.pedidos-kpi-value.success {
+  color: var(--dcg-success);
+}
+
+.pedidos-kpi-label {
+  font-size: var(--font-size-sm);
+  color: var(--dcg-text-secondary);
+  text-transform: uppercase;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.pedidos-kpi-sublabel {
+  font-size: var(--font-size-xs);
+  color: var(--dcg-text-muted);
+  margin-top: var(--spacing-1);
+}
+
+/* ============================================
+   MÉTRICAS SECUNDARIAS
+   ============================================ */
+.pedidos-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-6);
+}
+
+.pedidos-metric-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  padding: var(--spacing-5);
+  transition: all var(--transition-base);
+}
+
+.pedidos-metric-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+}
+
+.pedidos-metric-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  margin-bottom: var(--spacing-4);
+  text-align: center;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+  padding-bottom: var(--spacing-2);
+}
+
+.pedidos-metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-3) 0;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+}
+
+.pedidos-metric-item:last-child {
+  border-bottom: none;
+}
+
+.pedidos-metric-item-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.pedidos-metric-item-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* Top 5 Clientes */
+.pedidos-top-clientes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.pedidos-top-cliente-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--dcg-bg-tertiary);
+  border-radius: var(--border-radius-md);
+  border-left: var(--border-width-normal) solid var(--dcg-azul-claro);
+}
+
+.pedidos-top-cliente-nombre {
+  font-weight: var(--font-weight-medium);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+  flex: 1;
+}
+
+.pedidos-top-cliente-monto {
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-azul-claro);
+  font-size: var(--font-size-sm);
+}
+
+/* Producto más vendido */
+.pedidos-producto-mas-vendido {
+  text-align: center;
+  padding: var(--spacing-4) 0;
+}
+
+.pedidos-producto-nombre {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  margin-bottom: var(--spacing-2);
+}
+
+.pedidos-producto-cantidad {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dcg-azul-claro);
+  margin-bottom: var(--spacing-1);
+}
+
+.pedidos-producto-label {
+  font-size: var(--font-size-xs);
+  color: var(--dcg-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* ============================================
+   TABLA DE PEDIDOS
+   ============================================ */
+.pedidos-lista {
+  width: 100%;
+}
+
+.pedidos-table .p-datatable {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+.pedidos-table .p-datatable .p-datatable-thead > tr > th {
+  background: var(--dcg-bg-tertiary) !important;
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-4) var(--spacing-3) !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border) !important;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.pedidos-table .p-datatable .p-datatable-tbody > tr {
+  background: var(--dcg-bg-elevated);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+  transition: background-color var(--transition-base);
+}
+
+.pedidos-table .p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--dcg-bg-tertiary) !important;
+}
+
+.pedidos-table .p-datatable .p-datatable-tbody > tr > td {
+  color: var(--dcg-text-primary) !important;
+  padding: var(--spacing-4) var(--spacing-3) !important;
+  font-size: var(--font-size-sm) !important;
+  border: none !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+}
+
+/* Estados (Tags) */
+.pedidos-table .p-tag {
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-2) var(--spacing-3) !important;
+  border-radius: var(--border-radius-xl) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* Botones de acción */
+.pedidos-table .p-button {
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+  border-radius: var(--border-radius-lg) !important;
+  transition: all var(--transition-base) !important;
+}
+
+.pedidos-table .p-button:hover {
+  transform: scale(1.1);
+}
+
+/* Paginador */
+.pedidos-table .p-paginator {
+  background: var(--dcg-bg-tertiary);
+  border-top: var(--border-width-thin) solid var(--dcg-border);
+  padding: var(--spacing-3) var(--spacing-4);
+  color: var(--dcg-text-primary);
+}
+
+.pedidos-table .p-paginator .p-paginator-pages .p-paginator-page {
+  color: var(--dcg-text-primary);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  background: var(--dcg-bg-elevated);
+}
+
+.pedidos-table .p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: var(--dcg-bg-tertiary);
+  border-color: var(--dcg-azul-claro);
+}
+
+.pedidos-table .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: var(--dcg-azul-claro);
+  border-color: var(--dcg-azul-claro);
+  color: white;
+}
+
+/* Panel de filtros */
+.pedidos-lista .p-panel {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  margin-bottom: var(--spacing-4);
+}
+
+.pedidos-lista .p-panel .p-panel-header {
+  background: var(--dcg-bg-tertiary);
+  color: var(--dcg-text-primary);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  padding: var(--spacing-4) var(--spacing-5);
+  font-weight: var(--font-weight-semibold);
+}
+
+.pedidos-lista .p-panel .p-panel-content {
+  background: var(--dcg-bg-elevated);
+  padding: var(--spacing-5);
+}
+
+.pedidos-lista .p-panel label {
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .pedidos-main {
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+
+  .pedidos-main-header {
+    padding: var(--spacing-4) var(--spacing-4);
+  }
+
+  .pedidos-main-header h1 {
+    font-size: var(--font-size-2xl) !important;
+  }
+
+  .pedidos-kpis-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+  }
+
+  .pedidos-kpi-value {
+    font-size: var(--font-size-2xl);
+  }
+
+  .pedidos-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+  }
+
+  .pedidos-table .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-3) var(--spacing-2) !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px */
+  }
+
+  .pedidos-table .p-button {
+    min-width: 2.5rem !important; /* 40px mínimo */
+    min-height: 2.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pedidos-main {
+    padding: var(--spacing-3) var(--spacing-2);
+  }
+
+  .pedidos-main-header h1 {
+    font-size: var(--font-size-xl) !important;
+  }
+
+  .pedidos-kpi-value {
+    font-size: var(--font-size-xl);
+  }
+
+  .pedidos-table .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-2) !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px garantizado */
+  }
+}
+

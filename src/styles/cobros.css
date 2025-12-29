@@ -1,0 +1,636 @@
+/* ============================================
+   ESTILOS COBROS - Sistema de Gestión DCG
+   ============================================ */
+
+/* Importar design tokens */
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   HEADER DEL MÓDULO
+   ============================================ */
+.cobros-main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-6) var(--spacing-4);
+}
+
+.cobros-main-header {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-5) var(--spacing-6);
+  margin-bottom: var(--spacing-6);
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+.cobros-main-header h1 {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-3xl) !important;
+  font-weight: var(--font-weight-bold) !important;
+  margin: 0 0 var(--spacing-2) 0 !important;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.cobros-main-header h1 i {
+  color: var(--dcg-success);
+  margin-right: var(--spacing-3);
+}
+
+.cobros-main-header p {
+  color: var(--dcg-text-secondary) !important;
+  font-size: var(--font-size-base) !important;
+  margin: 0 !important;
+  font-weight: var(--font-weight-normal);
+}
+
+/* ============================================
+   DASHBOARD DE COBROS
+   ============================================ */
+.cobros-dashboard {
+  width: 100%;
+}
+
+.cobros-dashboard-periodo {
+  margin-bottom: var(--spacing-6);
+}
+
+.cobros-dashboard-periodo label {
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important;
+  font-size: var(--font-size-sm) !important;
+  margin-bottom: var(--spacing-2) !important;
+}
+
+.cobros-dashboard-periodo .p-dropdown {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  color: var(--dcg-text-primary);
+}
+
+.cobros-dashboard-periodo .p-dropdown:not(.p-disabled):hover {
+  border-color: var(--dcg-azul-claro);
+}
+
+.cobros-dashboard-periodo .p-dropdown:not(.p-disabled).p-focus {
+  border-color: var(--dcg-azul-claro);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2);
+}
+
+/* ============================================
+   KPIs PRINCIPALES
+   ============================================ */
+.cobros-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-8);
+}
+
+.cobros-kpi-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  padding: var(--spacing-5);
+  text-align: center;
+  transition: all var(--transition-base);
+  cursor: default;
+}
+
+.cobros-kpi-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--dcg-border-hover);
+}
+
+.cobros-kpi-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.cobros-kpi-icon {
+  font-size: var(--font-size-2xl);
+  opacity: 0.8;
+  margin-bottom: var(--spacing-1);
+}
+
+.cobros-kpi-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dcg-text-primary);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.cobros-kpi-value.warning {
+  color: var(--dcg-warning);
+}
+
+.cobros-kpi-value.info {
+  color: var(--dcg-azul-claro);
+}
+
+.cobros-kpi-value.success {
+  color: var(--dcg-success);
+}
+
+.cobros-kpi-label {
+  font-size: var(--font-size-sm);
+  color: var(--dcg-text-secondary);
+  text-transform: uppercase;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.cobros-kpi-sublabel {
+  font-size: var(--font-size-xs);
+  color: var(--dcg-text-muted);
+  margin-top: var(--spacing-1);
+}
+
+/* ProgressBar de % Cargado */
+.cobros-progress-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  padding: var(--spacing-5);
+  margin-bottom: var(--spacing-6);
+}
+
+.cobros-progress-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  margin-bottom: var(--spacing-4);
+  text-align: center;
+}
+
+.cobros-progress-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.cobros-progress-bar-wrapper {
+  flex: 1;
+}
+
+.cobros-progress-bar .p-progressbar {
+  height: var(--spacing-4);
+  background: var(--dcg-bg-tertiary);
+  border-radius: var(--border-radius-md);
+}
+
+.cobros-progress-bar .p-progressbar-value {
+  background: var(--dcg-success);
+  border-radius: var(--border-radius-md);
+}
+
+.cobros-progress-tag {
+  font-size: var(--font-size-lg) !important;
+  padding: var(--spacing-2) var(--spacing-4) !important;
+  border-radius: var(--border-radius-xl) !important;
+}
+
+/* ============================================
+   MÉTRICAS SECUNDARIAS
+   ============================================ */
+.cobros-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-6);
+}
+
+.cobros-metric-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  padding: var(--spacing-5);
+  transition: all var(--transition-base);
+}
+
+.cobros-metric-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+}
+
+.cobros-metric-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  margin-bottom: var(--spacing-4);
+  text-align: center;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+  padding-bottom: var(--spacing-2);
+}
+
+.cobros-metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-3) 0;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+}
+
+.cobros-metric-item:last-child {
+  border-bottom: none;
+}
+
+.cobros-metric-item-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.cobros-metric-item-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* Top 5 Clientes */
+.cobros-top-clientes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.cobros-top-cliente-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--dcg-bg-tertiary);
+  border-radius: var(--border-radius-md);
+  border-left: var(--border-width-normal) solid var(--dcg-success);
+}
+
+.cobros-top-cliente-nombre {
+  font-weight: var(--font-weight-medium);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+  flex: 1;
+}
+
+.cobros-top-cliente-monto {
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-success);
+  font-size: var(--font-size-sm);
+}
+
+/* Cobros por Vendedor (Admin) */
+.cobros-vendedores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-4);
+}
+
+.cobros-vendedor-card {
+  background: var(--dcg-bg-tertiary);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-4);
+  border-left: var(--border-width-normal) solid var(--dcg-azul-claro);
+}
+
+.cobros-vendedor-nombre {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  margin-bottom: var(--spacing-3);
+  text-align: center;
+}
+
+.cobros-vendedor-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-2) 0;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+}
+
+.cobros-vendedor-item:last-child {
+  border-bottom: none;
+}
+
+.cobros-vendedor-item-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--dcg-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.cobros-vendedor-item-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* ============================================
+   TABLA DE COBROS
+   ============================================ */
+.cobros-lista {
+  width: 100%;
+}
+
+.cobros-table .p-datatable {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+.cobros-table .p-datatable .p-datatable-thead > tr > th {
+  background: var(--dcg-bg-tertiary) !important;
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-4) var(--spacing-3) !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border) !important;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.cobros-table .p-datatable .p-datatable-tbody > tr {
+  background: var(--dcg-bg-elevated);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+  transition: background-color var(--transition-base);
+}
+
+.cobros-table .p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--dcg-bg-tertiary) !important;
+}
+
+.cobros-table .p-datatable .p-datatable-tbody > tr > td {
+  color: var(--dcg-text-primary) !important;
+  padding: var(--spacing-4) var(--spacing-3) !important;
+  font-size: var(--font-size-sm) !important;
+  border: none !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+}
+
+/* Estados (Tags) */
+.cobros-table .p-tag {
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-2) var(--spacing-4) !important;
+  border-radius: var(--border-radius-full) !important; /* Estilo pill completo */
+  font-weight: var(--font-weight-semibold) !important;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* Botones de acción */
+.cobros-table .p-button {
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+  border-radius: var(--border-radius-xl) !important; /* Estilo pill */
+  transition: all var(--transition-base) !important;
+  padding: var(--spacing-2) !important;
+}
+
+.cobros-table .p-button:hover {
+  transform: scale(1.05);
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+/* Paginador */
+.cobros-table .p-paginator {
+  background: var(--dcg-bg-tertiary);
+  border-top: var(--border-width-thin) solid var(--dcg-border);
+  padding: var(--spacing-3) var(--spacing-4);
+  color: var(--dcg-text-primary);
+}
+
+.cobros-table .p-paginator .p-paginator-pages .p-paginator-page {
+  color: var(--dcg-text-primary);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  background: var(--dcg-bg-elevated);
+}
+
+.cobros-table .p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: var(--dcg-bg-tertiary);
+  border-color: var(--dcg-azul-claro);
+}
+
+.cobros-table .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: var(--dcg-azul-claro);
+  border-color: var(--dcg-azul-claro);
+  color: white;
+}
+
+/* Panel de filtros */
+.cobros-lista .p-panel {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  margin-bottom: var(--spacing-4);
+}
+
+.cobros-lista .p-panel .p-panel-header {
+  background: var(--dcg-bg-tertiary);
+  color: var(--dcg-text-primary);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  padding: var(--spacing-4) var(--spacing-5);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cobros-lista .p-panel .p-panel-content {
+  background: var(--dcg-bg-elevated);
+  padding: var(--spacing-5);
+}
+
+.cobros-lista .p-panel label {
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+/* ============================================
+   TABLA MÓVIL - LAYOUT STACKED (CARDS)
+   ============================================ */
+@media (max-width: 768px) {
+  /* Ocultar headers en móvil */
+  .cobros-table .p-datatable .p-datatable-thead {
+    display: none !important;
+  }
+
+  /* Convertir filas en cards */
+  .cobros-table .p-datatable .p-datatable-tbody > tr {
+    display: block !important;
+    margin-bottom: var(--spacing-4);
+    border: var(--border-width-thin) solid var(--dcg-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--dcg-bg-elevated);
+    box-shadow: var(--dcg-shadow-sm);
+    padding: var(--spacing-4);
+    transition: all var(--transition-base);
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr:hover {
+    box-shadow: var(--dcg-shadow-md);
+    transform: translateY(-2px);
+  }
+
+  /* Celdas como bloques con label arriba */
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td {
+    display: block !important;
+    padding: var(--spacing-3) var(--spacing-2) !important;
+    border: none !important;
+    border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+    width: 100% !important;
+    text-align: left !important;
+    position: relative;
+    padding-left: 40% !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px */
+    color: var(--dcg-text-primary) !important;
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Labels usando ::before */
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: var(--spacing-2);
+    width: 35%;
+    font-weight: var(--font-weight-semibold);
+    color: var(--dcg-text-secondary);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+  }
+
+  /* Valores principales con más peso */
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Monto"] span,
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Cliente"] span {
+    font-weight: var(--font-weight-semibold) !important;
+    color: var(--dcg-text-primary) !important;
+    font-size: var(--font-size-base) !important;
+  }
+
+  /* Tags de estado más grandes */
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Estado"] .p-tag {
+    font-size: var(--font-size-base) !important;
+    padding: var(--spacing-2) var(--spacing-4) !important;
+    font-weight: var(--font-weight-semibold) !important;
+  }
+
+  /* Botones de acción más grandes y táctiles */
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Acciones"] {
+    padding-left: var(--spacing-2) !important;
+    padding-top: var(--spacing-4) !important;
+    padding-bottom: var(--spacing-4) !important;
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Acciones"]::before {
+    display: none !important;
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Acciones"] .p-button {
+    min-width: 2.75rem !important; /* 44px mínimo */
+    min-height: 2.75rem !important;
+    padding: var(--spacing-2) !important;
+    border-radius: var(--border-radius-xl) !important;
+    font-size: var(--font-size-base) !important;
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Acciones"] .flex {
+    flex-wrap: wrap;
+    gap: var(--spacing-2) !important;
+    justify-content: center;
+  }
+
+  /* Asegurar que no haya scroll horizontal */
+  .cobros-table .p-datatable {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .cobros-table .p-datatable-wrapper {
+    overflow-x: hidden !important;
+  }
+}
+
+/* ============================================
+   RESPONSIVE GENERAL
+   ============================================ */
+@media (max-width: 768px) {
+  .cobros-main {
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+
+  .cobros-main-header {
+    padding: var(--spacing-4) var(--spacing-4);
+  }
+
+  .cobros-main-header h1 {
+    font-size: var(--font-size-2xl) !important;
+  }
+
+  .cobros-kpis-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+  }
+
+  .cobros-kpi-value {
+    font-size: var(--font-size-2xl);
+  }
+
+  .cobros-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+  }
+
+  .cobros-vendedores-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .cobros-main {
+    padding: var(--spacing-3) var(--spacing-2);
+  }
+
+  .cobros-main-header h1 {
+    font-size: var(--font-size-xl) !important;
+  }
+
+  .cobros-kpi-value {
+    font-size: var(--font-size-xl);
+  }
+
+  /* Ajustes adicionales para móvil pequeño */
+  .cobros-table .p-datatable .p-datatable-tbody > tr {
+    padding: var(--spacing-3) !important;
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-2) var(--spacing-2) !important;
+    padding-left: 38% !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px garantizado */
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td::before {
+    width: 33%;
+    font-size: var(--font-size-xs);
+  }
+
+  .cobros-table .p-datatable .p-datatable-tbody > tr > td[data-label="Acciones"] .p-button {
+    min-width: 2.5rem !important;
+    min-height: 2.5rem !important;
+  }
+}
+

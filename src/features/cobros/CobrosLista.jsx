@@ -270,15 +270,15 @@ const CobrosLista = ({ user }) => {
 
   // Templates para las columnas
   const montoTemplate = (rowData) => {
-    return <span className="font-semibold">{formatearMonto(rowData.monto)}</span>;
+    return <span data-label="Monto">{formatearMonto(rowData.monto)}</span>;
   };
 
   const fechaTemplate = (rowData) => {
-    return formatearFecha(rowData.fechaCobro);
+    return <span data-label="Fecha">{formatearFecha(rowData.fechaCobro)}</span>;
   };
 
   const formaPagoTemplate = (rowData) => {
-    return getFormaPagoLabel(rowData.formaPago);
+    return <span data-label="Forma de Pago">{getFormaPagoLabel(rowData.formaPago)}</span>;
   };
 
   const estadoTemplate = (rowData) => {
@@ -286,12 +286,26 @@ const CobrosLista = ({ user }) => {
     const icon = ESTADO_ICONS[rowData.estado];
     
     return (
-      <Tag 
-        value={getEstadoLabel(rowData.estado)} 
-        severity={severity}
-        icon={icon}
-      />
+      <span data-label="Estado">
+        <Tag 
+          value={getEstadoLabel(rowData.estado)} 
+          severity={severity}
+          icon={icon}
+        />
+      </span>
     );
+  };
+
+  const clienteTemplate = (rowData) => {
+    return <span data-label="Cliente">{rowData.cliente}</span>;
+  };
+
+  const vendedorTemplate = (rowData) => {
+    return <span data-label="Vendedor">{rowData.vendedor}</span>;
+  };
+
+  const notasTemplate = (rowData) => {
+    return <span data-label="Notas">{rowData.notas || '-'}</span>;
   };
 
   const accionesTemplate = (rowData) => {
@@ -299,7 +313,8 @@ const CobrosLista = ({ user }) => {
     const puedeEditar = isAdmin || esVendedorDelCobro;
 
     return (
-      <div className="flex gap-1 md:gap-2 justify-content-center md:justify-content-start">
+      <span data-label="Acciones">
+        <div className="flex gap-1 md:gap-2 justify-content-center md:justify-content-start">
         {puedeEditar && rowData.estado === 'pendiente' && (
           <Button
             icon="pi pi-pencil"
@@ -340,6 +355,7 @@ const CobrosLista = ({ user }) => {
           />
         )}
       </div>
+      </span>
     );
   };
 
@@ -463,20 +479,22 @@ const CobrosLista = ({ user }) => {
           </div>
         </Panel>
 
-        <DataTable
-          value={getCobrosFiltrados()}
-          loading={loading}
-          globalFilter={globalFilter}
-          emptyMessage="No se encontraron cobros"
-          paginator
-          rows={10}
-          rowsPerPageOptions={[10, 25, 50]}
-          sortField="fechaCobro"
-          sortOrder={-1}
-          responsiveLayout="scroll"
-          stripedRows
-          className="mt-3"
-        >
+        <div className="cobros-table">
+          <DataTable
+            value={getCobrosFiltrados()}
+            loading={loading}
+            globalFilter={globalFilter}
+            emptyMessage="No se encontraron cobros"
+            paginator
+            rows={10}
+            rowsPerPageOptions={[10, 25, 50]}
+            sortField="fechaCobro"
+            sortOrder={-1}
+            responsiveLayout="stack"
+            breakpoint="768px"
+            stripedRows
+            className="mt-3"
+          >
           <Column 
             field="fechaCobro" 
             header="Fecha" 
@@ -487,6 +505,7 @@ const CobrosLista = ({ user }) => {
           <Column 
             field="cliente" 
             header="Cliente" 
+            body={clienteTemplate}
             sortable
             filter
             filterPlaceholder="Buscar por cliente"
@@ -510,6 +529,7 @@ const CobrosLista = ({ user }) => {
             <Column 
               field="vendedor" 
               header="Vendedor" 
+              body={vendedorTemplate}
               sortable
               style={{ width: '20%' }}
             />
@@ -524,6 +544,7 @@ const CobrosLista = ({ user }) => {
           <Column 
             field="notas" 
             header="Notas" 
+            body={notasTemplate}
             style={{ width: '15%' }}
           />
           <Column 
@@ -532,6 +553,7 @@ const CobrosLista = ({ user }) => {
             style={{ width: '10%' }}
           />
         </DataTable>
+        </div>
       </Card>
 
       {/* 🆕 Usar formulario móvil solo para crear nuevos cobros, desktop para editar */}

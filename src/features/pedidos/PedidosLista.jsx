@@ -387,18 +387,18 @@ const PedidosLista = ({ user }) => {
       </Panel>
 
       {/* Tabla de pedidos */}
-      <DataTable
-        value={pedidosFiltrados}
-        header={header}
-        paginator
-        rows={10}
-        rowsPerPageOptions={[10, 20, 50]}
-        loading={loading}
-        emptyMessage="No hay pedidos registrados"
-        responsiveLayout="stack"
-        breakpoint="960px"
-        className="pedidos-table"
-      >
+      <div className="pedidos-table">
+        <DataTable
+          value={pedidosFiltrados}
+          header={header}
+          paginator
+          rows={10}
+          rowsPerPageOptions={[10, 20, 50]}
+          loading={loading}
+          emptyMessage="No hay pedidos registrados"
+          responsiveLayout="stack"
+          breakpoint="960px"
+        >
         <Column field="cliente" header="Cliente" body={clienteTemplate} sortable />
         <Column 
           field="fechaPedido" 
@@ -427,6 +427,7 @@ const PedidosLista = ({ user }) => {
         />
         <Column body={accionesTemplate} header="Acciones" style={{ width: '180px' }} />
       </DataTable>
+      </div>
 
       {/* Formulario de pedido */}
       {/* 🆕 Usar formulario móvil o desktop según detección */}

@@ -10,13 +10,13 @@ const CobrosMain = ({ user }) => {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <div className="cobros-main p-2 md:p-4">
-      <div className="mb-3 md:mb-4">
-        <h1 className="text-2xl md:text-4xl font-bold text-primary m-0">
-          <i className="pi pi-dollar mr-2 md:mr-3"></i>
+    <div className="cobros-main">
+      <div className="cobros-main-header">
+        <h1>
+          <i className="pi pi-dollar"></i>
           Gestión de Cobros
         </h1>
-        <p className="text-gray-600 mt-2 text-sm md:text-base">
+        <p>
           {isAdmin 
             ? 'Administra y controla todos los cobros del sistema' 
             : 'Registra tus cobros y verifica su estado en el sistema'}

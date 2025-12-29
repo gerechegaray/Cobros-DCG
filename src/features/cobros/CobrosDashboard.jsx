@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from 'primereact/card';
-import { Chart } from 'primereact/chart';
 import { ProgressBar } from 'primereact/progressbar';
 import { Tag } from 'primereact/tag';
 import { Dropdown } from 'primereact/dropdown';
@@ -75,95 +74,52 @@ const CobrosDashboard = ({ user }) => {
     ? Math.round((totalesPorEstado.cargado / totalesPorEstado.total) * 100)
     : 0;
 
-  // Datos para gráfico de estados
-  const chartEstadosData = {
-    labels: ['Pendiente', 'Cargado'],
-    datasets: [
-      {
-        data: [totalesPorEstado.pendiente, totalesPorEstado.cargado],
-        backgroundColor: ['#FFA726', '#66BB6A'],
-        hoverBackgroundColor: ['#FB8C00', '#4CAF50']
-      }
-    ]
-  };
+  // Calcular cobros de hoy y del mes
+  const stats = useMemo(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    
+    const cobrosHoy = cobrosFiltrados.filter(c => {
+      const fechaCobro = c.fechaCobro?.toDate ? c.fechaCobro.toDate() : new Date(c.fechaCobro);
+      fechaCobro.setHours(0, 0, 0, 0);
+      return fechaCobro.getTime() === hoy.getTime();
+    });
+    
+    const cobrosMes = cobrosFiltrados.filter(c => {
+      const fechaCobro = c.fechaCobro?.toDate ? c.fechaCobro.toDate() : new Date(c.fechaCobro);
+      return fechaCobro >= inicioMes;
+    });
+    
+    return {
+      cobrosHoy: cobrosHoy.length,
+      montoHoy: cobrosHoy.reduce((sum, c) => sum + (c.monto || 0), 0),
+      montoMes: cobrosMes.reduce((sum, c) => sum + (c.monto || 0), 0)
+    };
+  }, [cobrosFiltrados]);
 
-  const chartEstadosOptions = {
-    plugins: {
-      legend: {
-        position: 'bottom'
+  // Calcular top 5 clientes por monto cobrado
+  const top5Clientes = useMemo(() => {
+    const clientesMap = new Map();
+    
+    cobrosFiltrados.forEach(cobro => {
+      const clienteNombre = cobro.cliente || 'Cliente sin nombre';
+      const monto = cobro.monto || 0;
+      
+      if (clientesMap.has(clienteNombre)) {
+        clientesMap.set(clienteNombre, clientesMap.get(clienteNombre) + monto);
+      } else {
+        clientesMap.set(clienteNombre, monto);
       }
-    }
-  };
-
-  // Datos para gráfico de formas de pago
-  const formasPagoLabels = Object.keys(totalesPorFormaPago);
-  const formasPagoData = Object.values(totalesPorFormaPago);
-  
-  const chartFormasPagoData = {
-    labels: formasPagoLabels.map(fp => fp.charAt(0).toUpperCase() + fp.slice(1)),
-    datasets: [
-      {
-        label: 'Monto',
-        data: formasPagoData,
-        backgroundColor: ['#42A5F5', '#66BB6A', '#FFA726'],
-        borderWidth: 1
-      }
-    ]
-  };
-
-  const chartFormasPagoOptions = {
-    plugins: {
-      legend: {
-        display: false
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function(value) {
-            return '$' + value.toLocaleString('es-AR');
-          }
-        }
-      }
-    }
-  };
-
-  // Datos para gráfico de vendedores (solo admin)
-  const vendedoresLabels = Object.keys(totalesPorVendedor);
-  const vendedoresData = vendedoresLabels.map(v => totalesPorVendedor[v].total);
-  
-  const chartVendedoresData = {
-    labels: vendedoresLabels,
-    datasets: [
-      {
-        label: 'Total Cobrado',
-        data: vendedoresData,
-        backgroundColor: '#42A5F5',
-        borderColor: '#1E88E5',
-        borderWidth: 2
-      }
-    ]
-  };
-
-  const chartVendedoresOptions = {
-    indexAxis: 'y',
-    plugins: {
-      legend: {
-        display: false
-      }
-    },
-    scales: {
-      x: {
-        beginAtZero: true,
-        ticks: {
-          callback: function(value) {
-            return '$' + value.toLocaleString('es-AR');
-          }
-        }
-      }
-    }
-  };
+    });
+    
+    if (clientesMap.size === 0) return [];
+    
+    return Array.from(clientesMap.entries())
+      .map(([nombre, monto]) => ({ nombre, monto }))
+      .sort((a, b) => b.monto - a.monto)
+      .slice(0, 5);
+  }, [cobrosFiltrados]);
 
   const periodos = [
     { label: 'Hoy', value: 'dia' },
@@ -180,8 +136,8 @@ const CobrosDashboard = ({ user }) => {
   return (
     <div className="cobros-dashboard">
       {/* Selector de período */}
-      <div className="mb-3">
-        <label className="block mb-2 text-sm font-medium">Período</label>
+      <div className="cobros-dashboard-periodo">
+        <label>Período</label>
         <Dropdown
           value={periodo}
           options={periodos}
@@ -191,181 +147,118 @@ const CobrosDashboard = ({ user }) => {
         />
       </div>
 
-      {/* Tarjetas de resumen */}
-      <div className="grid">
-        <div className="col-12 md:col-6 lg:col-3">
-          <Card className="bg-blue-50">
-            <div className="flex justify-content-between align-items-center">
-              <div>
-                <div className="text-500 font-medium mb-2 text-sm md:text-base">Total Cobrado</div>
-                <div className="text-900 font-bold text-xl md:text-3xl">
-                  {formatearMonto(totalesPorEstado.total)}
-                </div>
-              </div>
-              <div className="bg-blue-500 text-white border-round p-2 md:p-3">
-                <i className="pi pi-dollar text-2xl md:text-3xl"></i>
-              </div>
-            </div>
-          </Card>
-        </div>
+      {/* KPIs PRINCIPALES */}
+      <div className="cobros-kpis-grid">
+        <Card className="cobros-kpi-card">
+          <div className="cobros-kpi-content">
+            <i className="pi pi-exclamation-triangle cobros-kpi-icon" style={{ color: 'var(--dcg-warning)' }}></i>
+            <div className="cobros-kpi-value warning">{totalesPorEstado.pendiente}</div>
+            <div className="cobros-kpi-label">Cobros Pendientes</div>
+            <div className="cobros-kpi-sublabel">{formatearMonto(totalesPorEstado.pendiente)}</div>
+          </div>
+        </Card>
 
-        <div className="col-12 md:col-6 lg:col-3">
-          <Card className="bg-orange-50">
-            <div className="flex justify-content-between align-items-center">
-              <div>
-                <div className="text-500 font-medium mb-2 text-sm md:text-base">Pendiente</div>
-                <div className="text-900 font-bold text-xl md:text-3xl">
-                  {formatearMonto(totalesPorEstado.pendiente)}
-                </div>
-              </div>
-              <div className="bg-orange-500 text-white border-round p-2 md:p-3">
-                <i className="pi pi-clock text-2xl md:text-3xl"></i>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Card className="cobros-kpi-card">
+          <div className="cobros-kpi-content">
+            <i className="pi pi-dollar cobros-kpi-icon" style={{ color: 'var(--dcg-warning)' }}></i>
+            <div className="cobros-kpi-value warning">{formatearMonto(totalesPorEstado.pendiente)}</div>
+            <div className="cobros-kpi-label">Monto Total Pendiente</div>
+          </div>
+        </Card>
 
-        <div className="col-12 md:col-6 lg:col-3">
-          <Card className="bg-green-50">
-            <div className="flex justify-content-between align-items-center">
-              <div>
-                <div className="text-500 font-medium mb-2 text-sm md:text-base">Cargado</div>
-                <div className="text-900 font-bold text-xl md:text-3xl">
-                  {formatearMonto(totalesPorEstado.cargado)}
-                </div>
-              </div>
-              <div className="bg-green-500 text-white border-round p-2 md:p-3">
-                <i className="pi pi-check-circle text-2xl md:text-3xl"></i>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Card className="cobros-kpi-card">
+          <div className="cobros-kpi-content">
+            <i className="pi pi-calendar cobros-kpi-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+            <div className="cobros-kpi-value info">{stats.cobrosHoy}</div>
+            <div className="cobros-kpi-label">Cobros de Hoy</div>
+            <div className="cobros-kpi-sublabel">{formatearMonto(stats.montoHoy)}</div>
+          </div>
+        </Card>
 
-        <div className="col-12 md:col-6 lg:col-3">
-          <Card className="bg-purple-50">
-            <div className="flex justify-content-between align-items-center">
-              <div>
-                <div className="text-500 font-medium mb-2 text-sm md:text-base">Total Cobros</div>
-                <div className="text-900 font-bold text-xl md:text-3xl">
-                  {cobrosFiltrados.length}
-                </div>
-              </div>
-              <div className="bg-purple-500 text-white border-round p-2 md:p-3">
-                <i className="pi pi-list text-2xl md:text-3xl"></i>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Card className="cobros-kpi-card">
+          <div className="cobros-kpi-content">
+            <i className="pi pi-chart-line cobros-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
+            <div className="cobros-kpi-value success">{formatearMonto(stats.montoMes)}</div>
+            <div className="cobros-kpi-label">Total del Mes</div>
+          </div>
+        </Card>
       </div>
 
       {/* Progreso de carga */}
-      <div className="grid mt-3 md:mt-4">
-        <div className="col-12">
-          <Card>
-            <h3 className="mt-0 mb-3 text-lg md:text-xl">Progreso de Carga en Sistema</h3>
-            <div className="flex align-items-center gap-3">
-              <ProgressBar 
-                value={porcentajeCargados} 
-                className="flex-1"
-                displayValueTemplate={() => `${porcentajeCargados}% Cargado`}
-              />
-              <Tag 
-                value={`${porcentajeCargados}%`} 
-                severity={porcentajeCargados === 100 ? 'success' : 'warning'}
-                className="text-lg"
-              />
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Gráficos */}
-      <div className="grid mt-3 md:mt-4">
-        <div className="col-12 md:col-6">
-          <Card>
-            <h3 className="mt-0 mb-3 text-lg md:text-xl">Distribución por Estado</h3>
-            <div style={{ maxHeight: '300px', height: '250px' }}>
-              <Chart 
-                type="doughnut" 
-                data={chartEstadosData} 
-                options={chartEstadosOptions}
-                className="w-full h-full"
-              />
-            </div>
-          </Card>
-        </div>
-
-        <div className="col-12 md:col-6">
-          <Card>
-            <h3 className="mt-0 mb-3 text-lg md:text-xl">Por Forma de Pago</h3>
-            <div style={{ maxHeight: '300px', height: '250px' }}>
-              <Chart 
-                type="bar" 
-                data={chartFormasPagoData} 
-                options={chartFormasPagoOptions}
-                className="w-full h-full"
-              />
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Gráfico de vendedores (solo admin) */}
-      {isAdmin && vendedoresLabels.length > 0 && (
-        <div className="grid mt-3 md:mt-4">
-          <div className="col-12">
-            <Card>
-              <h3 className="mt-0 mb-3 text-lg md:text-xl">Cobros por Vendedor</h3>
-              <div style={{ minHeight: '250px' }}>
-                <Chart 
-                  type="bar" 
-                  data={chartVendedoresData} 
-                  options={chartVendedoresOptions}
-                  className="w-full"
-                />
-              </div>
-            </Card>
+      <Card className="cobros-progress-card">
+        <div className="cobros-progress-title">Progreso de Carga en Sistema</div>
+        <div className="cobros-progress-container">
+          <div className="cobros-progress-bar-wrapper">
+            <ProgressBar 
+              value={porcentajeCargados} 
+              className="cobros-progress-bar"
+              displayValueTemplate={() => `${porcentajeCargados}% Cargado`}
+            />
           </div>
+          <Tag 
+            value={`${porcentajeCargados}%`} 
+            severity={porcentajeCargados === 100 ? 'success' : 'warning'}
+            className="cobros-progress-tag"
+          />
         </div>
-      )}
+      </Card>
 
-      {/* Tabla resumen por vendedor (solo admin) */}
-      {isAdmin && (
-        <div className="grid mt-3 md:mt-4">
-          <div className="col-12">
-            <Card>
-              <h3 className="mt-0 mb-3 text-lg md:text-xl">Resumen por Vendedor</h3>
-              <div className="grid">
-                {Object.entries(totalesPorVendedor).map(([vendedor, datos]) => (
-                  <div key={vendedor} className="col-12 md:col-6 lg:col-4">
-                    <Card className="bg-gray-50">
-                      <h4 className="mt-0 mb-3 text-primary text-base md:text-lg">{vendedor}</h4>
-                      <div className="flex flex-column gap-2">
-                        <div className="flex justify-content-between">
-                          <span className="text-600">Total:</span>
-                          <span className="font-bold">{formatearMonto(datos.total)}</span>
-                        </div>
-                        <div className="flex justify-content-between">
-                          <span className="text-600">Pendiente:</span>
-                          <span className="text-orange-600">{formatearMonto(datos.pendiente)}</span>
-                        </div>
-                        <div className="flex justify-content-between">
-                          <span className="text-600">Cargado:</span>
-                          <span className="text-green-600">{formatearMonto(datos.cargado)}</span>
-                        </div>
-                        <div className="flex justify-content-between">
-                          <span className="text-600">Cantidad:</span>
-                          <span className="font-bold">{datos.cantidad} cobros</span>
-                        </div>
-                      </div>
-                    </Card>
+      {/* MÉTRICAS SECUNDARIAS */}
+      <div className="cobros-metrics-grid">
+        {/* Forma de Pago */}
+        <Card className="cobros-metric-card">
+          <div className="cobros-metric-title">Por Forma de Pago</div>
+          <div className="cobros-metric-item">
+            <span className="cobros-metric-item-label">Efectivo</span>
+            <span className="cobros-metric-item-value">{totalesPorFormaPago.efectivo || 0}</span>
+          </div>
+          <div className="cobros-metric-item">
+            <span className="cobros-metric-item-label">Transferencia</span>
+            <span className="cobros-metric-item-value">{totalesPorFormaPago.transferencia || 0}</span>
+          </div>
+          <div className="cobros-metric-item">
+            <span className="cobros-metric-item-label">Cheque</span>
+            <span className="cobros-metric-item-value">{totalesPorFormaPago.cheque || 0}</span>
+          </div>
+        </Card>
+
+        {/* Top 5 Clientes */}
+        {top5Clientes.length > 0 && (
+          <Card className="cobros-metric-card">
+            <div className="cobros-metric-title">Top 5 Clientes</div>
+            <div className="cobros-top-clientes">
+              {top5Clientes.map((cliente, index) => (
+                <div key={index} className="cobros-top-cliente-item">
+                  <span className="cobros-top-cliente-nombre">{cliente.nombre}</span>
+                  <span className="cobros-top-cliente-monto">{formatearMonto(cliente.monto)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Cobros por Vendedor (solo admin) */}
+        {isAdmin && Object.keys(totalesPorVendedor).length > 0 && (
+          <Card className="cobros-metric-card">
+            <div className="cobros-metric-title">Cobros por Vendedor</div>
+            <div className="cobros-vendedores-grid">
+              {Object.entries(totalesPorVendedor).map(([vendedor, datos]) => (
+                <div key={vendedor} className="cobros-vendedor-card">
+                  <div className="cobros-vendedor-nombre">{vendedor}</div>
+                  <div className="cobros-vendedor-item">
+                    <span className="cobros-vendedor-item-label">Cantidad:</span>
+                    <span className="cobros-vendedor-item-value">{datos.cantidad}</span>
                   </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
+                  <div className="cobros-vendedor-item">
+                    <span className="cobros-vendedor-item-label">Total:</span>
+                    <span className="cobros-vendedor-item-value">{formatearMonto(datos.total)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
