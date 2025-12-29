@@ -2,6 +2,7 @@
 export const FORMAS_PAGO = [
   { label: 'Efectivo', value: 'efectivo' },
   { label: 'Transferencia', value: 'transferencia' },
+  { label: 'Cheque', value: 'cheque' },
   { label: 'Otro', value: 'otro' }
 ];
 
