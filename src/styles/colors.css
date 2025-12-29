@@ -1,126 +1,192 @@
-/* Paleta de colores DCG - Sistema de Gestión */
+/* ============================================
+   PALETA DE COLORES DCG - Sistema de Gestión
+   Dark Mode por defecto
+   ============================================ */
 
+/* Colores base DCG (no cambian con el tema) */
 :root {
   /* Colores principales del logo DCG */
   --dcg-azul-oscuro: #1e3a8a;      /* Azul oscuro de la "D" */
   --dcg-azul-claro: #3b82f6;       /* Azul claro de la "C" */
+  --dcg-azul-claro-hover: #2563eb; /* Azul claro hover */
   --dcg-naranja: #ea580c;          /* Naranja de la "G" */
-  --dcg-naranja-claro: #fb923c;    /* Naranja más claro de "DISTRIBUCIONES" */
-  --dcg-blanco: #ffffff;           /* Fondo blanco */
+  --dcg-naranja-claro: #fb923c;    /* Naranja más claro */
+  --dcg-naranja-hover: #dc2626;    /* Naranja hover */
   
-  /* Colores de apoyo */
-  --dcg-gris-oscuro: #374151;
-  --dcg-gris-medio: #6b7280;
-  --dcg-gris-claro: #f3f4f6;
-  --dcg-gris-borde: #e5e7eb;
-  
-  /* Estados del sistema */
+  /* Estados del sistema (no cambian) */
   --dcg-success: #10b981;
+  --dcg-success-hover: #059669;
   --dcg-warning: #f59e0b;
+  --dcg-warning-hover: #d97706;
   --dcg-error: #ef4444;
+  --dcg-error-hover: #dc2626;
   --dcg-info: var(--dcg-azul-claro);
-  
+  --dcg-info-hover: var(--dcg-azul-claro-hover);
+}
+
+/* ============================================
+   DARK MODE (Por defecto)
+   ============================================ */
+:root {
   /* Fondos */
-  --dcg-bg-primary: var(--dcg-blanco);
-  --dcg-bg-secondary: #f8fafc;
-  --dcg-bg-tertiary: var(--dcg-gris-claro);
+  --dcg-bg-primary: #1a1a1f;           /* Fondo principal oscuro */
+  --dcg-bg-secondary: #0f0f12;         /* Fondo secundario más oscuro */
+  --dcg-bg-tertiary: #25252d;          /* Fondo terciario */
+  --dcg-bg-elevated: #2a2a33;          /* Fondos elevados (cards, modals) */
+  --dcg-bg-hover: #32323a;             /* Hover states */
   
   /* Textos */
-  --dcg-text-primary: var(--dcg-gris-oscuro);
-  --dcg-text-secondary: var(--dcg-gris-medio);
-  --dcg-text-muted: #9ca3af;
+  --dcg-text-primary: #e5e7eb;         /* Texto principal claro */
+  --dcg-text-secondary: #9ca3af;         /* Texto secundario */
+  --dcg-text-muted: #6b7280;            /* Texto muted */
+  --dcg-text-inverse: #1a1a1f;          /* Texto sobre fondos claros */
   
   /* Bordes */
-  --dcg-border: var(--dcg-gris-borde);
-  --dcg-border-light: #f3f4f6;
+  --dcg-border: #3a3a44;                /* Bordes principales */
+  --dcg-border-light: #2a2a33;          /* Bordes sutiles */
+  --dcg-border-hover: #4a4a54;          /* Bordes hover */
   
-  /* Sombras */
+  /* Sombras (más sutiles en dark mode) */
+  --dcg-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --dcg-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --dcg-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --dcg-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --dcg-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  
+  /* Overlay para modals */
+  --dcg-overlay: rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================
+   LIGHT MODE (Opcional, activado con clase .light-mode)
+   ============================================ */
+.light-mode {
+  /* Fondos */
+  --dcg-bg-primary: #ffffff;
+  --dcg-bg-secondary: #f8fafc;
+  --dcg-bg-tertiary: #f3f4f6;
+  --dcg-bg-elevated: #ffffff;
+  --dcg-bg-hover: #f9fafb;
+  
+  /* Textos */
+  --dcg-text-primary: #374151;
+  --dcg-text-secondary: #6b7280;
+  --dcg-text-muted: #9ca3af;
+  --dcg-text-inverse: #ffffff;
+  
+  /* Bordes */
+  --dcg-border: #e5e7eb;
+  --dcg-border-light: #f3f4f6;
+  --dcg-border-hover: #d1d5db;
+  
+  /* Sombras (más visibles en light mode) */
   --dcg-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --dcg-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   --dcg-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --dcg-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --dcg-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Overlay para modals */
+  --dcg-overlay: rgba(0, 0, 0, 0.5);
 }
 
-/* Clases de utilidad para colores DCG */
-.text-dcg-azul-oscuro { color: var(--dcg-azul-oscuro) !important; }
-.text-dcg-azul-claro { color: var(--dcg-azul-claro) !important; }
-.text-dcg-naranja { color: var(--dcg-naranja) !important; }
-.text-dcg-naranja-claro { color: var(--dcg-naranja-claro) !important; }
+/* ============================================
+   CLASES DE UTILIDAD PARA COLORES DCG
+   ============================================ */
+.text-dcg-azul-oscuro { color: var(--dcg-azul-oscuro); }
+.text-dcg-azul-claro { color: var(--dcg-azul-claro); }
+.text-dcg-naranja { color: var(--dcg-naranja); }
+.text-dcg-naranja-claro { color: var(--dcg-naranja-claro); }
 
-.bg-dcg-azul-oscuro { background-color: var(--dcg-azul-oscuro) !important; }
-.bg-dcg-azul-claro { background-color: var(--dcg-azul-claro) !important; }
-.bg-dcg-naranja { background-color: var(--dcg-naranja) !important; }
-.bg-dcg-naranja-claro { background-color: var(--dcg-naranja-claro) !important; }
+.bg-dcg-azul-oscuro { background-color: var(--dcg-azul-oscuro); }
+.bg-dcg-azul-claro { background-color: var(--dcg-azul-claro); }
+.bg-dcg-naranja { background-color: var(--dcg-naranja); }
+.bg-dcg-naranja-claro { background-color: var(--dcg-naranja-claro); }
 
-.border-dcg-azul-oscuro { border-color: var(--dcg-azul-oscuro) !important; }
-.border-dcg-azul-claro { border-color: var(--dcg-azul-claro) !important; }
-.border-dcg-naranja { border-color: var(--dcg-naranja) !important; }
+.border-dcg-azul-oscuro { border-color: var(--dcg-azul-oscuro); }
+.border-dcg-azul-claro { border-color: var(--dcg-azul-claro); }
+.border-dcg-naranja { border-color: var(--dcg-naranja); }
 
-/* Botones con colores DCG */
+/* ============================================
+   BOTONES CON COLORES DCG
+   ============================================ */
 .btn-dcg-primary {
-  background-color: var(--dcg-azul-oscuro) !important;
-  border-color: var(--dcg-azul-oscuro) !important;
-  color: white !important;
+  background-color: var(--dcg-azul-oscuro);
+  border-color: var(--dcg-azul-oscuro);
+  color: var(--dcg-text-inverse);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
 .btn-dcg-primary:hover {
-  background-color: #1e40af !important;
-  border-color: #1e40af !important;
+  background-color: #1e40af;
+  border-color: #1e40af;
 }
 
 .btn-dcg-secondary {
-  background-color: var(--dcg-azul-claro) !important;
-  border-color: var(--dcg-azul-claro) !important;
-  color: white !important;
+  background-color: var(--dcg-azul-claro);
+  border-color: var(--dcg-azul-claro);
+  color: var(--dcg-text-inverse);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
 .btn-dcg-secondary:hover {
-  background-color: #2563eb !important;
-  border-color: #2563eb !important;
+  background-color: var(--dcg-azul-claro-hover);
+  border-color: var(--dcg-azul-claro-hover);
 }
 
 .btn-dcg-accent {
-  background-color: var(--dcg-naranja) !important;
-  border-color: var(--dcg-naranja) !important;
-  color: white !important;
+  background-color: var(--dcg-naranja);
+  border-color: var(--dcg-naranja);
+  color: var(--dcg-text-inverse);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
 .btn-dcg-accent:hover {
-  background-color: #dc2626 !important;
-  border-color: #dc2626 !important;
+  background-color: var(--dcg-naranja-hover);
+  border-color: var(--dcg-naranja-hover);
 }
 
-/* Cards con estilo DCG */
+/* ============================================
+   CARDS CON ESTILO DCG
+   ============================================ */
 .card-dcg {
-  background: var(--dcg-bg-primary);
+  background: var(--dcg-bg-elevated);
   border: 1px solid var(--dcg-border);
-  border-radius: 12px;
+  border-radius: var(--border-radius-lg);
   box-shadow: var(--dcg-shadow);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.card-dcg:hover {
+  box-shadow: var(--dcg-shadow-md);
+  border-color: var(--dcg-border-hover);
 }
 
 .card-dcg-header {
   background: linear-gradient(135deg, var(--dcg-azul-oscuro), var(--dcg-azul-claro));
-  color: white;
-  border-radius: 12px 12px 0 0;
+  color: var(--dcg-text-inverse);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
 }
 
-/* Tags con colores DCG */
+/* ============================================
+   TAGS CON COLORES DCG
+   ============================================ */
 .tag-dcg-pendiente {
-  background-color: var(--dcg-warning) !important;
-  color: white !important;
+  background-color: var(--dcg-warning);
+  color: var(--dcg-text-inverse);
 }
 
 .tag-dcg-completado {
-  background-color: var(--dcg-success) !important;
-  color: white !important;
+  background-color: var(--dcg-success);
+  color: var(--dcg-text-inverse);
 }
 
 .tag-dcg-facturado {
-  background-color: var(--dcg-azul-claro) !important;
-  color: white !important;
+  background-color: var(--dcg-azul-claro);
+  color: var(--dcg-text-inverse);
 }
 
 .tag-dcg-cancelado {
-  background-color: var(--dcg-error) !important;
-  color: white !important;
+  background-color: var(--dcg-error);
+  color: var(--dcg-text-inverse);
 }

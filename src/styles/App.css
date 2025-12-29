@@ -1,20 +1,65 @@
+/* ============================================
+   ESTILOS ESPECÍFICOS DE APP
+   ============================================ */
+
+/* Importar design tokens */
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   ROOT Y CONTENEDOR PRINCIPAL
+   ============================================ */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* Estilos para el calendario de gastos */
+/* Cards con elevación mejorada */
+.p-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.p-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  border-color: var(--dcg-border-hover);
+}
+
+/* Paneles con mejor separación */
+.p-panel {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow);
+  margin-bottom: var(--spacing-4);
+}
+
+.p-panel .p-panel-header {
+  background: var(--dcg-bg-tertiary);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border);
+  padding: var(--spacing-4) var(--spacing-6);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+
+.p-panel .p-panel-content {
+  padding: var(--spacing-6);
+}
+
+/* ============================================
+   ESTILOS PARA CALENDARIO DE GASTOS (react-big-calendar)
+   ============================================ */
 .rbc-calendar {
-  font-family: inherit;
+  font-family: var(--font-family-base);
 }
 
 .rbc-event {
-  border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 12px;
-  font-weight: 500;
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-1) var(--spacing-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
 }
 
 .rbc-event-content {
@@ -24,62 +69,72 @@
 }
 
 .rbc-toolbar {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-4);
 }
 
 .rbc-toolbar button {
-  background: #3b82f6;
-  color: white;
+  background: var(--dcg-azul-claro);
+  color: var(--dcg-text-inverse);
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  margin: 0 2px;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--border-radius-sm);
+  margin: 0 var(--spacing-1);
   cursor: pointer;
+  transition: background-color var(--transition-base);
 }
 
 .rbc-toolbar button:hover {
-  background: #2563eb;
+  background: var(--dcg-azul-claro-hover);
 }
 
 .rbc-toolbar button.rbc-active {
-  background: #1d4ed8;
+  background: var(--dcg-azul-oscuro);
 }
 
 .rbc-today {
-  background-color: #f0f9ff;
+  background-color: rgba(59, 130, 246, 0.1);
 }
 
 .rbc-off-range-bg {
-  background-color: #f8fafc;
+  background-color: var(--dcg-bg-tertiary);
 }
 
-/* Estilos para gráficos */
+/* ============================================
+   ESTILOS PARA GRÁFICOS (recharts)
+   ============================================ */
 .recharts-wrapper {
-  font-family: inherit;
+  font-family: var(--font-family-base);
 }
 
-/* Estilos para el sistema de gastos */
+/* ============================================
+   ESTILOS PARA SISTEMA DE GASTOS
+   ============================================ */
 .gastos-main .p-tabview-nav {
-  background: #f8fafc;
-  border-radius: 8px 8px 0 0;
+  background: var(--dcg-bg-secondary);
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
 }
 
 .gastos-main .p-tabview-panels {
-  background: white;
-  border-radius: 0 0 8px 8px;
-  border: 1px solid #e2e8f0;
+  background: var(--dcg-bg-elevated);
+  border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+  border: var(--border-width-thin) solid var(--dcg-border);
   border-top: none;
 }
 
+/* ============================================
+   UTILIDADES GENERALES
+   ============================================ */
 .logo {
   height: 6em;
-  padding: 1.5em;
+  padding: var(--spacing-6);
   will-change: filter;
-  transition: filter 300ms;
+  transition: filter var(--transition-slower);
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -100,390 +155,252 @@
 }
 
 .card {
-  padding: 2em;
+  padding: var(--spacing-8);
 }
 
 .read-the-docs {
-  color: #888;
+  color: var(--dcg-text-muted);
 }
 
-/* Estilos responsive para móviles */
+/* ============================================
+   RESPONSIVE - TABLET Y MÓVIL (768px)
+   ============================================ */
 @media (max-width: 768px) {
   #root {
-    padding: 1rem;
+    padding: var(--spacing-4);
+    overflow-x: hidden;
+    width: 100%;
   }
   
-  /* Ajustes para la tabla en móviles */
-  .p-datatable .p-datatable-thead > tr > th,
-  .p-datatable .p-datatable-tbody > tr > td {
-    padding: 0.5rem;
-    font-size: 0.875rem;
-  }
-  
-  /* Hacer que los botones sean más pequeños en móviles */
-  .p-button.p-button-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-  }
-  
-  /* Ajustar el header de la tabla para móviles */
-  .p-datatable .p-datatable-header {
-    padding: 0.5rem;
-  }
-  
-  /* Mejorar la legibilidad de los filtros en móviles */
-  .p-dropdown,
-  .p-calendar,
-  .p-inputtext {
-    font-size: 0.875rem;
-  }
-  
-  /* Ajustar el espaciado de los filtros */
-  .p-grid .p-col-12 {
-    margin-bottom: 1rem;
-  }
-  
-  /* Hacer que los tags sean más compactos */
-  .p-tag {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-  }
-  
-  /* Ajustar el contenedor principal para móviles */
-  .p-p-3 {
-    padding: 0.75rem !important;
-  }
-  
-  /* Mejorar la responsividad de la tabla de cobranzas */
-  .p-datatable.p-datatable-scrollable {
-    font-size: 0.75rem;
-  }
-  
-  /* Ajustar el ancho mínimo de las columnas en móviles */
-  .p-datatable .p-datatable-thead > tr > th,
-  .p-datatable .p-datatable-tbody > tr > td {
-    min-width: auto !important;
-    width: auto !important;
-  }
-  
-  /* Hacer que los filtros se apilen mejor en móviles */
-  .p-grid.p-fluid .p-col-12 {
-    margin-bottom: 0.5rem;
-  }
-  
-  /* Ajustar el header de la tabla para móviles */
-  .p-datatable .p-datatable-header {
-    padding: 0.5rem;
-    font-size: 0.875rem;
-  }
-  
-  /* Mejorar la visualización de los botones en móviles */
-  .p-button {
-    font-size: 0.75rem;
-    padding: 0.5rem 0.75rem;
-  }
-  
-  /* Ajustar el espaciado de los filtros en móviles */
-  .p-surface-100 {
-    padding: 0.75rem !important;
-  }
-}
-
-/* Estilos para pantallas muy pequeñas */
-@media (max-width: 480px) {
-  #root {
-    padding: 0.5rem;
-  }
-  
-  /* Reducir aún más el padding de la tabla */
-  .p-datatable .p-datatable-thead > tr > th,
-  .p-datatable .p-datatable-tbody > tr > td {
-    padding: 0.25rem;
-    font-size: 0.75rem;
-  }
-  
-  /* Hacer los botones aún más pequeños */
-  .p-button.p-button-sm {
-    padding: 0.125rem 0.25rem;
-    font-size: 0.625rem;
-  }
-  
-  /* Ajustar el header para pantallas muy pequeñas */
-  .p-text-xl {
-    font-size: 1.25rem !important;
-  }
-  
-  .p-text-2xl {
-    font-size: 1.5rem !important;
-  }
-  
-  /* Mejorar la visualización de la tabla en pantallas muy pequeñas */
+  /* Tablas */
   .p-datatable {
-    font-size: 0.625rem;
+    width: 100%;
+    max-width: 100%;
+    font-size: var(--font-size-sm);
+    overflow-x: auto;
   }
   
-  /* Ajustar el espaciado de los filtros */
-  .p-grid .p-col-12 {
-    margin-bottom: 0.25rem;
-  }
-  
-  /* Hacer que los filtros ocupen todo el ancho */
-  .p-col-12 {
-    width: 100% !important;
-  }
-}
-
-/* Mejorar la experiencia de scroll en móviles */
-.p-datatable.p-datatable-scrollable .p-datatable-wrapper {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Asegurar que los elementos de filtro no se desborden */
-.p-fluid .p-dropdown,
-.p-fluid .p-calendar,
-.p-fluid .p-inputtext {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Mejorar la visualización de la tabla en dispositivos móviles */
-@media (max-width: 768px) {
   .p-datatable .p-datatable-thead > tr > th,
   .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-2);
+    font-size: var(--font-size-sm);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   
-  /* Hacer que la tabla sea más compacta en móviles */
-  .p-datatable {
-    font-size: 0.75rem;
+  .p-datatable .p-datatable-header {
+    padding: var(--spacing-2);
+    font-size: var(--font-size-sm);
   }
   
-  /* Ajustar el scroll horizontal en móviles */
   .p-datatable.p-datatable-scrollable {
     overflow-x: auto;
-  }
-}
-
-/* Solucionar el problema de corte en móviles - GLOBAL */
-@media (max-width: 768px) {
-  /* Asegurar que el contenedor principal no tenga overflow */
-  #root {
-    overflow-x: hidden !important;
-    width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    -webkit-overflow-scrolling: touch;
   }
   
-  /* Ajustar TODOS los contenedores principales */
+  /* Botones */
+  .p-button {
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-2) var(--spacing-3);
+    white-space: nowrap;
+  }
+  
+  .p-button.p-button-sm {
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-xs);
+  }
+  
+  /* Inputs y filtros */
+  .p-dropdown,
+  .p-calendar,
+  .p-inputtext {
+    font-size: var(--font-size-sm);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .p-fluid .p-dropdown,
+  .p-fluid .p-calendar,
+  .p-fluid .p-inputtext {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Tags */
+  .p-tag {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-1) var(--spacing-2);
+  }
+  
+  /* Grids y contenedores */
+  .p-grid .p-col-12 {
+    margin-bottom: var(--spacing-2);
+  }
+  
+  .p-grid.p-fluid .p-col-12 {
+    margin-bottom: var(--spacing-2);
+  }
+  
   .p-p-2,
   .p-p-3,
   .p-p-4,
   .p-p-5 {
-    padding: 0.5rem !important;
-    overflow-x: hidden !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    padding: var(--spacing-2);
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Asegurar que TODAS las tablas no se desborden */
-  .p-datatable {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: auto !important;
-    font-size: 0.75rem !important;
+  .p-surface-100 {
+    padding: var(--spacing-2);
+    width: 100%;
+    max-width: 100%;
   }
   
-  /* Ajustar TODOS los Cards para móviles */
+  /* Cards */
   .p-card {
-    margin: 0 !important;
-    padding: 0.5rem !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    margin: 0;
+    padding: var(--spacing-2);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Asegurar que TODOS los grids no se desborden */
-  .p-grid {
-    margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  
+  /* Grid columns */
   .p-col-12,
   .p-col-6,
   .p-col-4,
   .p-col-3 {
-    padding: 0.25rem !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+    padding: var(--spacing-1);
+    width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Ajustar TODOS los headers de tabla */
-  .p-datatable .p-datatable-header {
-    padding: 0.5rem !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-  
-  /* Asegurar que TODAS las tablas tengan scroll horizontal suave */
-  .p-datatable.p-datatable-scrollable {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Ajustar TODOS los contenedores de filtros */
-  .p-surface-100 {
-    margin: 0 !important;
-    padding: 0.5rem !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  
-  /* Asegurar que TODOS los botones no se desborden */
-  .p-button {
-    font-size: 0.75rem !important;
-    padding: 0.25rem 0.5rem !important;
-    white-space: nowrap;
-    max-width: 100% !important;
-  }
-  
-  /* Ajustar TODOS los textos del header */
+  /* Textos */
   .p-text-xl,
   .p-text-2xl,
   .p-text-lg {
-    font-size: 1.25rem !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
+    font-size: var(--font-size-xl);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   
-  /* Asegurar que TODOS los formularios sean responsive */
-  .p-fluid {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-  
-  /* Asegurar que TODOS los inputs sean responsive */
-  .p-inputtext,
-  .p-dropdown,
-  .p-calendar {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    font-size: 0.875rem !important;
-  }
-  
-  /* Asegurar que TODOS los labels sean responsive */
-  .p-block {
-    width: 100% !important;
-    max-width: 100% !important;
-    word-wrap: break-word !important;
-  }
-  
-  /* Asegurar que TODOS los contenedores de botones sean responsive */
+  /* Flex containers */
   .p-d-flex {
-    flex-wrap: wrap !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
   }
   
-  /* Asegurar que TODOS los gaps sean más pequeños en móviles */
+  /* Gaps */
   .p-gap-1 {
-    gap: 0.25rem !important;
+    gap: var(--spacing-1);
   }
   
   .p-gap-2 {
-    gap: 0.5rem !important;
+    gap: var(--spacing-2);
+  }
+  
+  /* Fluid containers */
+  .p-fluid {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Labels */
+  .p-block {
+    width: 100%;
+    max-width: 100%;
+    word-wrap: break-word;
   }
 }
 
-/* Estilos específicos para pantallas muy pequeñas */
+/* ============================================
+   RESPONSIVE - MÓVIL PEQUEÑO (480px)
+   ============================================ */
 @media (max-width: 480px) {
-  /* Reducir aún más el padding */
+  #root {
+    padding: var(--spacing-2);
+  }
+  
+  /* Tablas más compactas */
+  .p-datatable {
+    font-size: var(--font-size-xs);
+  }
+  
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-1);
+    font-size: var(--font-size-xs);
+    min-width: auto;
+    max-width: 100%;
+  }
+  
+  /* Botones más pequeños */
+  .p-button.p-button-sm {
+    padding: var(--spacing-1);
+    font-size: var(--font-size-xs);
+  }
+  
+  /* Contenedores más compactos */
   .p-p-2,
   .p-p-3,
   .p-p-4,
   .p-p-5 {
-    padding: 0.25rem !important;
+    padding: var(--spacing-1);
   }
   
-  /* Asegurar que TODAS las tablas sean completamente responsive */
-  .p-datatable {
-    font-size: 0.625rem !important;
+  /* Grid más compacto */
+  .p-grid .p-col-12 {
+    margin-bottom: var(--spacing-1);
   }
   
-  /* Ajustar TODAS las columnas para pantallas muy pequeñas */
-  .p-datatable .p-datatable-thead > tr > th,
-  .p-datatable .p-datatable-tbody > tr > td {
-    padding: 0.25rem !important;
-    font-size: 0.625rem !important;
-    min-width: auto !important;
-    max-width: 100% !important;
-  }
-  
-  /* Hacer que TODOS los filtros ocupen todo el ancho disponible */
+  /* Inputs */
   .p-fluid .p-dropdown,
   .p-fluid .p-calendar,
   .p-fluid .p-inputtext {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    font-size: 0.75rem !important;
+    font-size: var(--font-size-sm);
   }
   
-  /* Asegurar que el contenedor principal no tenga márgenes */
-  #root {
-    padding: 0.25rem !important;
-    margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  
-  /* Asegurar que TODOS los textos sean legibles */
+  /* Textos */
   .p-text-xs {
-    font-size: 0.625rem !important;
+    font-size: var(--font-size-xs);
   }
   
   .p-text-sm {
-    font-size: 0.75rem !important;
+    font-size: var(--font-size-xs);
   }
   
   .p-text-lg {
-    font-size: 1rem !important;
+    font-size: var(--font-size-base);
   }
   
   .p-text-xl {
-    font-size: 1.125rem !important;
+    font-size: var(--font-size-lg);
   }
   
   .p-text-2xl {
-    font-size: 1.25rem !important;
+    font-size: var(--font-size-xl);
   }
 }
 
-/* Asegurar que TODAS las tablas tengan scroll horizontal en todos los dispositivos */
-.p-datatable.p-datatable-scrollable .p-datatable-wrapper {
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Ajustar TODOS los contenedores principales para evitar desbordamiento */
-.p-fluid {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Asegurar que TODOS los elementos tengan box-sizing correcto */
+/* ============================================
+   UTILIDADES GLOBALES
+   ============================================ */
 * {
   box-sizing: border-box;
 }
 
-/* Asegurar que el body y html no tengan overflow */
 body, html {
-  overflow-x: hidden !important;
-  width: 100% !important;
-  max-width: 100% !important;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Scroll suave en móviles */
+.p-datatable.p-datatable-scrollable .p-datatable-wrapper {
+  -webkit-overflow-scrolling: touch;
 }

@@ -6,6 +6,7 @@ import BackendStatus from "../../components/BackendStatus";
 import { ALEGRA_CONFIG } from "../../config/alegra.js";
 import { getCobros, getCobrosByVendedor } from "../../features/cobros/cobrosService";
 import { getPedidos, getPedidosByVendedor } from "../../features/pedidos/pedidosService";
+import { formatearMoneda } from "../../features/pedidos/utils";
 
 function Dashboard({ user }) {
   const navigate = useNavigate();
@@ -43,6 +44,12 @@ function Dashboard({ user }) {
     pendientes: 0,
     facturados: 0
   });
+
+  // Estado para Top Productos
+  const [topProductos, setTopProductos] = useState([]);
+
+  // Estado para Top Clientes
+  const [topClientes, setTopClientes] = useState([]);
 
   // Eliminamos las funciones de cobros que ya no se usan
 
@@ -285,12 +292,101 @@ function Dashboard({ user }) {
 
   // Eliminamos las funciones de filtrado que ya no se usan
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
-    }).format(amount);
-  };
+
+  // Cargar Top Productos (por precio, top 5)
+  useEffect(() => {
+    const fetchTopProductos = async () => {
+      try {
+        const productosData = await api.getProductosFirebase();
+        // Ordenar por precio descendente y tomar top 5
+        const productosOrdenados = productosData
+          .filter(p => p.precio && p.precio > 0)
+          .sort((a, b) => {
+            const precioA = Array.isArray(a.price) ? a.price[0] : (a.price || a.precio || 0);
+            const precioB = Array.isArray(b.price) ? b.price[0] : (b.price || b.precio || 0);
+            return precioB - precioA;
+          })
+          .slice(0, 5)
+          .map(p => {
+            const precio = Array.isArray(p.price) ? p.price[0] : (p.price || p.precio || 0);
+            return {
+              id: p.id,
+              nombre: p.name || p.nombre || 'Sin nombre',
+              precio: precio,
+              maxPrecio: 0 // Se calculará después
+            };
+          });
+        
+        // Calcular precio máximo para barras proporcionales
+        const maxPrecio = Math.max(...productosOrdenados.map(p => p.precio), 1);
+        const productosConMax = productosOrdenados.map(p => ({
+          ...p,
+          maxPrecio: maxPrecio
+        }));
+        
+        setTopProductos(productosConMax);
+      } catch (error) {
+        console.error('Error cargando top productos:', error);
+        setTopProductos([]);
+      }
+    };
+    
+    fetchTopProductos();
+  }, []);
+
+  // Cargar Top Clientes (por monto cobrado, top 5)
+  useEffect(() => {
+    const fetchTopClientes = async () => {
+      try {
+        const esAdmin = user.role === 'admin';
+        const vendedorEmail = esAdmin ? null : user.email;
+        
+        // Obtener cobros según el rol
+        const cobros = esAdmin 
+          ? await getCobros() 
+          : await getCobrosByVendedor(vendedorEmail);
+        
+        // Agrupar por cliente y sumar montos
+        const clientesMap = new Map();
+        cobros.forEach(cobro => {
+          const clienteId = cobro.clienteId || cobro.cliente;
+          const clienteNombre = cobro.cliente || 'Sin nombre';
+          const monto = cobro.monto || 0;
+          
+          if (clientesMap.has(clienteId)) {
+            const existente = clientesMap.get(clienteId);
+            existente.monto += monto;
+          } else {
+            clientesMap.set(clienteId, {
+              id: clienteId,
+              nombre: clienteNombre,
+              monto: monto
+            });
+          }
+        });
+        
+        // Ordenar por monto descendente y tomar top 5
+        const topClientesData = Array.from(clientesMap.values())
+          .sort((a, b) => b.monto - a.monto)
+          .slice(0, 5)
+          .map(c => ({ ...c, maxMonto: 0 }));
+        
+        // Calcular monto máximo para barras proporcionales
+        const maxMonto = Math.max(...topClientesData.map(c => c.monto), 1);
+        const clientesConMax = topClientesData.map(c => ({
+          ...c,
+          maxMonto: maxMonto
+        }));
+        
+        setTopClientes(clientesConMax);
+      } catch (error) {
+        console.error('Error cargando top clientes:', error);
+        setTopClientes([]);
+      }
+    };
+    
+    fetchTopClientes();
+  }, [user]);
 
   const getDashboardTitle = () => {
     if (user.role === "admin") {
@@ -325,171 +421,296 @@ function Dashboard({ user }) {
       {/* Estado del Backend */}
       <div className="dashboard-backend-status" style={{ maxWidth: 480, margin: '0 auto', marginBottom: 16, width: '100%' }}>
         <BackendStatus />
-      
-
       </div>
 
-      {/* Eliminamos la sección de cobranzas que ya no se usa */}
+      {/* KPIs Principales - Cards Individuales en Fila */}
+      <div className="dashboard-kpis-grid">
+        {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
+          <>
+            <Card className="dashboard-kpi-card">
+              <div className="dashboard-kpi-content">
+                <i className="pi pi-dollar dashboard-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                <div className="dashboard-kpi-value">{formatearMoneda(cobrosStats.totalMonto)}</div>
+                <div className="dashboard-kpi-label">Total Cobrado</div>
+              </div>
+            </Card>
+            <Card className="dashboard-kpi-card">
+              <div className="dashboard-kpi-content">
+                <i className="pi pi-shopping-cart dashboard-kpi-icon" style={{ color: 'var(--dcg-naranja)' }}></i>
+                <div className="dashboard-kpi-value">{formatearMoneda(pedidosStats.totalMonto)}</div>
+                <div className="dashboard-kpi-label">Total Pedidos</div>
+              </div>
+            </Card>
+            <Card className="dashboard-kpi-card">
+              <div className="dashboard-kpi-content">
+                <i className="pi pi-check-circle dashboard-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                <div className="dashboard-kpi-value">{cobrosStats.totalMes}</div>
+                <div className="dashboard-kpi-label">Cobros del Mes</div>
+              </div>
+            </Card>
+            <Card className="dashboard-kpi-card">
+              <div className="dashboard-kpi-content">
+                <i className="pi pi-shopping-bag dashboard-kpi-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                <div className="dashboard-kpi-value">{pedidosStats.totalMes}</div>
+                <div className="dashboard-kpi-label">Pedidos del Mes</div>
+              </div>
+            </Card>
+          </>
+        )}
+        {(user.role === "Santi" || user.role === "Guille") && (
+          <Card className="dashboard-kpi-card">
+            <div className="dashboard-kpi-content">
+              <i className="pi pi-calendar dashboard-kpi-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+              <div className="dashboard-kpi-value">{visitasStats.total}</div>
+              <div className="dashboard-kpi-label">Visitas Hoy</div>
+            </div>
+          </Card>
+        )}
+      </div>
 
-      {/* Grupo de Visitas (solo para vendedores) */}
-      {(user.role === "Santi" || user.role === "Guille") && (
-        <div className="dashboard-visitas-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
-          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: 'var(--dcg-azul-oscuro)', fontWeight: 600, marginTop: 24 }}>Mis Visitas de Hoy</h3>
-          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-calendar p-mr-2" style={{ color: 'var(--dcg-azul-claro)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Visitas Hoy</span></span>
-                <span style={{ color: 'var(--dcg-azul-claro)', fontWeight: 600, marginLeft: 12 }}>{visitasStats.total}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: 'var(--dcg-warning)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes Hoy</span></span>
-                <span style={{ color: 'var(--dcg-warning)', fontWeight: 600, marginLeft: 12 }}>{visitasStats.pendientes}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: 'var(--dcg-success)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Realizadas Hoy</span></span>
-                <span style={{ color: 'var(--dcg-success)', fontWeight: 600, marginLeft: 12 }}>{visitasStats.realizadas}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-times-circle p-mr-2" style={{ color: 'var(--dcg-error)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>No Realizadas Hoy</span></span>
-                <span style={{ color: 'var(--dcg-error)', fontWeight: 600, marginLeft: 12 }}>{visitasStats.noRealizadas}</span>
-              </li>
-            </ul>
+      {/* Sección de Métricas Detalladas */}
+      <div className="dashboard-metrics-grid">
+        {/* Grupo de Visitas (solo para vendedores) */}
+        {(user.role === "Santi" || user.role === "Guille") && (
+          <div className="dashboard-visitas-container dashboard-metric-card">
+            <h3 className="dashboard-card-title">Mis Visitas de Hoy</h3>
+            <Card className="dashboard-card">
+              <div className="dashboard-metric-row">
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-calendar dashboard-metric-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Total Visitas Hoy</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-azul-claro)' }}>{visitasStats.total}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-clock dashboard-metric-icon" style={{ color: 'var(--dcg-warning)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Pendientes Hoy</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-warning)' }}>{visitasStats.pendientes}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-check-circle dashboard-metric-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Realizadas Hoy</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-success)' }}>{visitasStats.realizadas}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-times-circle dashboard-metric-icon" style={{ color: 'var(--dcg-error)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">No Realizadas Hoy</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-error)' }}>{visitasStats.noRealizadas}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Grupo de Cobros */}
+        {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
+          <div className="dashboard-cobros-container dashboard-metric-card">
+            <h3 className="dashboard-card-title">
+              {user.role === 'admin' ? 'Cobros del Mes' : 'Mis Cobros del Mes'}
+            </h3>
+            <Card className="dashboard-card">
+              <div className="dashboard-metric-row">
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-dollar dashboard-metric-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Total Cobros del Mes</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-success)' }}>{cobrosStats.totalMes}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-money-bill dashboard-metric-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Total Monto</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-azul-claro)' }}>{formatearMoneda(cobrosStats.totalMonto)}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-clock dashboard-metric-icon" style={{ color: 'var(--dcg-warning)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Pendientes por Cargar</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-warning)' }}>{cobrosStats.pendientesPorCargar}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-check-circle dashboard-metric-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Cargados en Sistema</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-success)' }}>{cobrosStats.cargadosEnSistema}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Grupo de Pedidos */}
+        {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
+          <div className="dashboard-pedidos-container dashboard-metric-card">
+            <h3 className="dashboard-card-title">
+              {user.role === 'admin' ? 'Pedidos del Mes' : 'Mis Pedidos del Mes'}
+            </h3>
+            <Card className="dashboard-card">
+              <div className="dashboard-metric-row">
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-shopping-cart dashboard-metric-icon" style={{ color: 'var(--dcg-naranja)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Total Pedidos del Mes</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-naranja)' }}>{pedidosStats.totalMes}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-money-bill dashboard-metric-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Total Monto</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-success)' }}>{formatearMoneda(pedidosStats.totalMonto)}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-clock dashboard-metric-icon" style={{ color: 'var(--dcg-warning)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Pendientes</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-warning)' }}>{pedidosStats.pendientes}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-check-circle dashboard-metric-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Facturados</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-azul-claro)' }}>{pedidosStats.facturados}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Grupo de Envíos (solo para admin) */}
+        {user.role === "admin" && (
+          <div className="dashboard-envios-container dashboard-metric-card">
+            <h3 className="dashboard-card-title">Envíos</h3>
+            <Card className="dashboard-card">
+              <div className="dashboard-metric-row">
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-truck dashboard-metric-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Total Facturas</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-azul-claro)' }}>{facturasStats.total}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-clock dashboard-metric-icon" style={{ color: 'var(--dcg-warning)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Pendientes</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-warning)' }}>{facturasStats.pendientes}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-map-marker dashboard-metric-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">En Reparto</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-azul-claro)' }}>{facturasStats.enReparto}</span>
+                  </div>
+                </div>
+                <div className="dashboard-metric-item">
+                  <i className="pi pi-check-circle dashboard-metric-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                  <div className="dashboard-metric-content">
+                    <span className="dashboard-metric-label">Entregadas</span>
+                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-success)' }}>{facturasStats.entregadas}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Sección de Análisis - Top Productos y Top Clientes */}
+      <div className="dashboard-analysis-grid">
+        {/* Top Productos */}
+        <div className="dashboard-top-productos-container dashboard-analysis-card">
+          <h3 className="dashboard-card-title">Top Productos</h3>
+          <Card className="dashboard-card">
+            {topProductos.length > 0 ? (
+              <div className="dashboard-top-list">
+                {topProductos.map((producto, index) => {
+                  const porcentaje = (producto.precio / producto.maxPrecio) * 100;
+                  return (
+                    <div key={producto.id || index} className="dashboard-top-item">
+                      <div className="dashboard-top-item-header">
+                        <span className="dashboard-top-item-name">{producto.nombre}</span>
+                        <span className="dashboard-top-item-value">{formatearMoneda(producto.precio)}</span>
+                      </div>
+                      <div className="dashboard-top-item-bar-container">
+                        <div 
+                          className="dashboard-top-item-bar" 
+                          style={{ 
+                            width: `${porcentaje}%`,
+                            backgroundColor: 'var(--dcg-azul-claro)',
+                            opacity: 0.8
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="dashboard-placeholder">
+                <i className="pi pi-box" style={{ fontSize: '2rem', color: 'var(--dcg-text-muted)', opacity: 0.3 }}></i>
+                <p style={{ color: 'var(--dcg-text-muted)', marginTop: '1rem', fontSize: 'var(--font-size-sm)' }}>Sin datos disponibles</p>
+              </div>
+            )}
           </Card>
         </div>
-      )}
 
-      {/* Grupo de Cobros */}
-      {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
-        <div className="dashboard-cobros-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
-          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: 'var(--dcg-azul-oscuro)', fontWeight: 600, marginTop: 24 }}>
-            {user.role === 'admin' ? 'Cobros del Mes' : 'Mis Cobros del Mes'}
-          </h3>
-          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-dollar p-mr-2" style={{ color: 'var(--dcg-success)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Cobros del Mes</span></span>
-                <span style={{ color: 'var(--dcg-success)', fontWeight: 600, marginLeft: 12 }}>{cobrosStats.totalMes}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-money-bill p-mr-2" style={{ color: 'var(--dcg-azul-claro)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Monto</span></span>
-                <span style={{ color: 'var(--dcg-azul-claro)', fontWeight: 600, marginLeft: 12 }}>{formatCurrency(cobrosStats.totalMonto)}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: 'var(--dcg-warning)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes por Cargar</span></span>
-                <span style={{ color: 'var(--dcg-warning)', fontWeight: 600, marginLeft: 12 }}>{cobrosStats.pendientesPorCargar}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: 'var(--dcg-success)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Cargados en Sistema</span></span>
-                <span style={{ color: 'var(--dcg-success)', fontWeight: 600, marginLeft: 12 }}>{cobrosStats.cargadosEnSistema}</span>
-              </li>
-            </ul>
+        {/* Top Clientes */}
+        <div className="dashboard-top-clientes-container dashboard-analysis-card">
+          <h3 className="dashboard-card-title">Top Clientes</h3>
+          <Card className="dashboard-card">
+            {topClientes.length > 0 ? (
+              <div className="dashboard-top-list">
+                {topClientes.map((cliente, index) => {
+                  const porcentaje = (cliente.monto / cliente.maxMonto) * 100;
+                  return (
+                    <div key={cliente.id || index} className="dashboard-top-item">
+                      <div className="dashboard-top-item-header">
+                        <span className="dashboard-top-item-name">{cliente.nombre}</span>
+                        <span className="dashboard-top-item-value">{formatearMoneda(cliente.monto)}</span>
+                      </div>
+                      <div className="dashboard-top-item-bar-container">
+                        <div 
+                          className="dashboard-top-item-bar" 
+                          style={{ 
+                            width: `${porcentaje}%`,
+                            backgroundColor: 'var(--dcg-success)',
+                            opacity: 0.8
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="dashboard-placeholder">
+                <i className="pi pi-users" style={{ fontSize: '2rem', color: 'var(--dcg-text-muted)', opacity: 0.3 }}></i>
+                <p style={{ color: 'var(--dcg-text-muted)', marginTop: '1rem', fontSize: 'var(--font-size-sm)' }}>Sin datos disponibles</p>
+              </div>
+            )}
           </Card>
         </div>
-      )}
+      </div>
 
-      {/* Grupo de Pedidos */}
-      {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
-        <div className="dashboard-pedidos-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
-          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: 'var(--dcg-azul-oscuro)', fontWeight: 600, marginTop: 24 }}>
-            {user.role === 'admin' ? 'Pedidos del Mes' : 'Mis Pedidos del Mes'}
-          </h3>
-          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-shopping-cart p-mr-2" style={{ color: 'var(--dcg-naranja)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Pedidos del Mes</span></span>
-                <span style={{ color: 'var(--dcg-naranja)', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.totalMes}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-money-bill p-mr-2" style={{ color: 'var(--dcg-success)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Monto</span></span>
-                <span style={{ color: 'var(--dcg-success)', fontWeight: 600, marginLeft: 12 }}>{formatCurrency(pedidosStats.totalMonto)}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: 'var(--dcg-warning)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes</span></span>
-                <span style={{ color: 'var(--dcg-warning)', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.pendientes}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: 'var(--dcg-azul-claro)', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Facturados</span></span>
-                <span style={{ color: 'var(--dcg-azul-claro)', fontWeight: 600, marginLeft: 12 }}>{pedidosStats.facturados}</span>
-              </li>
-            </ul>
-          </Card>
-        </div>
-      )}
-
-      {/* Grupo de Envíos (solo para admin) */}
-      {user.role === "admin" && (
-        <div className="dashboard-envios-container" style={{ maxWidth: 480, margin: '0 auto', marginTop: 24, width: '100%' }}>
-          <h3 className="p-text-center p-mb-2 p-text-sm" style={{ color: '#1f2937', fontWeight: 600, marginTop: 24 }}>Envíos</h3>
-          <Card className="p-p-3 p-mb-4" style={{ borderRadius: 12, width: '100%', boxSizing: 'border-box' }}>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-truck p-mr-2" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Total Facturas</span></span>
-                <span style={{ color: '#0ea5e9', fontWeight: 600, marginLeft: 12 }}>{facturasStats.total}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-clock p-mr-2" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Pendientes</span></span>
-                <span style={{ color: '#f59e0b', fontWeight: 600, marginLeft: 12 }}>{facturasStats.pendientes}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between p-mb-2" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 8 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-map-marker p-mr-2" style={{ color: '#8b5cf6', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>En Reparto</span></span>
-                <span style={{ color: '#8b5cf6', fontWeight: 600, marginLeft: 12 }}>{facturasStats.enReparto}</span>
-              </li>
-              <li className="p-d-flex p-ai-center p-jc-between" style={{ paddingBottom: 0 }}>
-                <span className="p-d-flex p-ai-center"><i className="pi pi-check-circle p-mr-2" style={{ color: '#22c55e', fontSize: '1.1rem' }}></i> <span style={{ fontWeight: 500 }}>Entregadas</span></span>
-                <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 12 }}>{facturasStats.entregadas}</span>
-              </li>
-            </ul>
-          </Card>
-        </div>
-      )}
 
       {/* Eliminamos el botón de actualizar que ya no se usa */}
 
-      {/* Estilos responsive específicos para el dashboard */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .dashboard-main-container {
-            padding: 0.5rem !important;
-          }
-          .dashboard-alerts-container,
-          .dashboard-cobros-container,
-          .dashboard-visitas-container,
-          .dashboard-envios-container {
-            max-width: 100% !important;
-            padding: 0.25rem !important;
-          }
-          .p-card {
-            padding: 0.5rem !important;
-          }
-          h2, h3 {
-            font-size: 1.1rem !important;
-            word-break: break-word !important;
-          }
-        }
-        @media (max-width: 480px) {
-          .dashboard-main-container {
-            padding: 0.25rem !important;
-          }
-          .dashboard-alerts-container,
-          .dashboard-cobros-container,
-          .dashboard-visitas-container,
-          .dashboard-envios-container {
-            padding: 0.1rem !important;
-          }
-          h2, h3 {
-            font-size: 1rem !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

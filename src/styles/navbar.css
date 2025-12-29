@@ -1,0 +1,305 @@
+/* ============================================
+   ESTILOS NAVBAR - Sistema de Gestión DCG
+   ============================================ */
+
+/* Importar design tokens */
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   NAVBAR PRINCIPAL
+   ============================================ */
+.navbar-dcg {
+  background: linear-gradient(135deg, 
+    var(--dcg-azul-oscuro) 0%, 
+    var(--dcg-azul-claro) 50%, 
+    var(--dcg-azul-oscuro) 100%);
+  padding: var(--spacing-6) var(--spacing-8);
+  box-shadow: var(--dcg-shadow-lg);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-index-sticky);
+  backdrop-filter: blur(10px);
+  border-bottom: var(--border-width-thin) solid rgba(255, 255, 255, 0.1);
+  width: 100%;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-dcg > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  gap: var(--spacing-4);
+}
+
+/* ============================================
+   LOGO Y BRANDING
+   ============================================ */
+.navbar-dcg > div > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  flex-shrink: 0;
+}
+
+.navbar-dcg > div > div:first-child > div:first-child {
+  background: rgba(255, 255, 255, 0.15);
+  padding: var(--spacing-3);
+  border-radius: var(--border-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  border: var(--border-width-thin) solid rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-base);
+}
+
+.navbar-dcg > div > div:first-child > div:first-child:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.navbar-dcg > div > div:first-child > div:first-child > div {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: white;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.navbar-dcg > div > div:first-child > div:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+}
+
+.navbar-dcg > div > div:first-child > div:last-child h1 {
+  color: white;
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-dcg > div > div:first-child > div:last-child > div {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+/* ============================================
+   MENÚ DESKTOP
+   ============================================ */
+.navbar-dcg > div > div:nth-child(2) {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: var(--spacing-2);
+  border-radius: var(--border-radius-full);
+  backdrop-filter: blur(10px);
+  border: var(--border-width-thin) solid rgba(255, 255, 255, 0.15);
+  flex-wrap: wrap;
+}
+
+/* Botones del menú - Estilo Pill */
+.navbar-dcg > div > div:nth-child(2) button {
+  color: white;
+  background-color: transparent;
+  border: var(--border-width-thin) solid transparent;
+  border-radius: var(--border-radius-full);
+  padding: var(--spacing-3) var(--spacing-5);
+  transition: all var(--transition-base);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  position: relative;
+}
+
+/* Hover en botones del menú */
+.navbar-dcg > div > div:nth-child(2) button:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+/* Estado activo - Botones del menú */
+.navbar-dcg > div > div:nth-child(2) button.p-button-raised,
+.navbar-dcg > div > div:nth-child(2) button[style*="rgba(255, 255, 255, 0.25)"] {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* Estado activo con underline alternativo */
+.navbar-dcg > div > div:nth-child(2) button.p-button-raised::after,
+.navbar-dcg > div > div:nth-child(2) button[style*="rgba(255, 255, 255, 0.25)"]::after {
+  content: '';
+  position: absolute;
+  bottom: var(--spacing-1);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: white;
+  border-radius: var(--border-radius-full);
+  opacity: 0.9;
+}
+
+/* Separador visual */
+.navbar-dcg > div > div:nth-child(2) > div {
+  width: var(--border-width-thin);
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-full);
+  margin: 0 var(--spacing-1);
+}
+
+/* Botón de usuario */
+.navbar-dcg > div > div:nth-child(2) > button:last-of-type {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  padding: var(--spacing-3);
+  width: auto;
+  min-width: auto;
+}
+
+.navbar-dcg > div > div:nth-child(2) > button:last-of-type:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ============================================
+   BOTÓN MÓVIL
+   ============================================ */
+.navbar-dcg > div > button {
+  display: none;
+  color: white;
+  background-color: rgba(255, 255, 255, 0.15);
+  border: var(--border-width-thin) solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-3);
+  transition: all var(--transition-base);
+}
+
+.navbar-dcg > div > button:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   RESPONSIVE - TABLET Y MÓVIL
+   ============================================ */
+@media (max-width: 768px) {
+  .navbar-dcg {
+    padding: var(--spacing-4) var(--spacing-4);
+    min-height: 70px;
+  }
+  
+  .navbar-dcg > div > div:nth-child(2) {
+    display: none;
+  }
+  
+  .navbar-dcg > div > button {
+    display: block;
+  }
+  
+  .navbar-dcg > div > div:first-child > div:last-child h1 {
+    font-size: var(--font-size-xl);
+  }
+  
+  .navbar-dcg > div > div:first-child > div:last-child > div {
+    font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-dcg {
+    padding: var(--spacing-3) var(--spacing-3);
+    min-height: 64px;
+  }
+  
+  .navbar-dcg > div > div:first-child {
+    gap: var(--spacing-2);
+  }
+  
+  .navbar-dcg > div > div:first-child > div:first-child {
+    padding: var(--spacing-2);
+  }
+  
+  .navbar-dcg > div > div:first-child > div:first-child > div {
+    font-size: var(--font-size-xl);
+  }
+  
+  .navbar-dcg > div > div:first-child > div:last-child h1 {
+    font-size: var(--font-size-lg);
+  }
+}
+
+/* ============================================
+   SIDEBAR MÓVIL
+   ============================================ */
+.p-sidebar {
+  background: linear-gradient(180deg, 
+    var(--dcg-bg-secondary) 0%, 
+    var(--dcg-bg-tertiary) 100%);
+  border-left: var(--border-width-thin) solid var(--dcg-border);
+}
+
+.p-sidebar .p-sidebar-content {
+  padding: var(--spacing-6);
+}
+
+/* Card de usuario en sidebar */
+.p-sidebar .p-sidebar-content > div:first-child {
+  margin-bottom: var(--spacing-8);
+  padding: var(--spacing-6);
+  background: linear-gradient(135deg, 
+    var(--dcg-azul-claro) 0%, 
+    var(--dcg-azul-oscuro) 100%);
+  border-radius: var(--border-radius-lg);
+  color: white;
+  box-shadow: var(--dcg-shadow-md);
+}
+
+.p-sidebar .p-sidebar-content h3 {
+  margin-bottom: var(--spacing-4);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Botones del menú en sidebar */
+.p-sidebar .p-sidebar-content button.p-button-text {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  transition: all var(--transition-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.p-sidebar .p-sidebar-content button.p-button-text:hover {
+  background-color: var(--dcg-bg-hover);
+  transform: translateX(4px);
+}
+
+/* Separador en sidebar */
+.p-sidebar .p-sidebar-content > div[style*="height: 1px"] {
+  margin: var(--spacing-6) 0;
+  height: var(--border-width-thin);
+  background: var(--dcg-border);
+}
+
