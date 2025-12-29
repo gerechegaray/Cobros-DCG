@@ -15,6 +15,7 @@ import GastosMain from "./features/gastos/GastosMain";
 import MenuClientes from "./components/MenuClientes";
 import CobrosMain from "./features/cobros/CobrosMain";
 import PedidosMain from "./features/pedidos/PedidosMain";
+import ProductosConsulta from "./features/productos/ProductosConsulta";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -62,6 +63,7 @@ function App() {
       { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
       { label: "Envíos", icon: "pi pi-file-o", path: "/facturas" },
       { label: "Pedidos", icon: "pi pi-shopping-cart", path: "/pedidos" },
+      { label: "Productos", icon: "pi pi-box", path: "/productos" },
       { label: "Cobros", icon: "pi pi-dollar", path: "/cobros" },
       { label: "Visitas", icon: "pi pi-calendar", path: "/visitas" },
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
@@ -95,6 +97,7 @@ function App() {
             <Route path="/estado-cuenta" element={<EstadoCuenta user={user} />} />
             <Route path="/facturas" element={<FacturasAlegra user={user} />} />
             <Route path="/pedidos" element={<PedidosMain user={user} />} />
+            <Route path="/productos" element={<ProductosConsulta user={user} />} />
             <Route path="/cobros" element={<CobrosMain user={user} />} />
             <Route path="/visitas" element={<VisitasDashboard user={user} />} />
             <Route path="/profile" element={<UserProfile user={user} />} />

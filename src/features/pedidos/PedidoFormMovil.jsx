@@ -172,6 +172,20 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
 
     const descuentoValidado = validarDescuento(descuentoProducto);
 
+    // 🆕 Evaluar si tiene stock
+    const tieneStock = (productoSeleccionado.stock || 0) > 0;
+    const sinStock = !tieneStock;
+
+    // 🆕 Mostrar aviso no bloqueante si no hay stock
+    if (sinStock) {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Sin stock',
+        detail: 'Producto sin stock disponible. Se agregará igualmente.',
+        life: 3000
+      });
+    }
+
     const productoAgregado = {
       id: productoSeleccionado.id,
       nombre: productoSeleccionado.nombre,
@@ -180,7 +194,8 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
       precioUnitario,
       descuento: descuentoValidado,
       total: calcularTotalProducto(cantidad, precioUnitario, descuentoValidado),
-      observaciones: ''
+      observaciones: '',
+      sinStock: sinStock // 🆕 Campo sinStock
     };
 
     setProductosAgregados([...productosAgregados, productoAgregado]);
@@ -376,8 +391,12 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
               <Card className="mb-4">
                 <div className="p-3">
                   <p className="font-semibold mb-2">{productoSeleccionado.nombre}</p>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 mb-2">
                     Precio: {formatearMoneda(precioUnitario)}
+                  </p>
+                  {/* 🆕 Estado de stock */}
+                  <p className={`text-sm mb-3 ${(productoSeleccionado.stock || 0) > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                    {(productoSeleccionado.stock || 0) > 0 ? '✓ Hay stock' : '⚠ Sin stock'}
                   </p>
 
                   <div className="field mb-3">
@@ -433,7 +452,12 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
                     <Card key={index} className="p-2">
                       <div className="flex justify-content-between align-items-center">
                         <div className="flex-1">
-                          <p className="font-semibold mb-1">{prod.nombre}</p>
+                          <div className="flex align-items-center gap-2 mb-1">
+                            <p className="font-semibold">{prod.nombre}</p>
+                            {prod.sinStock && (
+                              <span className="p-badge p-badge-warning" title="Sin stock disponible">⚠</span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-600">
                             {prod.cantidad} x {formatearMoneda(prod.precioUnitario)}
                             {prod.descuento > 0 && ` - ${prod.descuento}%`}
@@ -472,7 +496,12 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
                   <Card key={index} className="p-3">
                     <div className="flex justify-content-between align-items-start mb-2">
                       <div className="flex-1">
-                        <p className="font-semibold mb-1">{prod.nombre}</p>
+                        <div className="flex align-items-center gap-2 mb-1">
+                          <p className="font-semibold">{prod.nombre}</p>
+                          {prod.sinStock && (
+                            <span className="p-badge p-badge-warning" title="Sin stock disponible">⚠</span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600 mb-1">
                           Cantidad: {prod.cantidad}
                         </p>

@@ -187,6 +187,20 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
       });
     }
 
+    // 🆕 Evaluar si tiene stock
+    const tieneStock = (productoSeleccionado.stock || 0) > 0;
+    const sinStock = !tieneStock;
+
+    // 🆕 Mostrar aviso no bloqueante si no hay stock
+    if (sinStock) {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Sin stock',
+        detail: 'Producto sin stock disponible. Se agregará igualmente.',
+        life: 3000
+      });
+    }
+
     const productoAgregado = {
       id: productoSeleccionado.id,
       nombre: productoSeleccionado.nombre,
@@ -195,7 +209,8 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
       precioUnitario,
       descuento: descuentoProducto,
       total: calcularTotalProducto(cantidad, precioUnitario, descuentoProducto),
-      observaciones: ''
+      observaciones: '',
+      sinStock: sinStock // 🆕 Campo sinStock
     };
 
     setProductosAgregados([...productosAgregados, productoAgregado]);
@@ -417,6 +432,21 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
                         dropdown
                         forceSelection
                       />
+                      {/* 🆕 Mostrar información del producto seleccionado */}
+                      {productoSeleccionado && (
+                        <div className="mt-2 p-2 border-round" style={{ backgroundColor: '#f8f9fa' }}>
+                          <div className="flex align-items-center gap-2">
+                            <span className="font-semibold">{productoSeleccionado.nombre}</span>
+                            <span className="text-gray-600">-</span>
+                            <span className="font-semibold text-primary">{formatearMoneda(productoSeleccionado.precio || 0)}</span>
+                          </div>
+                          <div className="mt-1">
+                            <span className={`text-sm ${(productoSeleccionado.stock || 0) > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                              {(productoSeleccionado.stock || 0) > 0 ? '✓ Hay stock' : '⚠ Sin stock'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -481,7 +511,18 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
           {productosAgregados.length > 0 && (
             <div className="col-12">
               <DataTable value={productosAgregados} responsiveLayout="scroll">
-                <Column field="nombre" header="Producto" />
+                <Column 
+                  field="nombre" 
+                  header="Producto"
+                  body={(rowData) => (
+                    <div className="flex align-items-center gap-2">
+                      <span>{rowData.nombre}</span>
+                      {rowData.sinStock && (
+                        <span className="p-badge p-badge-warning" title="Sin stock disponible">⚠</span>
+                      )}
+                    </div>
+                  )}
+                />
                 <Column field="codigo" header="Código" />
                 <Column field="cantidad" header="Cantidad" />
                 <Column 

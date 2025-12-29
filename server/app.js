@@ -887,13 +887,30 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
       if (!Array.isArray(data) || data.length === 0) {
         hasMore = false;
       } else {
-        // Guardar/actualizar en Firestore
+        // Guardar/actualizar en Firestore con stock y ultimaActualizacion
+        const ahora = new Date();
         for (const producto of data) {
           // 🆕 Log para ver estructura del primer producto
           if (total === 0) {
             console.log('📦 Estructura del primer producto de Alegra:', JSON.stringify(producto, null, 2));
           }
-          await adminDb.collection('productosAlegra').doc(producto.id.toString()).set(producto, { merge: true });
+          
+          // Extraer stock desde warehouses o inventory
+          let stock = 0;
+          if (Array.isArray(producto.warehouses) && producto.warehouses.length > 0) {
+            stock = producto.warehouses[0].availableQuantity || 0;
+          } else if (producto.inventory?.quantity !== undefined) {
+            stock = producto.inventory.quantity;
+          }
+
+          // Preparar datos del producto con campos requeridos
+          const productoData = {
+            ...producto,
+            stock: stock, // 🆕 Stock numérico interno
+            ultimaActualizacion: ahora.toISOString() // 🆕 Timestamp de última actualización
+          };
+
+          await adminDb.collection('productosAlegra').doc(producto.id.toString()).set(productoData, { merge: true });
           total++;
         }
         console.log(`✅ Página ${page}: ${data.length} productos guardados en Firebase`);
@@ -2559,6 +2576,210 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// 🆕 Función helper para sincronizar productos desde Alegra a Firestore
+async function sincronizarProductosDesdeAlegra() {
+  try {
+    console.log('[AUTO-SYNC] Iniciando sincronización de productos desde Alegra...');
+    
+    // Verificar si Firebase está inicializado
+    if (!adminDb) {
+      console.warn('[AUTO-SYNC] Firebase no inicializado, omitiendo sync de productos');
+      return { success: false, total: 0, error: 'Firebase no inicializado' };
+    }
+
+    const email = process.env.ALEGRA_EMAIL?.trim();
+    const apiKey = process.env.ALEGRA_API_KEY?.trim();
+    
+    if (!email || !apiKey) {
+      console.warn('[AUTO-SYNC] Credenciales de Alegra no configuradas, omitiendo sync de productos');
+      return { success: false, total: 0, error: 'Credenciales no configuradas' };
+    }
+
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    let page = 1;
+    let hasMore = true;
+    let total = 0;
+    const ahora = new Date();
+
+    while (hasMore) {
+      const url = `https://api.alegra.com/api/v1/items?start=${(page - 1) * 30}`;
+      const response = await fetch(url, {
+        headers: {
+          accept: 'application/json',
+          authorization
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AUTO-SYNC] Error obteniendo productos de Alegra:', errorText);
+        return { success: false, total, error: errorText };
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        hasMore = false;
+      } else {
+        // Guardar/actualizar en Firestore con stock y ultimaActualizacion
+        for (const producto of data) {
+          // Extraer stock desde warehouses o inventory
+          let stock = 0;
+          if (Array.isArray(producto.warehouses) && producto.warehouses.length > 0) {
+            stock = producto.warehouses[0].availableQuantity || 0;
+          } else if (producto.inventory?.quantity !== undefined) {
+            stock = producto.inventory.quantity;
+          }
+
+          // Preparar datos del producto con campos requeridos
+          const productoData = {
+            ...producto,
+            stock: stock, // 🆕 Stock numérico interno
+            ultimaActualizacion: ahora.toISOString() // 🆕 Timestamp de última actualización
+          };
+
+          await adminDb.collection('productosAlegra').doc(producto.id.toString()).set(productoData, { merge: true });
+          total++;
+        }
+        console.log(`[AUTO-SYNC] Página ${page}: ${data.length} productos guardados en Firebase`);
+        page++;
+        if (data.length < 30) hasMore = false;
+      }
+    }
+
+    // Invalidar cache del servidor después de sincronizar
+    cacheCompartido.productos = null;
+    cacheCompartido.ultimaActualizacion.productos = null;
+
+    console.log(`[AUTO-SYNC] ✅ Sincronización de productos completada: ${total} productos sincronizados`);
+    return { success: true, total };
+  } catch (error) {
+    console.error('[AUTO-SYNC] ❌ Error en sincronización de productos:', error);
+    return { success: false, total: 0, error: error.message };
+  }
+}
+
+// 🆕 Función helper para sincronizar clientes desde Alegra a Firestore
+async function sincronizarClientesDesdeAlegra() {
+  try {
+    console.log('[AUTO-SYNC] Iniciando sincronización de clientes desde Alegra...');
+    
+    // Verificar si Firebase está inicializado
+    if (!adminDb) {
+      console.warn('[AUTO-SYNC] Firebase no inicializado, omitiendo sync de clientes');
+      return { success: false, total: 0, error: 'Firebase no inicializado' };
+    }
+
+    const email = process.env.ALEGRA_EMAIL?.trim();
+    const apiKey = process.env.ALEGRA_API_KEY?.trim();
+    
+    if (!email || !apiKey) {
+      console.warn('[AUTO-SYNC] Credenciales de Alegra no configuradas, omitiendo sync de clientes');
+      return { success: false, total: 0, error: 'Credenciales no configuradas' };
+    }
+
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    let page = 1;
+    let hasMore = true;
+    let total = 0;
+
+    while (hasMore) {
+      const url = `https://api.alegra.com/api/v1/contacts?start=${(page - 1) * 30}`;
+      const response = await fetch(url, {
+        headers: {
+          accept: 'application/json',
+          authorization
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AUTO-SYNC] Error obteniendo clientes de Alegra:', errorText);
+        return { success: false, total, error: errorText };
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        hasMore = false;
+      } else {
+        // Guardar/actualizar en Firestore preservando solo la ubicación personalizada
+        for (const cliente of data) {
+          const clienteId = cliente.id.toString();
+          
+          // Obtener el cliente existente para preservar solo la ubicación
+          const clienteExistente = await adminDb.collection('clientesAlegra').doc(clienteId).get();
+          const ubicacionPersonalizada = {};
+          
+          if (clienteExistente.exists) {
+            const datosExistentes = clienteExistente.data();
+            // Preservar SOLO la ubicación personalizada
+            if (datosExistentes.ubicacion) ubicacionPersonalizada.ubicacion = datosExistentes.ubicacion;
+            if (datosExistentes.ubicacionActualizada) ubicacionPersonalizada.ubicacionActualizada = datosExistentes.ubicacionActualizada;
+            if (datosExistentes.ubicacionActualizadaPor) ubicacionPersonalizada.ubicacionActualizadaPor = datosExistentes.ubicacionActualizadaPor;
+          }
+          
+          // Combinar datos de Alegra con ubicación personalizada
+          const clienteCompleto = {
+            ...cliente,
+            ...ubicacionPersonalizada,
+            ultimaSincronizacion: new Date().toISOString()
+          };
+          
+          await adminDb.collection('clientesAlegra').doc(clienteId).set(clienteCompleto);
+          total++;
+        }
+        console.log(`[AUTO-SYNC] Página ${page}: ${data.length} clientes guardados en Firebase`);
+        page++;
+        if (data.length < 30) hasMore = false;
+      }
+    }
+
+    console.log(`[AUTO-SYNC] ✅ Sincronización de clientes completada: ${total} clientes sincronizados`);
+    return { success: true, total };
+  } catch (error) {
+    console.error('[AUTO-SYNC] ❌ Error en sincronización de clientes:', error);
+    return { success: false, total: 0, error: error.message };
+  }
+}
+
+// 🆕 Función para auto-sync periódico de productos y clientes
+async function autoSyncProductosYClientes() {
+  try {
+    console.log('[AUTO-SYNC] ========================================');
+    console.log('[AUTO-SYNC] Iniciando auto-sync periódico...');
+    console.log('[AUTO-SYNC] ========================================');
+
+    // Sincronizar productos primero (secuencial)
+    console.log('[AUTO-SYNC] Paso 1/2: Sincronizando productos...');
+    const resultadoProductos = await sincronizarProductosDesdeAlegra();
+    
+    if (resultadoProductos.success) {
+      console.log(`[AUTO-SYNC] ✅ Productos: ${resultadoProductos.total} sincronizados`);
+    } else {
+      console.error(`[AUTO-SYNC] ❌ Productos: Error - ${resultadoProductos.error}`);
+    }
+
+    // Pequeña pausa entre sincronizaciones para no saturar Alegra
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Sincronizar clientes después (secuencial)
+    console.log('[AUTO-SYNC] Paso 2/2: Sincronizando clientes...');
+    const resultadoClientes = await sincronizarClientesDesdeAlegra();
+    
+    if (resultadoClientes.success) {
+      console.log(`[AUTO-SYNC] ✅ Clientres: ${resultadoClientes.total} sincronizados`);
+    } else {
+      console.error(`[AUTO-SYNC] ❌ Clientres: Error - ${resultadoClientes.error}`);
+    }
+
+    console.log('[AUTO-SYNC] ========================================');
+    console.log('[AUTO-SYNC] Auto-sync completado');
+    console.log('[AUTO-SYNC] ========================================');
+
+  } catch (error) {
+    console.error('[AUTO-SYNC] ❌ Error general en autoSyncProductosYClientes:', error);
+  }
+}
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
@@ -2583,6 +2804,27 @@ app.listen(PORT, () => {
     }, 15 * 60 * 1000); // 15 minutos = 900000 ms
   } else {
     console.log('[AUTO-REFRESH] Auto-refresh de estados de cuenta DESHABILITADO (AUTO_REFRESH_ESTADO_CUENTA != true)');
+  }
+
+  // 🆕 Iniciar auto-sync de productos y clientes si está habilitado
+  const autoSyncEnabled = process.env.AUTO_SYNC_PRODUCTOS_CLIENTES === 'true';
+  
+  if (autoSyncEnabled) {
+    console.log('[AUTO-SYNC] Auto-sync de productos y clientes HABILITADO');
+    console.log('[AUTO-SYNC] Intervalo: 6 horas');
+    console.log('[AUTO-SYNC] Primera ejecución en 5 minutos...');
+    
+    // Primera ejecución después de 5 minutos (para no interferir con el arranque)
+    setTimeout(() => {
+      autoSyncProductosYClientes();
+    }, 5 * 60 * 1000); // 5 minutos
+    
+    // Ejecutar cada 6 horas
+    setInterval(() => {
+      autoSyncProductosYClientes();
+    }, 6 * 60 * 60 * 1000); // 6 horas = 21600000 ms
+  } else {
+    console.log('[AUTO-SYNC] Auto-sync de productos y clientes DESHABILITADO (AUTO_SYNC_PRODUCTOS_CLIENTES != true)');
   }
 });
 
