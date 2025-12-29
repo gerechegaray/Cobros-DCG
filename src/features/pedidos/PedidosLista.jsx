@@ -25,6 +25,7 @@ const PedidosLista = ({ user }) => {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [mostrarVerPedido, setMostrarVerPedido] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [esMovil, setEsMovil] = useState(false);
   
   // Filtros
   const [filtroCliente, setFiltroCliente] = useState('');
@@ -39,17 +40,26 @@ const PedidosLista = ({ user }) => {
   // 🆕 Detección robusta de móvil (breakpoint + dispositivo táctil)
   useEffect(() => {
     const detectarMovil = () => {
+      const ancho = window.innerWidth;
+      
       // Verificar ancho de pantalla (breakpoint < 768px)
-      const esBreakpointMovil = window.innerWidth < 768;
+      const esBreakpointMovil = ancho < 768;
       
       // Verificar si es dispositivo táctil
       const esTactil = 'ontouchstart' in window || 
                        navigator.maxTouchPoints > 0 || 
                        navigator.msMaxTouchPoints > 0;
       
-      // Considerar móvil si: breakpoint móvil Y dispositivo táctil
-      // O si el ancho es muy pequeño (< 600px) independientemente de táctil
-      const esMovilDetectado = (esBreakpointMovil && esTactil) || window.innerWidth < 600;
+      // Verificar user agent para detectar móviles/tablets (útil en device emulation)
+      const userAgent = navigator.userAgent.toLowerCase();
+      const esUserAgentMovil = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      
+      // Considerar móvil si:
+      // 1. Ancho muy pequeño (< 600px) - funciona siempre, incluso en device emulation
+      // 2. Breakpoint móvil (< 768px) Y (dispositivo táctil O user agent móvil)
+      // Esto permite que funcione en device emulation cuando se simula un user agent móvil
+      const esMovilDetectado = ancho < 600 || 
+                                (esBreakpointMovil && (esTactil || esUserAgentMovil));
       
       setEsMovil(esMovilDetectado);
     };
