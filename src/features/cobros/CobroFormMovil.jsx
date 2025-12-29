@@ -262,9 +262,6 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
                   <p className="font-semibold mb-1">
                     {cliente.name || cliente.nombre || cliente['Razón Social'] || cliente}
                   </p>
-                  {cliente.identification && (
-                    <p className="text-sm text-gray-600">ID: {cliente.identification}</p>
-                  )}
                 </div>
               </Card>
             )}
