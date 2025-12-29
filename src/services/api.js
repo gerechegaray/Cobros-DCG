@@ -4,7 +4,9 @@
 
 import { ALEGRA_CONFIG, getDefaultConfig } from '../config/alegra.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sist-gestion-dcg.onrender.com';
+// 🆕 En desarrollo local, usar localhost. En producción, usar la URL configurada
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:3001' : 'https://sist-gestion-dcg.onrender.com');
 
 // Función helper para hacer peticiones al backend
 export const apiRequest = async (endpoint, options = {}) => {
@@ -91,6 +93,13 @@ export const api = {
   }),
   getAlegraQuoteStatus: (id) => apiRequest(`/api/alegra/quote-status/${id}`),
   getAlegraEstadoCuenta: (clienteId) => apiRequest(`/api/alegra/estado-cuenta/${clienteId}`),
+  
+  // 🆕 Estado de cuenta desde caché
+  getEstadoCuentaCache: (clienteId) => apiRequest(`/api/estado-cuenta-cache/${clienteId}`),
+  refreshEstadoCuentaCache: (clienteId, forzar = false) => apiRequest(`/api/estado-cuenta-cache/refresh/${clienteId}`, {
+    method: 'POST',
+    body: JSON.stringify({ forzar }),
+  }),
 
   // Clientes
   getClientesFirebase: () => apiRequest('/api/clientes-firebase'),

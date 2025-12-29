@@ -958,6 +958,72 @@ app.get("/api/productos-firebase", async (req, res) => {
   }
 });
 
+// 🆕 Función helper pura para construir estado de cuenta desde datos de Alegra
+function buildEstadoCuentaDesdeAlegra(clienteId, facturasDelCliente, clienteInfo) {
+  // Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
+  console.log(`[ESTADO CUENTA] Facturas antes del filtro:`, facturasDelCliente.length);
+  
+  const facturasValidas = facturasDelCliente.filter(factura => {
+    const estadosExcluidos = ["void", "closed", "paid"];
+    const esValida = !estadosExcluidos.includes(factura.status);
+    if (!esValida) {
+      console.log(`[ESTADO CUENTA] 🚫 EXCLUYENDO factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+    } else {
+      console.log(`[ESTADO CUENTA] ✅ MANTENIENDO factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
+    }
+    return esValida;
+  });
+  
+  console.log(`[ESTADO CUENTA] Facturas válidas: ${facturasValidas.length}`);
+  
+  // Transformar los datos al formato esperado por el frontend
+  const facturas = facturasValidas.map(factura => {
+    // Calcular el total de pagos asociados (solo payments.amount)
+    const pagosAsociados = factura.payments || [];
+    const montoPagado = pagosAsociados.reduce((sum, pago) => sum + (pago.amount || 0), 0);
+    const montoTotal = factura.total || 0;
+    const montoAdeudado = montoTotal - montoPagado;
+    const numeroFinal = factura.numberTemplate?.number || factura.number || factura.id;
+    
+    return {
+      facturaId: factura.id.toString(),
+      numero: numeroFinal,
+      fechaEmision: factura.date,
+      fechaVencimiento: factura.dueDate,
+      montoTotal: montoTotal,
+      montoPagado: montoPagado,
+      montoAdeudado: montoAdeudado,
+      estado: montoPagado >= montoTotal ? 'PAGADO' : 
+              new Date(factura.dueDate) < new Date() ? 'VENCIDO' : 'PENDIENTE',
+      pagos: pagosAsociados,
+      productos: factura.items || []
+    };
+  });
+  
+  // Calcular totales
+  const totalAdeudado = facturas.reduce((sum, f) => sum + (f.montoAdeudado || 0), 0);
+  const totalPagado = facturas.reduce((sum, f) => sum + (f.montoPagado || 0), 0);
+  const totalFacturado = facturas.reduce((sum, f) => sum + (f.montoTotal || 0), 0);
+  
+  const clienteNombre = clienteInfo ? (clienteInfo.name || clienteInfo.organization || 'Cliente no identificado') : 'Cliente no identificado';
+  
+  // Agregar clienteNombre a cada factura para compatibilidad con frontend
+  const facturasConCliente = facturas.map(f => ({
+    ...f,
+    clienteNombre: clienteNombre
+  }));
+  
+  return {
+    clienteId: clienteId.toString(),
+    clienteNombre: clienteNombre,
+    facturas: facturasConCliente,
+    totalAdeudado: totalAdeudado,
+    totalPagado: totalPagado,
+    totalFacturado: totalFacturado,
+    fuente: "alegra"
+  };
+}
+
 // Endpoint para obtener el estado de cuenta de un cliente específico
 app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
   try {
@@ -1007,50 +1073,204 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     const facturasDelCliente = await facturasResponse.json();
     console.log(`[ESTADO CUENTA] Facturas del cliente ${clienteId}: ${facturasDelCliente.length}`);
     
-    // 🆕 Filtrar facturas anuladas, cerradas y pagadas (status: "void", "closed", "paid")
-    console.log(`[ESTADO CUENTA] Facturas antes del filtro:`, facturasDelCliente.length);
+    // 🆕 Usar función helper para construir estado de cuenta
+    const estadoCuenta = buildEstadoCuentaDesdeAlegra(clienteId, facturasDelCliente, clienteInfo);
     
-    const facturasValidas = facturasDelCliente.filter(factura => {
-      const estadosExcluidos = ["void", "closed", "paid"];
-      const esValida = !estadosExcluidos.includes(factura.status);
-      if (!esValida) {
-        console.log(`[ESTADO CUENTA] 🚫 EXCLUYENDO factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
-      } else {
-        console.log(`[ESTADO CUENTA] ✅ MANTENIENDO factura: ID ${factura.id}, Número ${factura.number}, Status: ${factura.status}`);
-      }
-      return esValida;
-    });
-    
-    console.log(`[ESTADO CUENTA] Facturas válidas: ${facturasValidas.length}`);
-    
-    // Transformar los datos al formato esperado por el frontend
-    const boletas = facturasValidas.map(factura => {
-      // Calcular el total de pagos asociados (solo payments.amount)
-      const pagosAsociados = factura.payments || [];
-      const montoPagado = pagosAsociados.reduce((sum, pago) => sum + (pago.amount || 0), 0);
-      const montoTotal = factura.total || 0;
-      const montoAdeudado = montoTotal - montoPagado;
-      const numeroFinal = factura.numberTemplate?.number || factura.number || factura.id;
-      
-      return {
-        numero: numeroFinal,
-        fechaEmision: factura.date,
-        fechaVencimiento: factura.dueDate,
-        montoTotal: montoTotal,
-        montoPagado: montoPagado,
-        montoAdeudado: montoAdeudado,
-        estado: montoPagado >= montoTotal ? 'PAGADO' : 
-                new Date(factura.dueDate) < new Date() ? 'VENCIDO' : 'PENDIENTE',
-        pagos: pagosAsociados,
-        productos: factura.items || [], // 🆕 Incluir productos de la factura
-        clienteNombre: factura.clientName || (clienteInfo ? clienteInfo.name || clienteInfo.organization : 'Cliente no identificado')
-      };
-    });
-    
-    console.log(`[ESTADO CUENTA] Boletas procesadas: ${boletas.length}`);
-    res.json(boletas);
+    console.log(`[ESTADO CUENTA] Boletas procesadas: ${estadoCuenta.facturas.length}`);
+    // Retornar solo las facturas para mantener compatibilidad con frontend existente
+    res.json(estadoCuenta.facturas);
   } catch (error) {
     console.error('Error al obtener estado de cuenta:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para obtener estado de cuenta desde caché
+app.get("/api/estado-cuenta-cache/:clienteId", async (req, res) => {
+  try {
+    const { clienteId } = req.params;
+    
+    console.log(`[ESTADO CUENTA CACHE] Consultando caché para cliente: ${clienteId}`);
+    
+    // Verificar si Firebase está inicializado
+    if (!adminDb) {
+      console.warn('⚠️ Firebase no inicializado - devolviendo respuesta vacía');
+      return res.json({
+        exists: false,
+        facturas: [],
+        totalAdeudado: 0,
+        totalPagado: 0,
+        totalFacturado: 0,
+        ultimaActualizacion: null,
+        clienteId: clienteId,
+        clienteNombre: null
+      });
+    }
+    
+    // Intentar leer documento de Firestore
+    const docRef = adminDb.collection('estado_cuenta_cache').doc(clienteId.toString());
+    const docSnapshot = await docRef.get();
+    
+    if (!docSnapshot.exists) {
+      console.log(`[ESTADO CUENTA CACHE] No existe caché para cliente ${clienteId}`);
+      return res.json({
+        exists: false,
+        facturas: [],
+        totalAdeudado: 0,
+        totalPagado: 0,
+        totalFacturado: 0,
+        ultimaActualizacion: null,
+        clienteId: clienteId,
+        clienteNombre: null
+      });
+    }
+    
+    const cacheData = docSnapshot.data();
+    console.log(`[ESTADO CUENTA CACHE] Caché encontrado, última actualización: ${cacheData.ultimaActualizacion?.toDate?.() || cacheData.ultimaActualizacion}`);
+    
+    // Retornar datos del caché
+    res.json({
+      exists: true,
+      facturas: cacheData.facturas || [],
+      totalAdeudado: cacheData.totalAdeudado || 0,
+      totalPagado: cacheData.totalPagado || 0,
+      totalFacturado: cacheData.totalFacturado || 0,
+      ultimaActualizacion: cacheData.ultimaActualizacion?.toDate?.() || cacheData.ultimaActualizacion,
+      clienteId: cacheData.clienteId || clienteId,
+      clienteNombre: cacheData.clienteNombre || null
+    });
+  } catch (error) {
+    console.error('Error obteniendo estado de cuenta desde caché:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Función helper para actualizar caché de estado de cuenta
+async function actualizarEstadoCuentaCache(clienteId, forzar = false) {
+  try {
+    console.log(`[ESTADO CUENTA CACHE] Iniciando actualización para cliente ${clienteId}, forzar: ${forzar}`);
+    
+    // Verificar si Firebase está inicializado
+    if (!adminDb) {
+      throw new Error('Firebase no inicializado');
+    }
+    
+    // Verificar si existe caché y si es reciente
+    if (!forzar) {
+      const docRef = adminDb.collection('estado_cuenta_cache').doc(clienteId.toString());
+      const docSnapshot = await docRef.get();
+      
+      if (docSnapshot.exists) {
+        const cacheData = docSnapshot.data();
+        const ultimaActualizacion = cacheData.ultimaActualizacion?.toDate?.() || 
+                                    (cacheData.ultimaActualizacion ? new Date(cacheData.ultimaActualizacion) : null);
+        
+        if (ultimaActualizacion) {
+          const ahora = new Date();
+          const diferenciaMs = ahora - ultimaActualizacion;
+          const diferenciaMinutos = diferenciaMs / (1000 * 60);
+          
+          if (diferenciaMinutos < 10) {
+            console.log(`[ESTADO CUENTA CACHE] Caché fresco (${diferenciaMinutos.toFixed(1)} minutos), no se actualiza`);
+            return {
+              fresh: true,
+              data: {
+                exists: true,
+                facturas: cacheData.facturas || [],
+                totalAdeudado: cacheData.totalAdeudado || 0,
+                totalPagado: cacheData.totalPagado || 0,
+                totalFacturado: cacheData.totalFacturado || 0,
+                ultimaActualizacion: ultimaActualizacion,
+                clienteId: cacheData.clienteId || clienteId,
+                clienteNombre: cacheData.clienteNombre || null
+              }
+            };
+          }
+        }
+      }
+    }
+    
+    // Consultar Alegra
+    const email = process.env.ALEGRA_EMAIL?.trim();
+    const apiKey = process.env.ALEGRA_API_KEY?.trim();
+    const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+    
+    // Obtener información del cliente
+    const clienteUrl = `https://api.alegra.com/api/v1/contacts/${clienteId}`;
+    const clienteResponse = await fetch(clienteUrl, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    let clienteInfo = null;
+    if (clienteResponse.ok) {
+      clienteInfo = await clienteResponse.json();
+      console.log(`[ESTADO CUENTA CACHE] Cliente encontrado:`, clienteInfo.name || clienteInfo.organization);
+    }
+    
+    // Obtener facturas del cliente
+    const facturasUrl = `https://api.alegra.com/api/v1/invoices?client_id=${clienteId}`;
+    const facturasResponse = await fetch(facturasUrl, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    if (!facturasResponse.ok) {
+      const errorText = await facturasResponse.text();
+      throw new Error(`Error de Alegra: ${errorText}`);
+    }
+    
+    const facturasDelCliente = await facturasResponse.json();
+    console.log(`[ESTADO CUENTA CACHE] Facturas obtenidas de Alegra: ${facturasDelCliente.length}`);
+    
+    // Usar función helper para construir estado de cuenta
+    const estadoCuenta = buildEstadoCuentaDesdeAlegra(clienteId, facturasDelCliente, clienteInfo);
+    
+    // Guardar en Firestore
+    const docRef = adminDb.collection('estado_cuenta_cache').doc(clienteId.toString());
+    await docRef.set({
+      ...estadoCuenta,
+      ultimaActualizacion: new Date()
+    }, { merge: false }); // Usar set para reemplazar completamente
+    
+    console.log(`[ESTADO CUENTA CACHE] Caché actualizado para cliente ${clienteId}`);
+    
+    return {
+      fresh: false,
+      data: {
+        exists: true,
+        facturas: estadoCuenta.facturas,
+        totalAdeudado: estadoCuenta.totalAdeudado,
+        totalPagado: estadoCuenta.totalPagado,
+        totalFacturado: estadoCuenta.totalFacturado,
+        ultimaActualizacion: new Date(),
+        clienteId: estadoCuenta.clienteId,
+        clienteNombre: estadoCuenta.clienteNombre
+      }
+    };
+  } catch (error) {
+    console.error('Error actualizando estado de cuenta cache:', error);
+    throw error;
+  }
+}
+
+// 🆕 Endpoint para refrescar estado de cuenta desde Alegra
+app.post("/api/estado-cuenta-cache/refresh/:clienteId", async (req, res) => {
+  try {
+    const { clienteId } = req.params;
+    const { forzar } = req.body; // Opcional: forzar actualización incluso si es reciente
+    
+    console.log(`[ESTADO CUENTA CACHE REFRESH] Refrescando para cliente: ${clienteId}, forzar: ${forzar || false}`);
+    
+    const resultado = await actualizarEstadoCuentaCache(clienteId, forzar || false);
+    
+    res.json(resultado);
+  } catch (error) {
+    console.error('Error refrescando estado de cuenta cache:', error);
     res.status(500).json({ error: error.message });
   }
 });

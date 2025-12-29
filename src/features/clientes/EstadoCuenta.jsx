@@ -27,6 +27,9 @@ function EstadoCuenta({ user }) {
   const [boletas, setBoletas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [refreshingCache, setRefreshingCache] = useState(false); // 🆕 Estado para refresh de caché
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null); // 🆕 Timestamp de última actualización
+  const [cacheExists, setCacheExists] = useState(false); // 🆕 Indica si existe caché
   const [expandedProductos, setExpandedProductos] = useState({}); // 🆕 Estado para productos expandidos
   const [expandedRows, setExpandedRows] = useState({}); // 🆕 Estado combinado para expansión
   const [totales, setTotales] = useState({
@@ -172,50 +175,65 @@ function EstadoCuenta({ user }) {
     }
   };
 
+  // 🆕 Función para calcular tiempo relativo
+  const calcularTiempoRelativo = (timestamp) => {
+    if (!timestamp) return 'Nunca';
+    
+    const ahora = new Date();
+    const fecha = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    const diferenciaMs = ahora - fecha;
+    const diferenciaMinutos = Math.floor(diferenciaMs / (1000 * 60));
+    const diferenciaHoras = Math.floor(diferenciaMs / (1000 * 60 * 60));
+    const diferenciaDias = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+    
+    if (diferenciaMinutos < 1) return 'Hace menos de un minuto';
+    if (diferenciaMinutos < 60) return `Hace ${diferenciaMinutos} minuto${diferenciaMinutos > 1 ? 's' : ''}`;
+    if (diferenciaHoras < 24) return `Hace ${diferenciaHoras} hora${diferenciaHoras > 1 ? 's' : ''}`;
+    return `Hace ${diferenciaDias} día${diferenciaDias > 1 ? 's' : ''}`;
+  };
+
   const cargarEstadoCuenta = async (clienteData) => {
     setLoading(true);
     try {
-      // Obtener datos reales de Alegra
-      const datosAlegra = await getEstadoCuenta(clienteData.id);
+      // 🆕 Primero consultar caché
+      console.log('[ESTADO CUENTA] Consultando caché para cliente:', clienteData.id);
+      const cacheData = await api.getEstadoCuentaCache(clienteData.id);
       
-      if (datosAlegra && datosAlegra.length > 0) {
-        setBoletas(datosAlegra);
-        
-        // Calcular totales
-        const totalAdeudado = datosAlegra.reduce((sum, b) => sum + ((b.montoTotal || 0) - (b.montoPagado || 0)), 0);
-        const totalPagado = datosAlegra.reduce((sum, b) => sum + (b.montoPagado || 0), 0);
-        const totalGeneral = datosAlegra.reduce((sum, b) => sum + (b.montoTotal || 0), 0);
-        
+      if (cacheData.exists && cacheData.facturas && cacheData.facturas.length > 0) {
+        // Mostrar datos del caché inmediatamente
+        console.log('[ESTADO CUENTA] Datos encontrados en caché:', cacheData.facturas.length, 'facturas');
+        setBoletas(cacheData.facturas);
         setTotales({
-          totalAdeudado,
-          totalPagado,
-          totalGeneral
+          totalAdeudado: cacheData.totalAdeudado || 0,
+          totalPagado: cacheData.totalPagado || 0,
+          totalGeneral: cacheData.totalFacturado || 0
         });
+        setUltimaActualizacion(cacheData.ultimaActualizacion);
+        setCacheExists(true);
         
-        // 🆕 Mostrar información sobre facturas excluidas
-        toast.current.show({
-          severity: 'info',
-          summary: 'Estado de cuenta cargado',
-          detail: `Se muestran ${datosAlegra.length} facturas válidas.`
-        });
+        // No mostrar toast, los datos ya están visibles
       } else {
-        // Si no hay datos, mostrar tabla vacía
+        // No hay caché, mostrar mensaje pero no consultar Alegra automáticamente
+        console.log('[ESTADO CUENTA] No hay caché disponible');
         setBoletas([]);
         setTotales({
           totalAdeudado: 0,
           totalPagado: 0,
           totalGeneral: 0
         });
+        setUltimaActualizacion(null);
+        setCacheExists(false);
         
         toast.current.show({
           severity: 'info',
-          summary: 'Sin datos',
-          detail: 'No se encontraron movimientos válidos para este cliente'
+          summary: 'Sin datos en caché',
+          detail: 'Presiona "Actualizar ahora" para cargar el estado de cuenta desde Alegra',
+          life: 5000
         });
       }
 
     } catch (error) {
-      console.error('Error al cargar estado de cuenta:', error);
+      console.error('Error al cargar estado de cuenta desde caché:', error);
       
       // En caso de error, mostrar tabla vacía
       setBoletas([]);
@@ -224,11 +242,13 @@ function EstadoCuenta({ user }) {
         totalPagado: 0,
         totalGeneral: 0
       });
+      setUltimaActualizacion(null);
+      setCacheExists(false);
 
       toast.current.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'No se pudo conectar con Alegra'
+        detail: 'No se pudo cargar el estado de cuenta desde caché'
       });
     } finally {
       setLoading(false);
@@ -236,16 +256,33 @@ function EstadoCuenta({ user }) {
   };
 
   const actualizarDesdeAlegra = async () => {
-    setUpdating(true);
+    if (!cliente) return;
+    
+    setRefreshingCache(true);
     try {
-      // Llamar a la API de Alegra para obtener datos actualizados
-      await cargarEstadoCuenta(cliente);
+      // 🆕 Llamar al endpoint de refresh que consulta Alegra y actualiza caché
+      console.log('[ESTADO CUENTA] Refrescando desde Alegra para cliente:', cliente.id);
+      const resultado = await api.refreshEstadoCuentaCache(cliente.id, true); // forzar = true
       
-      toast.current.show({
-        severity: 'success',
-        summary: 'Actualizado',
-        detail: 'Estado de cuenta actualizado desde Alegra'
-      });
+      if (resultado.fresh) {
+        // Caché estaba fresco, usar datos existentes
+        console.log('[ESTADO CUENTA] Caché estaba fresco, usando datos existentes');
+        toast.current.show({
+          severity: 'info',
+          summary: 'Caché actualizado',
+          detail: 'Los datos ya estaban actualizados'
+        });
+      } else {
+        // Caché fue actualizado, recargar datos
+        console.log('[ESTADO CUENTA] Caché actualizado, recargando datos');
+        await cargarEstadoCuenta(cliente);
+        
+        toast.current.show({
+          severity: 'success',
+          summary: 'Actualizado',
+          detail: 'Estado de cuenta actualizado desde Alegra'
+        });
+      }
 
     } catch (error) {
       console.error('Error al actualizar desde Alegra:', error);
@@ -255,7 +292,7 @@ function EstadoCuenta({ user }) {
         detail: 'No se pudo actualizar desde Alegra'
       });
     } finally {
-      setUpdating(false);
+      setRefreshingCache(false);
     }
   };
 
@@ -580,17 +617,46 @@ function EstadoCuenta({ user }) {
                 Estado de Cuenta
               </h1>
               {cliente ? (
-                <p
-                  style={{
-                    margin: "0",
-                    fontSize: "0.875rem",
-                    opacity: "0.9",
-                    fontWeight: "400"
-                  }}
-                  className="text-sm md:text-base"
-                >
-                  Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
-                </p>
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 0.25rem 0",
+                      fontSize: "0.875rem",
+                      opacity: "0.9",
+                      fontWeight: "400"
+                    }}
+                    className="text-sm md:text-base"
+                  >
+                    Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
+                  </p>
+                  {ultimaActualizacion && (
+                    <p
+                      style={{
+                        margin: "0",
+                        fontSize: "0.75rem",
+                        opacity: "0.8",
+                        fontWeight: "400"
+                      }}
+                      className="text-xs md:text-sm"
+                    >
+                      {calcularTiempoRelativo(ultimaActualizacion)}
+                    </p>
+                  )}
+                  {!cacheExists && (
+                    <p
+                      style={{
+                        margin: "0.25rem 0 0 0",
+                        fontSize: "0.75rem",
+                        opacity: "0.9",
+                        fontWeight: "500",
+                        color: "#fbbf24"
+                      }}
+                      className="text-xs md:text-sm"
+                    >
+                      ⚠️ Sin datos en caché. Presiona "Actualizar ahora" para cargar.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p
                   style={{
@@ -624,11 +690,11 @@ function EstadoCuenta({ user }) {
               {cliente && (
                 <>
                   <Button
-                    label={updating ? "Actualizando..." : "Actualizar"}
-                    icon={updating ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
+                    label={refreshingCache ? "Actualizando..." : "Actualizar ahora"}
+                    icon={refreshingCache ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
                     className="p-button-outlined flex-1 md:flex-none"
                     onClick={actualizarDesdeAlegra}
-                    disabled={updating}
+                    disabled={refreshingCache}
                     style={{
                       background: "rgba(255, 255, 255, 0.1)",
                       border: "2px solid rgba(255, 255, 255, 0.3)",
