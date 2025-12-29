@@ -276,13 +276,13 @@ function EstadoCuenta({ user }) {
       } else {
         // Caché fue actualizado, recargar datos
         console.log('[ESTADO CUENTA] Caché actualizado, recargando datos');
-        await cargarEstadoCuenta(cliente);
-        
-        toast.current.show({
-          severity: 'success',
-          summary: 'Actualizado',
-          detail: 'Estado de cuenta actualizado desde Alegra'
-        });
+      await cargarEstadoCuenta(cliente);
+      
+      toast.current.show({
+        severity: 'success',
+        summary: 'Actualizado',
+        detail: 'Estado de cuenta actualizado desde Alegra'
+      });
       }
 
     } catch (error) {
@@ -386,48 +386,48 @@ function EstadoCuenta({ user }) {
   const cellWithLabelTemplate = (field, label) => (rowData) => (
     <div>
         <span className="p-hidden md:inline">
+        {rowData[field]}
+      </span>
+      <div className="md:hidden">
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
+          {label}:
+        </span>
+          <span>
           {rowData[field]}
         </span>
-        <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-            {label}:
-          </span>
-          <span>
-            {rowData[field]}
-          </span>
-        </div>
+      </div>
     </div>
   );
 
   const fechaWithLabelTemplate = (field, label) => (rowData) => (
     <div>
         <span className="p-hidden md:inline">
+        {formatFecha(rowData[field])}
+      </span>
+      <div className="md:hidden">
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
+          {label}:
+        </span>
+          <span>
           {formatFecha(rowData[field])}
         </span>
-        <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-            {label}:
-          </span>
-          <span>
-            {formatFecha(rowData[field])}
-          </span>
-        </div>
+      </div>
     </div>
   );
 
   const montoWithLabelTemplate = (field, label) => (rowData) => (
     <div>
         <span className="p-hidden md:inline">
+        {formatMonto(rowData[field])}
+      </span>
+      <div className="md:hidden">
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
+          {label}:
+        </span>
+          <span>
           {formatMonto(rowData[field])}
         </span>
-        <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-            {label}:
-          </span>
-          <span>
-            {formatMonto(rowData[field])}
-          </span>
-        </div>
+      </div>
     </div>
   );
 
@@ -444,66 +444,72 @@ function EstadoCuenta({ user }) {
     try {
       // Crear un elemento temporal para el PDF
       const pdfContainer = document.createElement('div');
+      pdfContainer.id = 'pdf-export-container';
       pdfContainer.style.position = 'absolute';
       pdfContainer.style.left = '-9999px';
       pdfContainer.style.top = '0';
       pdfContainer.style.width = '794px'; // A4 width in pixels (210mm * 3.78)
-      pdfContainer.style.backgroundColor = 'white';
+      pdfContainer.style.backgroundColor = '#ffffff';
+      pdfContainer.style.color = '#1a1a1a'; // Color de texto oscuro por defecto
       pdfContainer.style.padding = '20px 30px'; // Márgenes más conservadores
       pdfContainer.style.fontFamily = 'Arial, sans-serif';
       pdfContainer.style.fontSize = '12px';
       pdfContainer.style.lineHeight = '1.4';
+      pdfContainer.style.boxSizing = 'border-box';
       
       // Crear el contenido del PDF
       pdfContainer.innerHTML = `
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">ESTADO DE CUENTA</h1>
+          <h1 style="color: #1a1a1a; margin: 0; font-size: 24px; font-weight: bold;">ESTADO DE CUENTA</h1>
         </div>
         
-                 <div style="margin-bottom: 20px;">
-           <p style="margin: 5px 0;"><strong>Cliente:</strong> ${boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'N/A')}</p>
-           <p style="margin: 5px 0; color: #7f8c8d;"><strong>Generado el:</strong> ${new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}</p>
-         </div>
+        <div style="margin-bottom: 20px;">
+          <p style="margin: 5px 0; color: #1a1a1a;"><strong style="color: #1a1a1a;">Cliente:</strong> ${boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'N/A')}</p>
+          <p style="margin: 5px 0; color: #4a4a4a;"><strong style="color: #1a1a1a;">Generado el:</strong> ${new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}</p>
+        </div>
         
         <div style="margin-bottom: 30px;">
-          <h2 style="color: #2c3e50; margin-bottom: 15px;">RESUMEN DE TOTALES</h2>
+          <h2 style="color: #1a1a1a; margin-bottom: 15px; font-size: 18px; font-weight: bold;">RESUMEN DE TOTALES</h2>
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="color: #e74c3c;"><strong>Total Adeudado:</strong> ${formatMonto(totales.totalAdeudado)}</span>
+            <span style="color: #c53030; font-weight: 600;"><strong style="color: #1a1a1a;">Total Adeudado:</strong> ${formatMonto(totales.totalAdeudado)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="color: #27ae60;"><strong>Total Pagado:</strong> ${formatMonto(totales.totalPagado)}</span>
+            <span style="color: #22543d; font-weight: 600;"><strong style="color: #1a1a1a;">Total Pagado:</strong> ${formatMonto(totales.totalPagado)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="color: #2c3e50;"><strong>Total General:</strong> ${formatMonto(totales.totalGeneral)}</span>
+            <span style="color: #1a1a1a; font-weight: 600;"><strong style="color: #1a1a1a;">Total General:</strong> ${formatMonto(totales.totalGeneral)}</span>
           </div>
         </div>
         
         <div style="margin-bottom: 20px;">
-          <h2 style="color: #2c3e50; margin-bottom: 15px;">DETALLE DE BOLETAS</h2>
+          <h2 style="color: #1a1a1a; margin-bottom: 15px; font-size: 18px; font-weight: bold;">DETALLE DE BOLETAS</h2>
           <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; font-size: 11px;">
             <thead>
-              <tr style="background-color: #34495e; color: white;">
-                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px;">Número</th>
-                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px;">Fecha Emisión</th>
-                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px;">Fecha Vencimiento</th>
-                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px;">Monto Total</th>
-                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px;">Monto Pagado</th>
-                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px;">Monto Adeudado</th>
-                <th style="padding: 8px 6px; text-align: center; border: 1px solid #ddd; font-size: 10px;">Estado</th>
+              <tr style="background-color: #2d3748; color: #ffffff;">
+                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Número</th>
+                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Fecha Emisión</th>
+                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Fecha Vencimiento</th>
+                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Monto Total</th>
+                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Monto Pagado</th>
+                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Monto Adeudado</th>
+                <th style="padding: 8px 6px; text-align: center; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Estado</th>
               </tr>
             </thead>
             <tbody>
-              ${boletas.map(boleta => `
-                <tr style="background-color: ${boletas.indexOf(boleta) % 2 === 0 ? '#f8f9fa' : 'white'};">
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px;">${boleta.numero || 'N/A'}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px;">${formatFecha(boleta.fechaEmision)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px;">${formatFecha(boleta.fechaVencimiento)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right;">${formatMonto(boleta.montoTotal || 0)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right;">${formatMonto(boleta.montoPagado || 0)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right;">${formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: center;">${boleta.estado || 'N/A'}</td>
+              ${boletas.map(boleta => {
+                const estadoColor = boleta.estado === 'PAGADO' ? '#22543d' : (boleta.estado === 'PENDIENTE' ? '#c53030' : '#1a1a1a');
+                return `
+                <tr style="background-color: ${boletas.indexOf(boleta) % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; color: #1a1a1a;">${boleta.numero || 'N/A'}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; color: #1a1a1a;">${formatFecha(boleta.fechaEmision)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; color: #1a1a1a;">${formatFecha(boleta.fechaVencimiento)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right; color: #1a1a1a;">${formatMonto(boleta.montoTotal || 0)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right; color: #1a1a1a;">${formatMonto(boleta.montoPagado || 0)}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right; color: #1a1a1a;">${formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}</td>
+                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: center; color: ${estadoColor}; font-weight: 600;">${boleta.estado || 'N/A'}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -588,8 +594,8 @@ function EstadoCuenta({ user }) {
               {cliente ? (
                 <div>
                   <p className="estado-cuenta-subtitle">
-                    Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
-                  </p>
+                  Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
+                </p>
                   {ultimaActualizacion && (
                     <p className="estado-cuenta-update-time">
                       {calcularTiempoRelativo(ultimaActualizacion)}
@@ -664,18 +670,18 @@ function EstadoCuenta({ user }) {
                 <i className="pi pi-exclamation-triangle estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-error)' }}></i>
                 <div className="estado-cuenta-kpi-value adeudado">
                   {formatMonto(totales.totalAdeudado)}
-                </div>
-                <div className="estado-cuenta-kpi-label">Total Adeudado</div>
               </div>
+                <div className="estado-cuenta-kpi-label">Total Adeudado</div>
+          </div>
             </Card>
             <Card className="estado-cuenta-kpi-card">
               <div className="estado-cuenta-kpi-content">
                 <i className="pi pi-check-circle estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
                 <div className="estado-cuenta-kpi-value pagado">
                   {formatMonto(totales.totalPagado)}
-                </div>
-                <div className="estado-cuenta-kpi-label">Total Pagado</div>
               </div>
+                <div className="estado-cuenta-kpi-label">Total Pagado</div>
+          </div>
             </Card>
             <Card className="estado-cuenta-kpi-card">
               <div className="estado-cuenta-kpi-content">
@@ -686,7 +692,7 @@ function EstadoCuenta({ user }) {
                 <div className="estado-cuenta-kpi-label">Total General</div>
               </div>
             </Card>
-          </div>
+        </div>
         )}
 
         {/* Tabla de Boletas con filas expandibles para pagos - Solo mostrar si hay cliente seleccionado */}
@@ -921,8 +927,8 @@ function EstadoCuenta({ user }) {
                 <div className="vista-movil">
                   {boletas.length === 0 ? (
                       <div style={{ textAlign: "center", padding: "2rem" }}>
-                        No hay boletas para mostrar.
-                      </div>
+                      No hay boletas para mostrar.
+                    </div>
                   ) : (
                     <div>
                       {boletas.map((boleta, index) => (

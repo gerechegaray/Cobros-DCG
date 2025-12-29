@@ -462,3 +462,26 @@
   margin-top: var(--spacing-2);
 }
 
+/* ============================================
+   AISLAMIENTO PARA EXPORTACIÓN PDF
+   ============================================ */
+#pdf-export-container {
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
+}
+
+/* Asegurar que los elementos dentro del PDF tengan colores oscuros sobre fondo blanco */
+#pdf-export-container h1,
+#pdf-export-container h2,
+#pdf-export-container p,
+#pdf-export-container span,
+#pdf-export-container td,
+#pdf-export-container th {
+  color: #1a1a1a !important;
+}
+
+#pdf-export-container th {
+  color: #ffffff !important;
+  background-color: #2d3748 !important;
+}
+
