@@ -1,0 +1,464 @@
+/* ============================================
+   ESTILOS ESTADO DE CUENTA - Sistema de Gestión DCG
+   ============================================ */
+
+/* Importar design tokens */
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   CONTENEDOR PRINCIPAL
+   ============================================ */
+.estado-cuenta-container {
+  max-width: 1400px; /* Mismo ancho que dashboard */
+  margin: 0 auto;
+  padding: var(--spacing-6) var(--spacing-4);
+  background: var(--dcg-bg-secondary);
+  min-height: 100vh;
+}
+
+/* ============================================
+   CARD PRINCIPAL
+   ============================================ */
+.estado-cuenta-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--dcg-shadow-lg);
+  overflow: hidden;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.estado-cuenta-header {
+  background: var(--dcg-bg-elevated) !important;
+  padding: var(--spacing-6) var(--spacing-6) !important;
+  color: var(--dcg-text-primary) !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border) !important;
+  margin: 0 !important;
+}
+
+.estado-cuenta-header h1 {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-3xl) !important;
+  font-weight: var(--font-weight-bold) !important;
+  margin: 0 0 var(--spacing-2) 0 !important;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.estado-cuenta-header .estado-cuenta-subtitle {
+  color: var(--dcg-text-secondary) !important;
+  font-size: var(--font-size-base) !important;
+  margin: 0 0 var(--spacing-1) 0 !important;
+  font-weight: var(--font-weight-medium);
+}
+
+.estado-cuenta-header .estado-cuenta-update-time {
+  color: var(--dcg-text-muted) !important;
+  font-size: var(--font-size-sm) !important;
+  margin: 0 !important;
+  font-weight: var(--font-weight-normal);
+}
+
+.estado-cuenta-header .estado-cuenta-warning {
+  color: var(--dcg-warning) !important;
+  font-size: var(--font-size-sm) !important;
+  margin: var(--spacing-2) 0 0 0 !important;
+  font-weight: var(--font-weight-medium);
+}
+
+.estado-cuenta-header-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  width: 100%;
+  margin-top: var(--spacing-4);
+}
+
+@media (min-width: 768px) {
+  .estado-cuenta-header-buttons {
+    width: auto;
+    margin-top: 0;
+  }
+}
+
+.estado-cuenta-header-buttons .p-button {
+  border-radius: var(--border-radius-xl) !important; /* Estilo pill */
+  padding: var(--spacing-3) var(--spacing-5) !important;
+  font-weight: var(--font-weight-medium) !important;
+  font-size: var(--font-size-sm) !important;
+  background: var(--dcg-bg-tertiary) !important;
+  border: var(--border-width-thin) solid var(--dcg-border) !important;
+  color: var(--dcg-text-primary) !important;
+  transition: all var(--transition-base) !important;
+}
+
+.estado-cuenta-header-buttons .p-button:hover {
+  background: var(--dcg-bg-elevated) !important;
+  border-color: var(--dcg-azul-claro) !important;
+  color: var(--dcg-azul-claro) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+.estado-cuenta-header-buttons .p-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   SELECTOR DE CLIENTE
+   ============================================ */
+.estado-cuenta-selector {
+  padding: var(--spacing-5) var(--spacing-6);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+}
+
+.estado-cuenta-selector label {
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important;
+  font-size: var(--font-size-sm) !important;
+  margin-bottom: var(--spacing-2) !important;
+}
+
+.estado-cuenta-selector .p-dropdown {
+  width: 100%;
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+}
+
+.estado-cuenta-selector .p-dropdown:not(.p-disabled):hover {
+  border-color: var(--dcg-azul-claro);
+}
+
+.estado-cuenta-selector .p-dropdown:not(.p-disabled).p-focus {
+  border-color: var(--dcg-azul-claro);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2);
+}
+
+/* ============================================
+   KPIs / TOTALES
+   ============================================ */
+.estado-cuenta-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  padding: var(--spacing-6);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+}
+
+.estado-cuenta-kpi-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  padding: var(--spacing-5);
+  text-align: center;
+  transition: all var(--transition-base);
+}
+
+.estado-cuenta-kpi-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--dcg-border);
+}
+
+.estado-cuenta-kpi-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.estado-cuenta-kpi-icon {
+  font-size: var(--font-size-2xl);
+  opacity: 0.8;
+  margin-bottom: var(--spacing-1);
+}
+
+.estado-cuenta-kpi-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dcg-text-primary);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.estado-cuenta-kpi-value.adeudado {
+  color: var(--dcg-error);
+}
+
+.estado-cuenta-kpi-value.pagado {
+  color: var(--dcg-success);
+}
+
+.estado-cuenta-kpi-value.general {
+  color: var(--dcg-text-primary);
+}
+
+.estado-cuenta-kpi-label {
+  font-size: var(--font-size-sm);
+  color: var(--dcg-text-secondary);
+  text-transform: uppercase;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* ============================================
+   TABLA DE FACTURAS
+   ============================================ */
+.estado-cuenta-tabla-container {
+  padding: var(--spacing-6);
+}
+
+.estado-cuenta-tabla-title {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-xl) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  margin-bottom: var(--spacing-4) !important;
+}
+
+.estado-cuenta-table .p-datatable {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--dcg-shadow-sm);
+}
+
+.estado-cuenta-table .p-datatable .p-datatable-thead > tr > th {
+  background: var(--dcg-bg-tertiary) !important;
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-4) var(--spacing-3) !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border) !important;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.estado-cuenta-table .p-datatable .p-datatable-tbody > tr {
+  background: var(--dcg-bg-elevated);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+  transition: background-color var(--transition-base);
+}
+
+.estado-cuenta-table .p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--dcg-bg-tertiary) !important;
+}
+
+.estado-cuenta-table .p-datatable .p-datatable-tbody > tr > td {
+  color: var(--dcg-text-primary) !important;
+  padding: var(--spacing-4) var(--spacing-3) !important;
+  font-size: var(--font-size-sm) !important;
+  border: none !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+}
+
+.estado-cuenta-table .p-datatable .p-datatable-tbody > tr > td span {
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+/* Estados de factura (Tags) */
+.estado-cuenta-table .p-tag {
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-2) var(--spacing-3) !important;
+  border-radius: var(--border-radius-xl) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* Botón "Ver productos" */
+.estado-cuenta-productos-button {
+  display: inline-block;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--border-radius-xl);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--dcg-azul-claro);
+  background: transparent;
+  border: var(--border-width-thin) solid var(--dcg-border);
+  min-width: 30px;
+  min-height: 30px;
+  text-align: center;
+  line-height: 20px;
+  transition: all var(--transition-base);
+  user-select: none;
+}
+
+.estado-cuenta-productos-button:hover {
+  background: var(--dcg-bg-tertiary);
+  border-color: var(--dcg-azul-claro);
+  transform: scale(1.05);
+}
+
+.estado-cuenta-productos-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Paginador */
+.estado-cuenta-table .p-paginator {
+  background: var(--dcg-bg-tertiary);
+  border-top: var(--border-width-thin) solid var(--dcg-border);
+  padding: var(--spacing-3) var(--spacing-4);
+  color: var(--dcg-text-primary);
+}
+
+.estado-cuenta-table .p-paginator .p-paginator-pages .p-paginator-page {
+  color: var(--dcg-text-primary);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  background: var(--dcg-bg-elevated);
+}
+
+.estado-cuenta-table .p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: var(--dcg-bg-tertiary);
+  border-color: var(--dcg-azul-claro);
+}
+
+.estado-cuenta-table .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: var(--dcg-azul-claro);
+  border-color: var(--dcg-azul-claro);
+  color: white;
+}
+
+/* ============================================
+   VISTA MÓVIL
+   ============================================ */
+@media (max-width: 960px) {
+  .estado-cuenta-container {
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+
+  .estado-cuenta-header {
+    padding: var(--spacing-5) var(--spacing-4) !important;
+  }
+
+  .estado-cuenta-header h1 {
+    font-size: var(--font-size-2xl) !important;
+  }
+
+  .estado-cuenta-kpis {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+  }
+
+  .estado-cuenta-kpi-value {
+    font-size: var(--font-size-2xl);
+  }
+
+  .estado-cuenta-tabla-container {
+    padding: var(--spacing-4);
+  }
+
+  .estado-cuenta-table .p-datatable {
+    font-size: var(--font-size-sm);
+  }
+
+  .estado-cuenta-table .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-3) var(--spacing-2) !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px */
+  }
+
+  .estado-cuenta-table .p-tag {
+    font-size: var(--font-size-sm) !important;
+    padding: var(--spacing-2) var(--spacing-3) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .estado-cuenta-container {
+    padding: var(--spacing-3) var(--spacing-2);
+  }
+
+  .estado-cuenta-header h1 {
+    font-size: var(--font-size-xl) !important;
+  }
+
+  .estado-cuenta-kpi-value {
+    font-size: var(--font-size-xl);
+  }
+
+  .estado-cuenta-table .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-2) !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px garantizado */
+  }
+}
+
+/* ============================================
+   VISTA MÓVIL - CARDS
+   ============================================ */
+.vista-movil .p-card {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  margin-bottom: var(--spacing-4);
+  transition: all var(--transition-base);
+}
+
+.vista-movil .p-card:hover {
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+}
+
+.vista-movil .p-card .p-card-body {
+  padding: var(--spacing-4);
+}
+
+.vista-movil .p-card h4 {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-lg) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+.vista-movil .p-card span[style*="font-weight: bold"] {
+  color: var(--dcg-text-secondary) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+.vista-movil .p-card span:not([style*="font-weight: bold"]) {
+  color: var(--dcg-text-primary) !important;
+}
+
+.vista-movil .p-button {
+  border-radius: var(--border-radius-xl) !important;
+  padding: var(--spacing-2) var(--spacing-4) !important;
+  font-size: var(--font-size-sm) !important;
+}
+
+/* ============================================
+   DETALLES EXPANDIBLES
+   ============================================ */
+.estado-cuenta-expanded-details {
+  margin-top: var(--spacing-4);
+  padding: var(--spacing-4);
+  background: var(--dcg-bg-tertiary);
+  border-radius: var(--border-radius-lg);
+  border: var(--border-width-thin) solid var(--dcg-border);
+}
+
+.estado-cuenta-expanded-details strong {
+  color: var(--dcg-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.estado-cuenta-expanded-details ul {
+  margin: var(--spacing-2) 0 0 var(--spacing-5);
+  padding: 0;
+  color: var(--dcg-text-primary);
+}
+
+.estado-cuenta-expanded-details li {
+  margin-bottom: var(--spacing-2);
+  color: var(--dcg-text-primary);
+}
+
+.estado-cuenta-expanded-details div[style*="color: #6b7280"] {
+  color: var(--dcg-text-muted) !important;
+  margin-top: var(--spacing-2);
+}
+

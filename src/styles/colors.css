@@ -9,6 +9,7 @@
   --dcg-azul-oscuro: #1e3a8a;      /* Azul oscuro de la "D" */
   --dcg-azul-claro: #3b82f6;       /* Azul claro de la "C" */
   --dcg-azul-claro-hover: #2563eb; /* Azul claro hover */
+  --dcg-azul-claro-alpha: rgba(59, 130, 246, 0.1); /* Azul claro con transparencia */
   --dcg-naranja: #ea580c;          /* Naranja de la "G" */
   --dcg-naranja-claro: #fb923c;    /* Naranja más claro */
   --dcg-naranja-hover: #dc2626;    /* Naranja hover */

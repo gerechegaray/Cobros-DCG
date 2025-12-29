@@ -14,6 +14,7 @@ import { api } from "../../services/api";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import './EstadoCuenta.css';
+import '../../styles/estado-cuenta.css';
 
 function EstadoCuenta({ user }) {
   const location = useLocation();
@@ -358,7 +359,7 @@ function EstadoCuenta({ user }) {
           />
         </span>
         <div className="md:hidden">
-          <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
             Estado:
           </span>
           <Tag
@@ -376,7 +377,7 @@ function EstadoCuenta({ user }) {
   };
 
   const montoTemplate = (field) => (rowData) => (
-    <span style={{ fontWeight: "600", color: "#1f2937" }}>
+    <span>
       {formatMonto(rowData[field])}
     </span>
   );
@@ -384,49 +385,49 @@ function EstadoCuenta({ user }) {
   // Template para celdas con label en responsive
   const cellWithLabelTemplate = (field, label) => (rowData) => (
     <div>
-      <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
-        {rowData[field]}
-      </span>
-      <div className="md:hidden">
-        <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
-          {label}:
-        </span>
-        <span style={{ fontWeight: "600", color: "#1f2937" }}>
+        <span className="p-hidden md:inline">
           {rowData[field]}
         </span>
-      </div>
+        <div className="md:hidden">
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
+            {label}:
+          </span>
+          <span>
+            {rowData[field]}
+          </span>
+        </div>
     </div>
   );
 
   const fechaWithLabelTemplate = (field, label) => (rowData) => (
     <div>
-      <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
-        {formatFecha(rowData[field])}
-      </span>
-      <div className="md:hidden">
-        <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
-          {label}:
-        </span>
-        <span style={{ fontWeight: "600", color: "#1f2937" }}>
+        <span className="p-hidden md:inline">
           {formatFecha(rowData[field])}
         </span>
-      </div>
+        <div className="md:hidden">
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
+            {label}:
+          </span>
+          <span>
+            {formatFecha(rowData[field])}
+          </span>
+        </div>
     </div>
   );
 
   const montoWithLabelTemplate = (field, label) => (rowData) => (
     <div>
-      <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
-        {formatMonto(rowData[field])}
-      </span>
-      <div className="md:hidden">
-        <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
-          {label}:
-        </span>
-        <span style={{ fontWeight: "600", color: "#1f2937" }}>
+        <span className="p-hidden md:inline">
           {formatMonto(rowData[field])}
         </span>
-      </div>
+        <div className="md:hidden">
+          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
+            {label}:
+          </span>
+          <span>
+            {formatMonto(rowData[field])}
+          </span>
+        </div>
     </div>
   );
 
@@ -575,150 +576,58 @@ function EstadoCuenta({ user }) {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: "100%",
-        margin: "0 auto",
-        padding: "0.5rem",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-        minHeight: "100vh"
-      }}
-      className="p-2 md:p-4"
-    >
+    <div className="estado-cuenta-container">
       <Toast ref={toast} />
 
-      <Card
-        style={{
-          borderRadius: "16px",
-          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-          overflow: "hidden"
-        }}
-      >
+      <Card className="estado-cuenta-card">
         {/* Header */}
-        <div
-          style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            padding: "2rem",
-            color: "white",
-            margin: "-1.5rem -1.5rem 2rem -1.5rem",
-          }}
-        >
+        <div className="estado-cuenta-header">
           <div className="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center flex-wrap gap-3">
             <div style={{ flex: "1", minWidth: "0" }}>
-              <h1
-                style={{
-                  margin: "0 0 0.5rem 0",
-                  fontSize: "1.5rem",
-                  fontWeight: "700",
-                  letterSpacing: "-0.025em"
-                }}
-                className="text-xl md:text-3xl"
-              >
-                Estado de Cuenta
-              </h1>
+              <h1>Estado de Cuenta</h1>
               {cliente ? (
                 <div>
-                  <p
-                    style={{
-                      margin: "0 0 0.25rem 0",
-                      fontSize: "0.875rem",
-                      opacity: "0.9",
-                      fontWeight: "400"
-                    }}
-                    className="text-sm md:text-base"
-                  >
+                  <p className="estado-cuenta-subtitle">
                     Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
                   </p>
                   {ultimaActualizacion && (
-                    <p
-                      style={{
-                        margin: "0",
-                        fontSize: "0.75rem",
-                        opacity: "0.8",
-                        fontWeight: "400"
-                      }}
-                      className="text-xs md:text-sm"
-                    >
+                    <p className="estado-cuenta-update-time">
                       {calcularTiempoRelativo(ultimaActualizacion)}
                     </p>
                   )}
                   {!cacheExists && (
-                    <p
-                      style={{
-                        margin: "0.25rem 0 0 0",
-                        fontSize: "0.75rem",
-                        opacity: "0.9",
-                        fontWeight: "500",
-                        color: "#fbbf24"
-                      }}
-                      className="text-xs md:text-sm"
-                    >
+                    <p className="estado-cuenta-warning">
                       ⚠️ Sin datos en caché. Presiona "Actualizar ahora" para cargar.
                     </p>
                   )}
                 </div>
               ) : (
-                <p
-                  style={{
-                    margin: "0",
-                    fontSize: "0.875rem",
-                    opacity: "0.9",
-                    fontWeight: "400"
-                  }}
-                  className="text-sm md:text-base"
-                >
+                <p className="estado-cuenta-subtitle">
                   Selecciona un cliente para ver su estado de cuenta
                 </p>
               )}
             </div>
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <div className="estado-cuenta-header-buttons">
               <Button
                 label="Volver"
                 icon="pi pi-arrow-left"
-                className="p-button-outlined flex-1 md:flex-none"
+                className="p-button-outlined"
                 onClick={() => navigate('/dashboard')}
-                style={{
-                  background: "rgba(255, 255, 255, 0.1)",
-                  border: "2px solid rgba(255, 255, 255, 0.3)",
-                  color: "white",
-                  borderRadius: "12px",
-                  padding: "0.75rem 1.5rem",
-                  fontWeight: "600",
-                  backdropFilter: "blur(10px)"
-                }}
               />
               {cliente && (
                 <>
                   <Button
                     label={refreshingCache ? "Actualizando..." : "Actualizar ahora"}
                     icon={refreshingCache ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
-                    className="p-button-outlined flex-1 md:flex-none"
+                    className="p-button-outlined"
                     onClick={actualizarDesdeAlegra}
                     disabled={refreshingCache}
-                    style={{
-                      background: "rgba(255, 255, 255, 0.1)",
-                      border: "2px solid rgba(255, 255, 255, 0.3)",
-                      color: "white",
-                      borderRadius: "12px",
-                      padding: "0.75rem 1.5rem",
-                      fontWeight: "600",
-                      backdropFilter: "blur(10px)"
-                    }}
                   />
                   <Button
                     label="Exportar PDF"
                     icon="pi pi-file-pdf"
-                    className="p-button-outlined flex-1 md:flex-none"
+                    className="p-button-outlined"
                     onClick={exportarPDF}
-                    style={{
-                      background: "rgba(255, 255, 255, 0.1)",
-                      border: "2px solid rgba(255, 255, 255, 0.3)",
-                      color: "white",
-                      borderRadius: "12px",
-                      padding: "0.75rem 1.5rem",
-                      fontWeight: "600",
-                      backdropFilter: "blur(10px)"
-                    }}
                   />
                 </>
               )}
@@ -727,9 +636,9 @@ function EstadoCuenta({ user }) {
         </div>
 
         {/* Selector de Cliente */}
-        <div className="p-mb-4">
+        <div className="estado-cuenta-selector">
           <div className="p-field">
-            <label className="p-block p-mb-2" style={{ fontWeight: "500", color: "#374151" }}>
+            <label className="p-block p-mb-2">
               Seleccionar Cliente
             </label>
             <Dropdown
@@ -749,102 +658,62 @@ function EstadoCuenta({ user }) {
 
         {/* Resumen de Totales - Solo mostrar si hay cliente seleccionado */}
         {cliente && (
-          <div className="grid mb-4">
-          <div className="col-12 md:col-4">
-            <Card className="p-mb-2">
-              <div className="text-center">
-                <h3 style={{ 
-                  color: "#dc2626", 
-                  margin: "0 0 0.5rem 0"
-                }}>
+          <div className="estado-cuenta-kpis">
+            <Card className="estado-cuenta-kpi-card">
+              <div className="estado-cuenta-kpi-content">
+                <i className="pi pi-exclamation-triangle estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-error)' }}></i>
+                <div className="estado-cuenta-kpi-value adeudado">
                   {formatMonto(totales.totalAdeudado)}
-                </h3>
-                <p style={{ 
-                  margin: "0", 
-                  color: "#6b7280", 
-                  fontWeight: "500",
-                }}>
-                  Total Adeudado
-                </p>
+                </div>
+                <div className="estado-cuenta-kpi-label">Total Adeudado</div>
               </div>
             </Card>
-          </div>
-          <div className="col-12 md:col-4">
-            <Card className="p-mb-2">
-              <div className="text-center">
-                <h3 style={{ 
-                  color: "#059669", 
-                  margin: "0 0 0.5rem 0"
-                }}>
+            <Card className="estado-cuenta-kpi-card">
+              <div className="estado-cuenta-kpi-content">
+                <i className="pi pi-check-circle estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                <div className="estado-cuenta-kpi-value pagado">
                   {formatMonto(totales.totalPagado)}
-                </h3>
-                <p style={{ 
-                  margin: "0", 
-                  color: "#6b7280", 
-                  fontWeight: "500",
-                }}>
-                  Total Pagado
-                </p>
+                </div>
+                <div className="estado-cuenta-kpi-label">Total Pagado</div>
               </div>
             </Card>
-          </div>
-          <div className="col-12 md:col-4">
-            <Card className="p-mb-2">
-              <div className="text-center">
-                <h3 style={{ 
-                  color: "#1f2937", 
-                  margin: "0 0 0.5rem 0"
-                }}>
+            <Card className="estado-cuenta-kpi-card">
+              <div className="estado-cuenta-kpi-content">
+                <i className="pi pi-dollar estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-text-primary)' }}></i>
+                <div className="estado-cuenta-kpi-value general">
                   {formatMonto(totales.totalGeneral)}
-                </h3>
-                <p style={{ 
-                  margin: "0", 
-                  color: "#6b7280", 
-                  fontWeight: "500",
-                }}>
-                  Total General
-                </p>
+                </div>
+                <div className="estado-cuenta-kpi-label">Total General</div>
               </div>
             </Card>
           </div>
-        </div>
         )}
 
         {/* Tabla de Boletas con filas expandibles para pagos - Solo mostrar si hay cliente seleccionado */}
         {cliente && (
-          <div style={{ 
-            padding: "0 0.5rem"
-          }}>
-            <h3 style={{ 
-              color: "#374151", 
-              marginBottom: "1rem"
-            }}>
+          <div className="estado-cuenta-tabla-container">
+            <h3 className="estado-cuenta-tabla-title">
               Detalle de Boletas
             </h3>
             {loading ? (
               <div style={{ textAlign: "center", padding: "2rem" }}>
                 <ProgressSpinner />
-                <p style={{ marginTop: "1rem", color: "#6b7280" }}>
+                <p style={{ marginTop: "1rem" }}>
                   Cargando estado de cuenta...
                 </p>
               </div>
             ) : (
               <>
                 {/* Vista Desktop - DataTable */}
-                <div className="vista-desktop">
+                <div className="vista-desktop estado-cuenta-table">
                   <DataTable
                    value={boletas}
                    paginator
                    rows={10}
                    emptyMessage="No hay boletas para mostrar."
                    className="p-datatable-sm"
-                   style={{
-                     borderRadius: "12px",
-                     overflow: "hidden",
-                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-                   }}
                   rowExpansionTemplate={(rowData) => (
-                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
+                <div className="estado-cuenta-expanded-details">
                   {/* Sección de Pagos */}
                   <div style={{ marginBottom: expandedProductos[rowData.numero] ? 20 : 0 }}>
                     <strong>Pagos asociados:</strong>
@@ -899,7 +768,7 @@ function EstadoCuenta({ user }) {
                       <i className="pi pi-chevron-right" style={{ fontSize: '0.8rem' }}></i>
                     </span>
                     <div className="md:hidden">
-                      <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+                      <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
                         Expandir:
                       </span>
                       <i className="pi pi-chevron-down" style={{ fontSize: '1rem', color: '#3b82f6' }}></i>
@@ -925,22 +794,11 @@ function EstadoCuenta({ user }) {
                         onMouseLeave={(e) => {
                           e.target.style.backgroundColor = 'transparent';
                         }}
+                        className="estado-cuenta-productos-button"
                         style={{
-                          display: 'inline-block',
-                          padding: '4px 6px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '16px',
-                          color: (!rowData.productos || rowData.productos.length === 0) ? '#9ca3af' : '#3b82f6',
-                          backgroundColor: 'transparent',
-                          border: '1px solid #d1d5db',
-                          minWidth: '30px',
-                          minHeight: '30px',
-                          textAlign: 'center',
-                          lineHeight: '20px',
+                          color: (!rowData.productos || rowData.productos.length === 0) ? 'var(--dcg-text-muted)' : 'var(--dcg-azul-claro)',
                           opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
-                          transition: 'all 0.2s ease',
-                          userSelect: 'none'
+                          cursor: (!rowData.productos || rowData.productos.length === 0) ? 'not-allowed' : 'pointer'
                         }}
                         title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
                       >
@@ -948,7 +806,7 @@ function EstadoCuenta({ user }) {
                       </span>
                     </span>
                     <div className="md:hidden">
-                      <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+                      <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
                         Productos:
                       </span>
                       <span
@@ -957,22 +815,14 @@ function EstadoCuenta({ user }) {
                           e.stopPropagation();
                           toggleProductos(rowData.numero);
                         }}
+                        className="estado-cuenta-productos-button"
                         style={{
-                          display: 'inline-block',
-                          padding: '6px 8px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          color: (!rowData.productos || rowData.productos.length === 0) ? '#9ca3af' : '#3b82f6',
-                          backgroundColor: 'transparent',
-                          border: '1px solid #d1d5db',
-                          minWidth: '40px',
-                          minHeight: '40px',
-                          textAlign: 'center',
-                          lineHeight: '28px',
+                          color: (!rowData.productos || rowData.productos.length === 0) ? 'var(--dcg-text-muted)' : 'var(--dcg-azul-claro)',
                           opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
-                          transition: 'all 0.2s ease',
-                          userSelect: 'none'
+                          cursor: (!rowData.productos || rowData.productos.length === 0) ? 'not-allowed' : 'pointer',
+                          padding: 'var(--spacing-2) var(--spacing-3)',
+                          minWidth: '40px',
+                          minHeight: '40px'
                         }}
                         title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
                       >
@@ -1039,14 +889,14 @@ function EstadoCuenta({ user }) {
                  header="Monto Adeudado"
                  body={rowData => (
                    <div>
-                     <span className="p-hidden md:inline" style={{ fontWeight: "600", color: "#1f2937" }}>
+                     <span className="p-hidden md:inline">
                        {formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
                      </span>
                      <div className="md:hidden">
-                       <span style={{ fontWeight: "bold", color: "#374151", display: "block", marginBottom: "0.25rem" }}>
+                       <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
                          Monto Adeudado:
                        </span>
-                       <span style={{ fontWeight: "600", color: "#1f2937" }}>
+                       <span>
                          {formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
                        </span>
                      </div>
@@ -1070,9 +920,9 @@ function EstadoCuenta({ user }) {
                 {/* Vista Móvil - Cards personalizados */}
                 <div className="vista-movil">
                   {boletas.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "2rem", color: "#6b7280" }}>
-                      No hay boletas para mostrar.
-                    </div>
+                      <div style={{ textAlign: "center", padding: "2rem" }}>
+                        No hay boletas para mostrar.
+                      </div>
                   ) : (
                     <div>
                       {boletas.map((boleta, index) => (
@@ -1086,7 +936,7 @@ function EstadoCuenta({ user }) {
                                   alignItems: "center",
                                   marginBottom: "0.75rem"
                                 }}>
-                                  <h4 style={{ margin: 0, color: "#1f2937" }}>
+                                  <h4 style={{ margin: 0 }}>
                                     Factura #{boleta.numero}
                                   </h4>
                                   <Tag
@@ -1103,8 +953,8 @@ function EstadoCuenta({ user }) {
                               
                               <div className="col-12">
                                 <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Cliente:</span>
-                                  <span style={{ marginLeft: "0.5rem", color: "#1f2937" }}>
+                                  <span style={{ fontWeight: "bold" }}>Cliente:</span>
+                                  <span style={{ marginLeft: "0.5rem" }}>
                                     {boleta.clienteNombre}
                                   </span>
                                 </div>
@@ -1112,8 +962,8 @@ function EstadoCuenta({ user }) {
                               
                               <div className="col-6">
                                 <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Emisión:</span>
-                                  <div style={{ color: "#1f2937" }}>
+                                  <span style={{ fontWeight: "bold" }}>Emisión:</span>
+                                  <div>
                                     {formatFecha(boleta.fechaEmision)}
                                   </div>
                                 </div>
@@ -1121,8 +971,8 @@ function EstadoCuenta({ user }) {
                               
                               <div className="col-6">
                                 <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Vencimiento:</span>
-                                  <div style={{ color: "#1f2937" }}>
+                                  <span style={{ fontWeight: "bold" }}>Vencimiento:</span>
+                                  <div>
                                     {formatFecha(boleta.fechaVencimiento)}
                                   </div>
                                 </div>
@@ -1130,10 +980,9 @@ function EstadoCuenta({ user }) {
                               
                               <div className="col-12">
                                 <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Monto Total:</span>
+                                  <span style={{ fontWeight: "bold" }}>Monto Total:</span>
                                   <span style={{ 
                                     marginLeft: "0.5rem", 
-                                    color: "#1f2937", 
                                     fontWeight: "600",
                                     fontSize: "1.1rem"
                                   }}>
@@ -1144,8 +993,8 @@ function EstadoCuenta({ user }) {
                               
                               <div className="col-6">
                                 <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Pagado:</span>
-                                  <div style={{ color: "#059669", fontWeight: "600" }}>
+                                  <span style={{ fontWeight: "bold" }}>Pagado:</span>
+                                  <div style={{ color: "var(--dcg-success)", fontWeight: "600" }}>
                                     {formatMonto(boleta.montoPagado)}
                                   </div>
                                 </div>
@@ -1153,8 +1002,8 @@ function EstadoCuenta({ user }) {
                               
                               <div className="col-6">
                                 <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold", color: "#374151" }}>Adeudado:</span>
-                                  <div style={{ color: "#dc2626", fontWeight: "600" }}>
+                                  <span style={{ fontWeight: "bold" }}>Adeudado:</span>
+                                  <div style={{ color: "var(--dcg-error)", fontWeight: "600" }}>
                                     {formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}
                                   </div>
                                 </div>
@@ -1193,13 +1042,7 @@ function EstadoCuenta({ user }) {
                             
                             {/* Detalles expandibles */}
                             {expandedRows[boleta.numero] && (
-                              <div style={{ 
-                                marginTop: "1rem", 
-                                padding: "1rem", 
-                                backgroundColor: "#f8fafc", 
-                                borderRadius: "8px",
-                                border: "1px solid #e5e7eb"
-                              }}>
+                              <div className="estado-cuenta-expanded-details">
                                 <strong>Pagos asociados:</strong>
                                 {boleta.pagos && boleta.pagos.length > 0 ? (
                                   <ul style={{ margin: "0.5rem 0 0 1rem", padding: 0 }}>
@@ -1212,7 +1055,7 @@ function EstadoCuenta({ user }) {
                                     ))}
                                   </ul>
                                 ) : (
-                                  <div style={{ color: '#6b7280', marginTop: "0.5rem" }}>
+                                  <div style={{ marginTop: "0.5rem" }}>
                                     Sin pagos registrados para esta factura.
                                   </div>
                                 )}
@@ -1232,7 +1075,7 @@ function EstadoCuenta({ user }) {
                                         ))}
                                       </ul>
                                     ) : (
-                                      <div style={{ color: '#6b7280', marginTop: "0.5rem" }}>
+                                      <div style={{ marginTop: "0.5rem" }}>
                                         Sin productos registrados para esta factura.
                                       </div>
                                     )}
