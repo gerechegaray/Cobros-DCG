@@ -1258,6 +1258,94 @@ async function actualizarEstadoCuentaCache(clienteId, forzar = false) {
   }
 }
 
+// 🆕 Función para auto-refresh periódico de estados de cuenta
+async function autoRefreshEstadosDeCuenta() {
+  try {
+    console.log('[AUTO-REFRESH] Iniciando actualización automática de estados de cuenta...');
+    
+    // Verificar si Firebase está inicializado
+    if (!adminDb) {
+      console.warn('[AUTO-REFRESH] Firebase no inicializado, omitiendo auto-refresh');
+      return;
+    }
+    
+    // Obtener todos los documentos de estado_cuenta_cache
+    const snapshot = await adminDb.collection('estado_cuenta_cache').get();
+    console.log(`[AUTO-REFRESH] Documentos encontrados en caché: ${snapshot.size}`);
+    
+    if (snapshot.empty) {
+      console.log('[AUTO-REFRESH] No hay documentos en caché, finalizando');
+      return;
+    }
+    
+    // Filtrar clientes relevantes: totalAdeudado > 0 Y ultimaActualizacion no mayor a 24 horas
+    const ahora = new Date();
+    const hace24Horas = new Date(ahora.getTime() - (24 * 60 * 60 * 1000));
+    
+    const clientesRelevantes = [];
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const ultimaActualizacion = data.ultimaActualizacion?.toDate?.() || 
+                                  (data.ultimaActualizacion ? new Date(data.ultimaActualizacion) : null);
+      
+      // Verificar filtros: totalAdeudado > 0 Y ultimaActualizacion no mayor a 24 horas
+      const tieneAdeudado = (data.totalAdeudado || 0) > 0;
+      const esReciente = ultimaActualizacion && ultimaActualizacion >= hace24Horas;
+      
+      if (tieneAdeudado && esReciente) {
+        clientesRelevantes.push({
+          clienteId: data.clienteId || doc.id,
+          clienteNombre: data.clienteNombre || 'Sin nombre',
+          totalAdeudado: data.totalAdeudado || 0
+        });
+      }
+    });
+    
+    console.log(`[AUTO-REFRESH] Clientes relevantes a refrescar: ${clientesRelevantes.length}`);
+    
+    if (clientesRelevantes.length === 0) {
+      console.log('[AUTO-REFRESH] No hay clientes relevantes para refrescar');
+      return;
+    }
+    
+    // Contadores para estadísticas
+    let actualizados = 0;
+    let omitidos = 0;
+    let errores = 0;
+    
+    // Iterar secuencialmente (no en paralelo para no saturar Alegra)
+    for (const cliente of clientesRelevantes) {
+      try {
+        // Llamar a actualizarEstadoCuentaCache con forzar=false
+        const resultado = await actualizarEstadoCuentaCache(cliente.clienteId, false);
+        
+        if (resultado.fresh) {
+          console.log(`[AUTO-REFRESH] Cliente ${cliente.clienteId} (${cliente.clienteNombre}) caché fresco, omitido`);
+          omitidos++;
+        } else {
+          console.log(`[AUTO-REFRESH] Cliente ${cliente.clienteId} (${cliente.clienteNombre}) actualizado`);
+          actualizados++;
+        }
+        
+        // Pequeña pausa entre actualizaciones para no saturar Alegra
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        console.error(`[AUTO-REFRESH] Error actualizando cliente ${cliente.clienteId} (${cliente.clienteNombre}): ${error.message}`);
+        errores++;
+        // Continuar con el siguiente cliente aunque haya error
+      }
+    }
+    
+    console.log(`[AUTO-REFRESH] Completado: ${actualizados} actualizados, ${omitidos} omitidos (caché fresco), ${errores} errores`);
+    
+  } catch (error) {
+    console.error('[AUTO-REFRESH] Error en auto-refresh de estados de cuenta:', error);
+    // No lanzar error, solo loggear
+  }
+}
+
 // 🆕 Endpoint para refrescar estado de cuenta desde Alegra
 app.post("/api/estado-cuenta-cache/refresh/:clienteId", async (req, res) => {
   try {
@@ -2473,7 +2561,30 @@ function sleep(ms) {
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => console.log(`Servidor backend escuchando en http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Servidor backend escuchando en http://localhost:${PORT}`);
+  
+  // 🆕 Iniciar auto-refresh de estados de cuenta si está habilitado
+  const autoRefreshEnabled = process.env.AUTO_REFRESH_ESTADO_CUENTA === 'true';
+  
+  if (autoRefreshEnabled) {
+    console.log('[AUTO-REFRESH] Auto-refresh de estados de cuenta HABILITADO');
+    console.log('[AUTO-REFRESH] Intervalo: 15 minutos');
+    console.log('[AUTO-REFRESH] Primera ejecución en 1 minuto...');
+    
+    // Primera ejecución después de 1 minuto (para no interferir con el arranque)
+    setTimeout(() => {
+      autoRefreshEstadosDeCuenta();
+    }, 60 * 1000); // 1 minuto
+    
+    // Ejecutar cada 15 minutos
+    setInterval(() => {
+      autoRefreshEstadosDeCuenta();
+    }, 15 * 60 * 1000); // 15 minutos = 900000 ms
+  } else {
+    console.log('[AUTO-REFRESH] Auto-refresh de estados de cuenta DESHABILITADO (AUTO_REFRESH_ESTADO_CUENTA != true)');
+  }
+});
 
 // Endpoint para sincronizar presupuestos desde Alegra a Firebase
 app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
