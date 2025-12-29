@@ -293,35 +293,64 @@ function Dashboard({ user }) {
   // Eliminamos las funciones de filtrado que ya no se usan
 
 
-  // Cargar Top Productos (por precio, top 5)
+  // Cargar Top Productos (por cantidad vendida en pedidos del mes actual, top 5)
   useEffect(() => {
     const fetchTopProductos = async () => {
       try {
-        const productosData = await api.getProductosFirebase();
-        // Ordenar por precio descendente y tomar top 5
-        const productosOrdenados = productosData
-          .filter(p => p.precio && p.precio > 0)
-          .sort((a, b) => {
-            const precioA = Array.isArray(a.price) ? a.price[0] : (a.price || a.precio || 0);
-            const precioB = Array.isArray(b.price) ? b.price[0] : (b.price || b.precio || 0);
-            return precioB - precioA;
-          })
-          .slice(0, 5)
-          .map(p => {
-            const precio = Array.isArray(p.price) ? p.price[0] : (p.price || p.precio || 0);
-            return {
-              id: p.id,
-              nombre: p.name || p.nombre || 'Sin nombre',
-              precio: precio,
-              maxPrecio: 0 // Se calculará después
-            };
-          });
+        // Obtener pedidos del mes actual
+        const mesActual = new Date();
+        const primerDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth(), 1);
+        const ultimoDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 0);
         
-        // Calcular precio máximo para barras proporcionales
-        const maxPrecio = Math.max(...productosOrdenados.map(p => p.precio), 1);
+        // Determinar si es admin o vendedor
+        const esAdmin = user.role === 'admin';
+        
+        // Obtener pedidos según el rol
+        const pedidos = esAdmin 
+          ? await getPedidos() 
+          : await getPedidosByVendedor(user.email);
+        
+        // Filtrar pedidos del mes actual
+        const pedidosDelMes = pedidos.filter(pedido => {
+          const fechaPedido = pedido.fechaPedido?.toDate ? pedido.fechaPedido.toDate() : new Date(pedido.fechaPedido);
+          return fechaPedido >= primerDiaMes && fechaPedido <= ultimoDiaMes;
+        });
+        
+        // Agrupar productos por ID/nombre y sumar cantidades vendidas
+        const productosMap = new Map();
+        
+        pedidosDelMes.forEach(pedido => {
+          if (pedido.productos && Array.isArray(pedido.productos)) {
+            pedido.productos.forEach(prod => {
+              const productoId = prod.id || prod.productoId || prod.nombre;
+              const productoNombre = prod.nombre || prod.productoNombre || 'Producto sin nombre';
+              const cantidad = prod.cantidad || prod.quantity || 1;
+              
+              if (productosMap.has(productoId)) {
+                const existente = productosMap.get(productoId);
+                existente.cantidad += cantidad;
+              } else {
+                productosMap.set(productoId, {
+                  id: productoId,
+                  nombre: productoNombre,
+                  cantidad: cantidad
+                });
+              }
+            });
+          }
+        });
+        
+        // Ordenar por cantidad descendente y tomar top 5
+        const productosOrdenados = Array.from(productosMap.values())
+          .sort((a, b) => b.cantidad - a.cantidad)
+          .slice(0, 5)
+          .map(p => ({ ...p, maxCantidad: 0 }));
+        
+        // Calcular cantidad máxima para barras proporcionales
+        const maxCantidad = Math.max(...productosOrdenados.map(p => p.cantidad), 1);
         const productosConMax = productosOrdenados.map(p => ({
           ...p,
-          maxPrecio: maxPrecio
+          maxCantidad: maxCantidad
         }));
         
         setTopProductos(productosConMax);
@@ -332,12 +361,17 @@ function Dashboard({ user }) {
     };
     
     fetchTopProductos();
-  }, []);
+  }, [user]);
 
-  // Cargar Top Clientes (por monto cobrado, top 5)
+  // Cargar Top Clientes (por monto cobrado en el mes actual, top 5)
   useEffect(() => {
     const fetchTopClientes = async () => {
       try {
+        // Obtener cobros del mes actual
+        const mesActual = new Date();
+        const primerDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth(), 1);
+        const ultimoDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 0);
+        
         const esAdmin = user.role === 'admin';
         const vendedorEmail = esAdmin ? null : user.email;
         
@@ -346,9 +380,15 @@ function Dashboard({ user }) {
           ? await getCobros() 
           : await getCobrosByVendedor(vendedorEmail);
         
+        // Filtrar cobros del mes actual
+        const cobrosDelMes = cobros.filter(cobro => {
+          const fechaCobro = cobro.fechaCobro?.toDate ? cobro.fechaCobro.toDate() : new Date(cobro.fechaCobro);
+          return fechaCobro >= primerDiaMes && fechaCobro <= ultimoDiaMes;
+        });
+        
         // Agrupar por cliente y sumar montos
         const clientesMap = new Map();
-        cobros.forEach(cobro => {
+        cobrosDelMes.forEach(cobro => {
           const clienteId = cobro.clienteId || cobro.cliente;
           const clienteNombre = cobro.cliente || 'Sin nombre';
           const monto = cobro.monto || 0;
@@ -635,17 +675,17 @@ function Dashboard({ user }) {
       <div className="dashboard-analysis-grid">
         {/* Top Productos */}
         <div className="dashboard-top-productos-container dashboard-analysis-card">
-          <h3 className="dashboard-card-title">Top Productos</h3>
+          <h3 className="dashboard-card-title">Top Productos (del mes)</h3>
           <Card className="dashboard-card">
             {topProductos.length > 0 ? (
               <div className="dashboard-top-list">
                 {topProductos.map((producto, index) => {
-                  const porcentaje = (producto.precio / producto.maxPrecio) * 100;
+                  const porcentaje = (producto.cantidad / producto.maxCantidad) * 100;
                   return (
                     <div key={producto.id || index} className="dashboard-top-item">
                       <div className="dashboard-top-item-header">
                         <span className="dashboard-top-item-name">{producto.nombre}</span>
-                        <span className="dashboard-top-item-value">{formatearMoneda(producto.precio)}</span>
+                        <span className="dashboard-top-item-value">{producto.cantidad} unidades</span>
                       </div>
                       <div className="dashboard-top-item-bar-container">
                         <div 
@@ -672,7 +712,7 @@ function Dashboard({ user }) {
 
         {/* Top Clientes */}
         <div className="dashboard-top-clientes-container dashboard-analysis-card">
-          <h3 className="dashboard-card-title">Top Clientes</h3>
+          <h3 className="dashboard-card-title">Top Clientes (del mes)</h3>
           <Card className="dashboard-card">
             {topClientes.length > 0 ? (
               <div className="dashboard-top-list">
