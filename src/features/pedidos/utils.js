@@ -94,21 +94,47 @@ export const transformarProductosAlegra = (productosAlegra) => {
       console.log('🔍 Transformando primer producto:');
       console.log('  - ID:', producto.id);
       console.log('  - Nombre:', producto.name);
-      console.log('  - Price original:', producto.price);
-      console.log('  - Es array?:', Array.isArray(producto.price));
-      console.log('  - Tipo de price:', typeof producto.price);
-      if (Array.isArray(producto.price) && producto.price.length > 0) {
-        console.log('  - Primer elemento del array:', producto.price[0]);
-      }
-      console.log('  - Precio transformado:', precio);
+      console.log('  - Stock guardado (producto.stock):', producto.stock, 'tipo:', typeof producto.stock);
+      console.log('  - Warehouses:', producto.warehouses);
+      console.log('  - Inventory:', producto.inventory);
     }
     
-    // Obtener stock desde warehouses
+    // Obtener stock: primero verificar si ya está guardado en Firestore, sino extraer de Alegra
     let stock = 0;
-    if (Array.isArray(producto.warehouses) && producto.warehouses.length > 0) {
-      stock = producto.warehouses[0].availableQuantity || 0;
-    } else if (producto.inventory?.quantity !== undefined) {
-      stock = producto.inventory.quantity;
+    
+    // 🆕 Prioridad 1: Si el producto ya tiene stock guardado (viene de Firestore sincronizado recientemente)
+    if (producto.stock !== undefined && producto.stock !== null) {
+      stock = Number(producto.stock) || 0;
+      if (index === 0) {
+        console.log('  - ✅ Usando stock guardado:', stock);
+      }
+    } 
+    // Prioridad 2: Intentar extraer de warehouses (puede estar en Firestore con estructura completa de Alegra)
+    else if (Array.isArray(producto.warehouses) && producto.warehouses.length > 0) {
+      // Intentar diferentes campos posibles de stock en warehouses
+      const warehouse = producto.warehouses[0];
+      stock = Number(warehouse.availableQuantity || warehouse.quantity || warehouse.stock || 0);
+      if (index === 0) {
+        console.log('  - ✅ Usando stock de warehouses:', stock, 'de:', warehouse);
+      }
+    } 
+    // Prioridad 3: Intentar extraer de inventory (datos directos de Alegra)
+    else if (producto.inventory?.quantity !== undefined) {
+      stock = Number(producto.inventory.quantity || 0);
+      if (index === 0) {
+        console.log('  - ✅ Usando stock de inventory:', stock);
+      }
+    } 
+    // Si no se encuentra stock en ningún lugar, queda en 0
+    else {
+      if (index === 0) {
+        console.log('  - ⚠️ No se encontró stock en ningún campo, usando 0');
+        console.log('  - 💡 Sugerencia: Resincronizar productos desde Alegra para obtener stock');
+      }
+    }
+    
+    if (index === 0) {
+      console.log('  - 📦 Stock final transformado:', stock);
     }
     
     return {
