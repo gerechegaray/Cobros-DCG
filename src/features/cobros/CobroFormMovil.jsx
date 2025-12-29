@@ -243,11 +243,9 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
               disabled={loading || loadingClientes}
               itemTemplate={(cliente) => {
                 const nombre = cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id || 'Sin nombre';
-                const identificacion = cliente.identification ? ` - ${cliente.identification}` : '';
                 return (
                   <div className="p-2">
                     <div className="font-semibold">{nombre}</div>
-                    {identificacion && <div className="text-sm text-gray-600">{identificacion}</div>}
                   </div>
                 );
               }}
