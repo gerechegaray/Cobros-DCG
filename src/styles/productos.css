@@ -1,0 +1,354 @@
+/* ============================================
+   ESTILOS PRODUCTOS - Sistema de Gestión DCG
+   ============================================ */
+
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   CONTENEDOR PRINCIPAL
+   ============================================ */
+.productos-consulta-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-6) var(--spacing-5);
+  background: var(--dcg-bg-secondary);
+}
+
+/* ============================================
+   HEADER COMPACTO
+   ============================================ */
+.productos-header {
+  background: var(--dcg-bg-elevated);
+  padding: var(--spacing-5) var(--spacing-4);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  margin-bottom: var(--spacing-5);
+  border: var(--border-width-thin) solid var(--dcg-border);
+}
+
+.productos-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dcg-text-primary);
+  margin: 0 0 var(--spacing-1) 0;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.productos-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--dcg-text-secondary);
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================
+   BUSCADOR
+   ============================================ */
+.productos-buscador {
+  margin-bottom: var(--spacing-5);
+}
+
+.productos-input-busqueda {
+  width: 100%;
+  background: var(--dcg-bg-elevated) !important;
+  border: var(--border-width-thin) solid var(--dcg-border) !important;
+  border-radius: var(--border-radius-lg) !important;
+  color: var(--dcg-text-primary) !important;
+  padding: var(--spacing-3) var(--spacing-4) !important;
+  font-size: var(--font-size-base) !important;
+  transition: all var(--transition-base) !important;
+}
+
+.productos-input-busqueda:focus {
+  border-color: var(--dcg-azul-claro) !important;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2) !important;
+}
+
+.productos-input-busqueda::placeholder {
+  color: var(--dcg-text-muted) !important;
+}
+
+/* ============================================
+   TABLA DE PRODUCTOS
+   ============================================ */
+.productos-table-container {
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--dcg-shadow-sm);
+  overflow: hidden;
+}
+
+.productos-datatable .p-datatable {
+  background: transparent;
+}
+
+.productos-datatable .p-datatable-header {
+  background: var(--dcg-bg-tertiary);
+  color: var(--dcg-text-primary);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border);
+  padding: var(--spacing-4) var(--spacing-5);
+}
+
+.productos-datatable .p-datatable-thead > tr > th {
+  background: var(--dcg-bg-tertiary) !important;
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-4) var(--spacing-4) !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border) !important;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.productos-datatable .p-datatable-tbody > tr {
+  background: var(--dcg-bg-elevated);
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
+  transition: background-color var(--transition-fast);
+}
+
+.productos-datatable .p-datatable-tbody > tr:hover {
+  background: var(--dcg-bg-tertiary) !important;
+}
+
+.productos-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background: var(--dcg-bg-secondary);
+}
+
+.productos-datatable .p-datatable-tbody > tr > td {
+  color: var(--dcg-text-primary) !important;
+  padding: var(--spacing-4) var(--spacing-4) !important;
+  font-size: var(--font-size-sm) !important;
+  border: none !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+}
+
+/* Nombre del producto */
+.productos-nombre {
+  font-weight: var(--font-weight-semibold);
+  color: var(--dcg-text-primary);
+  font-size: var(--font-size-base);
+}
+
+/* Precio */
+.productos-precio {
+  font-weight: var(--font-weight-bold);
+  color: var(--dcg-azul-claro);
+  font-size: var(--font-size-base);
+}
+
+/* Tag de stock */
+.productos-stock-tag {
+  font-size: var(--font-size-sm) !important;
+  padding: var(--spacing-1) var(--spacing-3) !important;
+  border-radius: var(--border-radius-full) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* Paginador */
+.productos-datatable .p-paginator {
+  background: var(--dcg-bg-tertiary);
+  border-top: var(--border-width-thin) solid var(--dcg-border);
+  padding: var(--spacing-3) var(--spacing-4);
+  color: var(--dcg-text-primary);
+}
+
+.productos-datatable .p-paginator .p-paginator-pages .p-paginator-page {
+  color: var(--dcg-text-primary);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  background: var(--dcg-bg-elevated);
+}
+
+.productos-datatable .p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: var(--dcg-bg-tertiary);
+  border-color: var(--dcg-azul-claro);
+}
+
+.productos-datatable .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: var(--dcg-azul-claro);
+  border-color: var(--dcg-azul-claro);
+  color: white;
+}
+
+/* ============================================
+   RESUMEN
+   ============================================ */
+.productos-resumen {
+  margin-top: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--dcg-bg-elevated);
+  border: var(--border-width-thin) solid var(--dcg-border);
+  border-radius: var(--border-radius-lg);
+  color: var(--dcg-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+/* ============================================
+   MÓVIL - LAYOUT STACKED
+   ============================================ */
+@media (max-width: 768px) {
+  .productos-consulta-container {
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+
+  .productos-header {
+    padding: var(--spacing-4) var(--spacing-3);
+    margin-bottom: var(--spacing-4);
+  }
+
+  .productos-title {
+    font-size: var(--font-size-xl);
+  }
+
+  .productos-subtitle {
+    font-size: var(--font-size-xs);
+  }
+
+  .productos-buscador {
+    margin-bottom: var(--spacing-4);
+  }
+
+  .productos-input-busqueda {
+    padding: var(--spacing-3) !important;
+    font-size: var(--font-size-sm) !important;
+  }
+
+  /* Ocultar headers en móvil */
+  .productos-datatable .p-datatable .p-datatable-thead {
+    display: none !important;
+  }
+
+  /* Convertir filas en lista compacta */
+  .productos-datatable .p-datatable .p-datatable-tbody > tr {
+    display: block !important;
+    margin-bottom: var(--spacing-3);
+    border: var(--border-width-thin) solid var(--dcg-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--dcg-bg-elevated);
+    box-shadow: var(--dcg-shadow-sm);
+    padding: var(--spacing-3);
+    transition: all var(--transition-base);
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr:hover {
+    box-shadow: var(--dcg-shadow-md);
+    transform: translateY(-1px);
+  }
+
+  /* Celdas como bloques compactos */
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td {
+    display: block !important;
+    padding: var(--spacing-2) var(--spacing-2) !important;
+    border: none !important;
+    border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+    width: 100% !important;
+    text-align: left !important;
+    position: relative;
+    padding-left: 35% !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px */
+    color: var(--dcg-text-primary) !important;
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Labels usando ::before */
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: var(--spacing-2);
+    width: 30%;
+    font-weight: var(--font-weight-semibold);
+    color: var(--dcg-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+  }
+
+  /* Nombre del producto más prominente en móvil */
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td[data-label="Producto"] {
+    padding-left: var(--spacing-2) !important;
+    padding-top: var(--spacing-3) !important;
+    padding-bottom: var(--spacing-2) !important;
+    border-bottom: var(--border-width-thin) solid var(--dcg-border) !important;
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td[data-label="Producto"]::before {
+    display: none !important;
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td[data-label="Producto"] .productos-nombre {
+    font-size: var(--font-size-base) !important;
+    font-weight: var(--font-weight-bold) !important;
+    line-height: var(--line-height-tight);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Precio visible */
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td[data-label="Precio"] .productos-precio {
+    font-size: var(--font-size-base) !important;
+    font-weight: var(--font-weight-bold) !important;
+  }
+
+  /* Tag de stock más compacto */
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td[data-label="Stock"] .productos-stock-tag {
+    font-size: var(--font-size-xs) !important;
+    padding: var(--spacing-1) var(--spacing-2) !important;
+  }
+
+  /* Asegurar que no haya scroll horizontal */
+  .productos-datatable .p-datatable {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .productos-datatable .p-datatable-wrapper {
+    overflow-x: hidden !important;
+  }
+
+  .productos-resumen {
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .productos-consulta-container {
+    padding: var(--spacing-3) var(--spacing-2);
+  }
+
+  .productos-header {
+    padding: var(--spacing-3) var(--spacing-2);
+  }
+
+  .productos-title {
+    font-size: var(--font-size-lg);
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr {
+    padding: var(--spacing-2) !important;
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td {
+    padding: var(--spacing-2) !important;
+    padding-left: 33% !important;
+    font-size: var(--font-size-sm) !important; /* Mínimo 14px garantizado */
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td::before {
+    width: 28%;
+    font-size: var(--font-size-xs);
+  }
+
+  .productos-datatable .p-datatable .p-datatable-tbody > tr > td[data-label="Producto"] {
+    padding: var(--spacing-2) !important;
+  }
+}
+

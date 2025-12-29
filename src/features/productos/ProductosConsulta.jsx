@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card } from 'primereact/card';
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
 import { InputText } from 'primereact/inputtext';
-import { AutoComplete } from 'primereact/autocomplete';
 import { Toast } from 'primereact/toast';
 import { Tag } from 'primereact/tag';
 import { api } from '../../services/api';
@@ -56,102 +56,91 @@ const ProductosConsulta = ({ user }) => {
     setProductosFiltrados(filtered);
   }, [busqueda, productos]);
 
-  // Obtener estado de stock
-  const getEstadoStock = (producto) => {
-    const stock = producto.stock || 0;
-    return stock > 0 ? 'Hay stock' : 'Sin stock';
+  // Templates para columnas
+  const nombreTemplate = (rowData) => {
+    return <span data-label="Producto" className="productos-nombre">{rowData.nombre || 'Sin nombre'}</span>;
   };
 
-  // Obtener color del tag de stock
-  const getColorStock = (producto) => {
-    const stock = producto.stock || 0;
-    return stock > 0 ? 'success' : 'warning';
+  const precioTemplate = (rowData) => {
+    return <span data-label="Precio" className="productos-precio">{formatearMoneda(rowData.precio || 0)}</span>;
+  };
+
+  const stockTemplate = (rowData) => {
+    const stock = rowData.stock || 0;
+    const tieneStock = stock > 0;
+    return (
+      <span data-label="Stock">
+        <Tag 
+          value={tieneStock ? 'Hay stock' : 'Sin stock'} 
+          severity={tieneStock ? 'success' : 'warning'}
+          className="productos-stock-tag"
+        />
+      </span>
+    );
   };
 
   return (
     <>
       <Toast ref={toast} />
-      <div className="p-4">
-        <div className="mb-4">
-          <h1 className="text-3xl font-bold mb-2">Consulta de Productos</h1>
-          <p className="text-gray-600">Busca y consulta el estado de stock de los productos disponibles</p>
+      <div className="productos-consulta-container">
+        {/* Header compacto */}
+        <div className="productos-header">
+          <h1 className="productos-title">Productos</h1>
+          <p className="productos-subtitle">Consulta de precios y disponibilidad</p>
         </div>
 
-        {/* Buscador */}
-        <Card className="mb-4">
-          <div className="p-3">
-            <div className="field">
-              <label htmlFor="busqueda-productos" className="block mb-2 font-semibold">
-                Buscar Producto
-              </label>
-              <InputText
-                id="busqueda-productos"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar por nombre o código..."
-                className="w-full"
-                style={{ fontSize: '16px', padding: '12px' }}
-              />
-            </div>
-          </div>
-        </Card>
+        {/* Buscador compacto */}
+        <div className="productos-buscador">
+          <InputText
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o código..."
+            className="productos-input-busqueda"
+          />
+        </div>
 
-        {/* Lista de productos */}
-        {loading ? (
-          <Card>
-            <div className="p-4 text-center">
-              <p className="text-gray-600">Cargando productos...</p>
-            </div>
-          </Card>
-        ) : productosFiltrados.length === 0 ? (
-          <Card>
-            <div className="p-4 text-center">
-              <p className="text-gray-600">
-                {busqueda ? 'No se encontraron productos con ese criterio de búsqueda' : 'No hay productos disponibles'}
-              </p>
-            </div>
-          </Card>
-        ) : (
-          <div className="grid">
-            {productosFiltrados.map((producto, index) => (
-              <div key={producto.id || index} className="col-12 md:col-6 lg:col-4">
-                <Card className="h-full">
-                  <div className="p-3">
-                    <div className="flex justify-content-between align-items-start mb-2">
-                      <h3 className="text-lg font-semibold mb-1" style={{ flex: 1 }}>
-                        {producto.nombre || 'Sin nombre'}
-                      </h3>
-                    </div>
-                    
-                    <div className="mb-2">
-                      <p className="text-sm text-gray-600 mb-1">Código: {producto.codigo || 'N/A'}</p>
-                      <p className="text-lg font-bold text-primary mb-2">
-                        {formatearMoneda(producto.precio || 0)}
-                      </p>
-                    </div>
+        {/* Tabla de productos */}
+        <div className="productos-table-container">
+          <DataTable
+            value={productosFiltrados}
+            loading={loading}
+            emptyMessage={busqueda ? 'No se encontraron productos' : 'No hay productos disponibles'}
+            paginator
+            rows={20}
+            rowsPerPageOptions={[10, 20, 50, 100]}
+            responsiveLayout="stack"
+            breakpoint="768px"
+            className="productos-datatable"
+          >
+            <Column 
+              field="nombre" 
+              header="Producto" 
+              body={nombreTemplate}
+              sortable
+              style={{ width: '50%' }}
+            />
+            <Column 
+              field="precio" 
+              header="Precio" 
+              body={precioTemplate}
+              sortable
+              style={{ width: '25%' }}
+            />
+            <Column 
+              field="stock" 
+              header="Stock" 
+              body={stockTemplate}
+              sortable
+              style={{ width: '25%' }}
+            />
+          </DataTable>
+        </div>
 
-                    <div className="mt-3">
-                      <Tag 
-                        value={getEstadoStock(producto)} 
-                        severity={getColorStock(producto)}
-                      />
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Resumen */}
+        {/* Resumen compacto */}
         {!loading && productosFiltrados.length > 0 && (
-          <Card className="mt-4">
-            <div className="p-3">
-              <p className="text-sm text-gray-600">
-                Mostrando {productosFiltrados.length} de {productos.length} productos
-              </p>
-            </div>
-          </Card>
+          <div className="productos-resumen">
+            Mostrando {productosFiltrados.length} de {productos.length} productos
+          </div>
         )}
       </div>
     </>
