@@ -10,6 +10,7 @@ import { Toast } from 'primereact/toast';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Panel } from 'primereact/panel';
 import PedidoForm from './PedidoForm';
+import PedidoFormMovil from './PedidoFormMovil';
 import VerPedido from './VerPedido';
 import { getPedidosRealtime, getPedidosByVendedorRealtime, eliminarPedido, cambiarEstadoPedido } from './pedidosService';
 import { ESTADOS_PEDIDO, CONDICIONES_PAGO, getColorEstado, getLabelEstado, getLabelCondicionPago } from './constants';
@@ -34,6 +35,35 @@ const PedidosLista = ({ user }) => {
   const [filtrosColapsados, setFiltrosColapsados] = useState(true);
 
   const esAdmin = user?.role === 'admin';
+
+  // 🆕 Detección robusta de móvil (breakpoint + dispositivo táctil)
+  useEffect(() => {
+    const detectarMovil = () => {
+      // Verificar ancho de pantalla (breakpoint < 768px)
+      const esBreakpointMovil = window.innerWidth < 768;
+      
+      // Verificar si es dispositivo táctil
+      const esTactil = 'ontouchstart' in window || 
+                       navigator.maxTouchPoints > 0 || 
+                       navigator.msMaxTouchPoints > 0;
+      
+      // Considerar móvil si: breakpoint móvil Y dispositivo táctil
+      // O si el ancho es muy pequeño (< 600px) independientemente de táctil
+      const esMovilDetectado = (esBreakpointMovil && esTactil) || window.innerWidth < 600;
+      
+      setEsMovil(esMovilDetectado);
+    };
+
+    // Detectar al montar
+    detectarMovil();
+    
+    // Detectar en cambios de tamaño
+    window.addEventListener('resize', detectarMovil);
+    
+    return () => {
+      window.removeEventListener('resize', detectarMovil);
+    };
+  }, []);
 
   // Cargar pedidos en tiempo real
   useEffect(() => {
@@ -389,22 +419,46 @@ const PedidosLista = ({ user }) => {
       </DataTable>
 
       {/* Formulario de pedido */}
-      <PedidoForm
-        visible={mostrarForm}
-        onHide={() => {
-          setMostrarForm(false);
-          setPedidoSeleccionado(null);
-        }}
-        pedido={pedidoSeleccionado}
-        onSuccess={() => {
-          toast.current?.show({
-            severity: 'success',
-            summary: 'Éxito',
-            detail: pedidoSeleccionado ? 'Pedido actualizado' : 'Pedido creado'
-          });
-        }}
-        user={user}
-      />
+      {/* 🆕 Usar formulario móvil o desktop según detección */}
+      {esMovil ? (
+        <PedidoFormMovil
+          visible={mostrarForm}
+          onHide={() => {
+            setMostrarForm(false);
+            setPedidoSeleccionado(null);
+          }}
+          pedido={pedidoSeleccionado}
+          onSuccess={() => {
+            setMostrarForm(false);
+            setPedidoSeleccionado(null);
+            toast.current?.show({
+              severity: 'success',
+              summary: 'Éxito',
+              detail: pedidoSeleccionado ? 'Pedido actualizado' : 'Pedido creado'
+            });
+          }}
+          user={user}
+        />
+      ) : (
+        <PedidoForm
+          visible={mostrarForm}
+          onHide={() => {
+            setMostrarForm(false);
+            setPedidoSeleccionado(null);
+          }}
+          pedido={pedidoSeleccionado}
+          onSuccess={() => {
+            setMostrarForm(false);
+            setPedidoSeleccionado(null);
+            toast.current?.show({
+              severity: 'success',
+              summary: 'Éxito',
+              detail: pedidoSeleccionado ? 'Pedido actualizado' : 'Pedido creado'
+            });
+          }}
+          user={user}
+        />
+      )}
 
       <VerPedido
         visible={mostrarVerPedido}
