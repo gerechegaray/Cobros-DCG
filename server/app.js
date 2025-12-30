@@ -2841,19 +2841,19 @@ app.listen(PORT, () => {
     console.log('[COMISIONES SYNC] Intervalo: 24 horas');
     console.log('[COMISIONES SYNC] Primera ejecución en 10 minutos...');
     
-    // Primera ejecución después de 10 minutos
+    // Primera ejecución después de 10 minutos (incremental)
     setTimeout(async () => {
       try {
-        await sincronizarFacturasDesdePayments(adminDb);
+        await sincronizarFacturasDesdePayments(adminDb, false); // false = incremental
       } catch (error) {
         console.error('[COMISIONES SYNC] Error en primera ejecución:', error);
       }
     }, 10 * 60 * 1000); // 10 minutos
     
-    // Ejecutar cada 24 horas
+    // Ejecutar cada 24 horas (incremental - solo nuevos payments)
     setInterval(async () => {
       try {
-        await sincronizarFacturasDesdePayments(adminDb);
+        await sincronizarFacturasDesdePayments(adminDb, false); // false = incremental
       } catch (error) {
         console.error('[COMISIONES SYNC] Error en auto-sync:', error);
       }
@@ -2947,7 +2947,10 @@ app.post("/api/comisiones/sync-facturas", async (req, res) => {
       return res.status(500).json({ error: 'Firebase no inicializado' });
     }
     
-    const resultado = await sincronizarFacturasDesdePayments(adminDb);
+    // Permitir forzar sincronización completa con parámetro ?completa=true
+    const forzarCompleta = req.query.completa === 'true' || req.body.completa === true;
+    
+    const resultado = await sincronizarFacturasDesdePayments(adminDb, forzarCompleta);
     res.json(resultado);
     
   } catch (error) {

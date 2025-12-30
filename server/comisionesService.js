@@ -180,17 +180,53 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
 /**
  * Sincronizar facturas desde payments de Alegra
  * Obtiene payments, extrae invoice.id, obtiene invoices y guarda en Firestore
+ * @param {Object} adminDb - Instancia de Firestore Admin
+ * @param {boolean} forzarCompleta - Si es true, sincroniza todos los payments históricos. Si es false, solo los nuevos desde la última sync
  */
-export async function sincronizarFacturasDesdePayments(adminDb) {
+export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta = false) {
   if (!adminDb) {
     throw new Error('Firebase no inicializado');
   }
   
-  console.log('[COMISIONES SYNC] Iniciando sincronización de facturas desde payments...');
+  console.log(`[COMISIONES SYNC] Iniciando sincronización de facturas desde payments... (${forzarCompleta ? 'COMPLETA' : 'INCREMENTAL'})`);
   
   try {
-    // Obtener TODOS los payments históricos (dias = null para obtener todos)
-    const payments = await getAlegraPayments(null);
+    let payments;
+    let dias = null; // Por defecto, todos los payments
+    
+    if (!forzarCompleta) {
+      // Sincronización incremental: obtener fecha de última sincronización
+      const syncDocRef = adminDb.collection('comisiones_sync_metadata').doc('last_sync');
+      const syncDoc = await syncDocRef.get();
+      
+      if (syncDoc.exists) {
+        const lastSyncDate = syncDoc.data().fechaSync?.toDate?.() || 
+                            (syncDoc.data().fechaSync ? new Date(syncDoc.data().fechaSync) : null);
+        
+        if (lastSyncDate) {
+          // Calcular días desde última sincronización (mínimo 1 día, máximo 30 para seguridad)
+          const ahora = new Date();
+          const diffMs = ahora - lastSyncDate;
+          const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          dias = Math.max(1, Math.min(diffDias, 30)); // Entre 1 y 30 días
+          
+          console.log(`[COMISIONES SYNC] Última sincronización: ${lastSyncDate.toISOString()}`);
+          console.log(`[COMISIONES SYNC] Sincronizando payments de los últimos ${dias} días (incremental)`);
+        } else {
+          console.log('[COMISIONES SYNC] No hay fecha de última sincronización, sincronizando últimos 30 días');
+          dias = 30;
+        }
+      } else {
+        // Primera vez: sincronizar últimos 30 días
+        console.log('[COMISIONES SYNC] Primera sincronización, obteniendo últimos 30 días');
+        dias = 30;
+      }
+    } else {
+      console.log('[COMISIONES SYNC] Sincronización completa forzada, obteniendo todos los payments históricos');
+    }
+    
+    // Obtener payments (todos si forzarCompleta, o solo los últimos N días si incremental)
+    payments = await getAlegraPayments(dias);
     
     if (!payments || payments.length === 0) {
       console.log('[COMISIONES SYNC] No hay payments para procesar');
