@@ -189,8 +189,8 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
   console.log('[COMISIONES SYNC] Iniciando sincronización de facturas desde payments...');
   
   try {
-    // Obtener payments de los últimos 30 días
-    const payments = await getAlegraPayments(30);
+    // Obtener TODOS los payments históricos (dias = null para obtener todos)
+    const payments = await getAlegraPayments(null);
     
     if (!payments || payments.length === 0) {
       console.log('[COMISIONES SYNC] No hay payments para procesar');
@@ -280,16 +280,37 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
         
         console.log(`[COMISIONES SYNC] Procesando invoice ${invoiceId} - Vendedor: ${invoice.seller.name}`);
         
+        // Debug: mostrar estructura del primer item si existe
+        if (invoice.items && invoice.items.length > 0) {
+          console.log(`[COMISIONES SYNC] Estructura del primer item de invoice ${invoiceId}:`, JSON.stringify(invoice.items[0], null, 2));
+        }
+        
         // Extraer solo lo necesario
         const facturaData = {
           invoiceId: invoice.id.toString(),
           seller: {
             name: invoice.seller.name
           },
-          items: (invoice.items || []).map(item => ({
-            description: item.description || '',
-            subtotal: parseFloat(item.subtotal) || 0
-          })),
+          items: (invoice.items || []).map(item => {
+            // Intentar diferentes campos posibles para el subtotal
+            let subtotal = 0;
+            
+            if (item.subtotal !== undefined && item.subtotal !== null) {
+              subtotal = parseFloat(item.subtotal) || 0;
+            } else if (item.total !== undefined && item.total !== null) {
+              subtotal = parseFloat(item.total) || 0;
+            } else if (item.price !== undefined && item.quantity !== undefined) {
+              // Calcular: price * quantity
+              subtotal = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
+            } else if (item.amount !== undefined && item.amount !== null) {
+              subtotal = parseFloat(item.amount) || 0;
+            }
+            
+            return {
+              description: item.description || '',
+              subtotal: subtotal
+            };
+          }),
           fecha: invoice.date || new Date().toISOString().split('T')[0],
           fechaSync: new Date()
         };

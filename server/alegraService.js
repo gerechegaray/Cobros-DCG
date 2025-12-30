@@ -215,7 +215,7 @@ export async function getAlegraItems() {
   return await response.json();
 }
 
-// 🆕 Obtener payments de Alegra (últimos N días)
+// 🆕 Obtener payments de Alegra (últimos N días o todos si dias = null)
 export async function getAlegraPayments(dias = 30) {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
@@ -224,41 +224,86 @@ export async function getAlegraPayments(dias = 30) {
     throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
   }
   
-  // Calcular fecha límite
-  const fechaLimite = new Date();
-  fechaLimite.setDate(fechaLimite.getDate() - dias);
-  fechaLimite.setHours(0, 0, 0, 0);
-  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
-  
-  const params = new URLSearchParams({
-    date_afterOrNow: fechaLimiteStr,
-    order_direction: 'DESC',
-    order_field: 'date',
-    limit: '30' // Máximo permitido por Alegra
-  });
-  
-  const url = `https://api.alegra.com/api/v1/payments?${params.toString()}`;
   const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+  const limit = 30; // Máximo permitido por Alegra por petición
+  const allPayments = [];
+  let offset = 0;
+  let hasMore = true;
   
-  console.log(`[COMISIONES] Obteniendo payments desde ${fechaLimiteStr} (últimos ${dias} días)`);
+  // Si dias es null, obtener todos los payments históricos
+  const obtenerTodos = dias === null;
   
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/json',
-      authorization
-    }
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[COMISIONES] Error obteniendo payments:', response.status, errorText);
-    throw new Error(`Error al obtener payments de Alegra: ${response.status} ${response.statusText}`);
+  if (obtenerTodos) {
+    console.log('[COMISIONES] Obteniendo TODOS los payments históricos (paginación)...');
+  } else {
+    // Calcular fecha límite
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - dias);
+    fechaLimite.setHours(0, 0, 0, 0);
+    const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+    console.log(`[COMISIONES] Obteniendo payments desde ${fechaLimiteStr} (últimos ${dias} días)`);
   }
   
-  const payments = await response.json();
-  console.log(`[COMISIONES] Payments obtenidos: ${payments.length || 0}`);
+  while (hasMore) {
+    const params = new URLSearchParams({
+      order_direction: 'DESC',
+      order_field: 'date',
+      limit: limit.toString(),
+      start: offset.toString()
+    });
+    
+    // Solo agregar filtro de fecha si no es obtenerTodos
+    if (!obtenerTodos) {
+      const fechaLimite = new Date();
+      fechaLimite.setDate(fechaLimite.getDate() - dias);
+      fechaLimite.setHours(0, 0, 0, 0);
+      const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+      params.append('date_afterOrNow', fechaLimiteStr);
+    }
+    
+    const url = `https://api.alegra.com/api/v1/payments?${params.toString()}`;
+    
+    console.log(`[COMISIONES] Petición ${Math.floor(offset / limit) + 1}: offset=${offset}, limit=${limit}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[COMISIONES] Error obteniendo payments:', response.status, errorText);
+      throw new Error(`Error al obtener payments de Alegra: ${response.status} ${response.statusText}`);
+    }
+    
+    const payments = await response.json();
+    
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      console.log('[COMISIONES] No hay más payments disponibles');
+      hasMore = false;
+      break;
+    }
+    
+    allPayments.push(...payments);
+    offset += payments.length;
+    
+    // Si recibimos menos payments de los solicitados, no hay más páginas
+    if (payments.length < limit) {
+      console.log('[COMISIONES] Última página alcanzada');
+      hasMore = false;
+    }
+    
+    // Pequeña pausa entre peticiones
+    if (hasMore) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
   
-  return Array.isArray(payments) ? payments : [];
+  console.log(`[COMISIONES] Total payments obtenidos: ${allPayments.length}`);
+  
+  return allPayments;
 }
 
 // 🆕 Obtener invoice individual por ID
