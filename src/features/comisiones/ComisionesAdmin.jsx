@@ -15,6 +15,7 @@ function ComisionesAdmin({ user }) {
   const [loading, setLoading] = useState(false);
   const [calculando, setCalculando] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
+  const [sincronizandoCompleta, setSincronizandoCompleta] = useState(false);
   const [comisiones, setComisiones] = useState(null);
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState('Guille');
   const [periodo, setPeriodo] = useState('');

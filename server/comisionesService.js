@@ -338,11 +338,6 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
         
         console.log(`[COMISIONES SYNC] Procesando invoice ${invoiceId} - Vendedor: ${invoice.seller.name}`);
         
-        // Debug: mostrar estructura del primer item si existe
-        if (invoice.items && invoice.items.length > 0) {
-          console.log(`[COMISIONES SYNC] Estructura del primer item de invoice ${invoiceId}:`, JSON.stringify(invoice.items[0], null, 2));
-        }
-        
         // Extraer solo lo necesario
         // IMPORTANTE: Guardamos fecha del PAYMENT (cobro), no fecha de la invoice
         const facturaData = {
