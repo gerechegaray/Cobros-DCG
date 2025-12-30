@@ -78,7 +78,7 @@ export const getReglasComisiones = async () => {
   }
 };
 
-// Sincronizar facturas desde payments
+// Sincronizar facturas desde payments (incremental)
 export const syncFacturas = async () => {
   try {
     const url = `${API_BASE_URL}/api/comisiones/sync-facturas`;
@@ -97,6 +97,29 @@ export const syncFacturas = async () => {
     return await response.json();
   } catch (error) {
     console.error('Error sincronizando facturas:', error);
+    throw error;
+  }
+};
+
+// Sincronizar facturas completa (todos los payments históricos)
+export const syncFacturasCompleta = async () => {
+  try {
+    const url = `${API_BASE_URL}/api/comisiones/sync-facturas?completa=true`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error sincronizando facturas completa:', error);
     throw error;
   }
 };

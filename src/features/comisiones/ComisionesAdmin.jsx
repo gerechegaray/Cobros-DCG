@@ -8,7 +8,7 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
-import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas } from './comisionesService';
+import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta } from './comisionesService';
 
 function ComisionesAdmin({ user }) {
   const toast = useRef(null);
@@ -110,6 +110,32 @@ function ComisionesAdmin({ user }) {
     }
   };
   
+  const handleSyncFacturasCompleta = async () => {
+    // Confirmar antes de ejecutar sincronización completa
+    if (!window.confirm('¿Estás seguro? La sincronización completa procesará todos los payments históricos y puede tardar varios minutos.')) {
+      return;
+    }
+    
+    setSincronizandoCompleta(true);
+    try {
+      const resultado = await syncFacturasCompleta();
+      toast.current?.show({
+        severity: 'success',
+        summary: 'Sincronización completa finalizada',
+        detail: `${resultado.nuevas} nuevas, ${resultado.actualizadas} actualizadas. Tipo: ${resultado.tipo}`
+      });
+    } catch (error) {
+      console.error('Error sincronizando facturas completa:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: error.message || 'No se pudo completar la sincronización completa'
+      });
+    } finally {
+      setSincronizandoCompleta(false);
+    }
+  };
+  
   const handleSeedReglas = async () => {
     try {
       const resultado = await seedReglas();
@@ -169,6 +195,15 @@ function ComisionesAdmin({ user }) {
               onClick={handleSyncFacturas}
               loading={sincronizando}
               className="p-button-outlined p-button-secondary"
+              tooltip="Sincronización incremental (solo nuevos payments)"
+            />
+            <Button
+              label="Sincronización Completa"
+              icon="pi pi-refresh"
+              onClick={handleSyncFacturasCompleta}
+              loading={sincronizandoCompleta}
+              className="p-button-outlined p-button-warning"
+              tooltip="Sincroniza todos los payments históricos (puede tardar varios minutos)"
             />
             <Button
               label="Cargar Reglas"
