@@ -16,6 +16,7 @@ import MenuClientes from "./components/MenuClientes";
 import CobrosMain from "./features/cobros/CobrosMain";
 import PedidosMain from "./features/pedidos/PedidosMain";
 import ProductosConsulta from "./features/productos/ProductosConsulta";
+import ComisionesMain from "./features/comisiones/ComisionesMain";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -65,6 +66,7 @@ function App() {
       { label: "Pedidos", icon: "pi pi-shopping-cart", path: "/pedidos" },
       { label: "Productos", icon: "pi pi-box", path: "/productos" },
       { label: "Cobros", icon: "pi pi-dollar", path: "/cobros" },
+      { label: "Comisiones", icon: "pi pi-percentage", path: "/comisiones" },
       { label: "Visitas", icon: "pi pi-calendar", path: "/visitas" },
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
     ];
@@ -99,6 +101,7 @@ function App() {
             <Route path="/pedidos" element={<PedidosMain user={user} />} />
             <Route path="/productos" element={<ProductosConsulta user={user} />} />
             <Route path="/cobros" element={<CobrosMain user={user} />} />
+            <Route path="/comisiones" element={<ComisionesMain user={user} />} />
             <Route path="/visitas" element={<VisitasDashboard user={user} />} />
             <Route path="/profile" element={<UserProfile user={user} />} />
             <Route path="/gestion-datos" element={

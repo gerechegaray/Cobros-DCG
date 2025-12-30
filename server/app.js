@@ -7,6 +7,12 @@ dotenv.config();
 
 // Importo el servicio de Alegra
 import { getAlegraInvoices, getAlegraContacts, getAlegraItems } from "./alegraService.js";
+// Importo el servicio de comisiones
+import { 
+  sincronizarFacturasDesdePayments, 
+  calcularComisionesMensuales, 
+  getReglasComisiones 
+} from "./comisionesService.js";
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
@@ -1140,7 +1146,7 @@ app.get("/api/estado-cuenta-cache/:clienteId", async (req, res) => {
         clienteId: clienteId,
         clienteNombre: null
       });
-    }
+      }
     
     const cacheData = docSnapshot.data();
     console.log(`[ESTADO CUENTA CACHE] Caché encontrado, última actualización: ${cacheData.ultimaActualizacion?.toDate?.() || cacheData.ultimaActualizacion}`);
@@ -1189,7 +1195,7 @@ async function actualizarEstadoCuentaCache(clienteId, forzar = false) {
           
           if (diferenciaMinutos < 10) {
             console.log(`[ESTADO CUENTA CACHE] Caché fresco (${diferenciaMinutos.toFixed(1)} minutos), no se actualiza`);
-            return {
+      return {
               fresh: true,
               data: {
                 exists: true,
@@ -2825,6 +2831,238 @@ app.listen(PORT, () => {
     }, 6 * 60 * 60 * 1000); // 6 horas = 21600000 ms
   } else {
     console.log('[AUTO-SYNC] Auto-sync de productos y clientes DESHABILITADO (AUTO_SYNC_PRODUCTOS_CLIENTES != true)');
+  }
+
+  // 🆕 Iniciar auto-sync de facturas para comisiones si está habilitado
+  const autoSyncFacturasEnabled = process.env.AUTO_SYNC_FACTURAS_COMISIONES === 'true';
+  
+  if (autoSyncFacturasEnabled) {
+    console.log('[COMISIONES SYNC] Auto-sync de facturas para comisiones HABILITADO');
+    console.log('[COMISIONES SYNC] Intervalo: 24 horas');
+    console.log('[COMISIONES SYNC] Primera ejecución en 10 minutos...');
+    
+    // Primera ejecución después de 10 minutos
+    setTimeout(async () => {
+      try {
+        await sincronizarFacturasDesdePayments(adminDb);
+      } catch (error) {
+        console.error('[COMISIONES SYNC] Error en primera ejecución:', error);
+      }
+    }, 10 * 60 * 1000); // 10 minutos
+    
+    // Ejecutar cada 24 horas
+    setInterval(async () => {
+      try {
+        await sincronizarFacturasDesdePayments(adminDb);
+      } catch (error) {
+        console.error('[COMISIONES SYNC] Error en auto-sync:', error);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 horas = 86400000 ms
+  } else {
+    console.log('[COMISIONES SYNC] Auto-sync de facturas para comisiones DESHABILITADO (AUTO_SYNC_FACTURAS_COMISIONES != true)');
+  }
+});
+
+// ============================================
+// ENDPOINTS DE COMISIONES
+// ============================================
+
+// 🆕 Endpoint para cargar reglas iniciales de comisión (seed)
+app.post("/api/comisiones/reglas/seed", async (req, res) => {
+  try {
+    console.log('[COMISIONES] Iniciando seed de reglas...');
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    // Reglas a cargar
+    const reglas = [
+      { categoria: 'GENERAR', porcentaje: 5 },
+      { categoria: 'TECNOVAX', porcentaje: 5 },
+      { categoria: 'ZOETIS', porcentaje: 5 },
+      { categoria: 'LEON PHARMA', porcentaje: 5 },
+      { categoria: 'ELMER', porcentaje: 5 },
+      { categoria: 'MERVAK', porcentaje: 5 },
+      { categoria: 'ABOVE', porcentaje: 10 },
+      { categoria: 'RUBICAT', porcentaje: 5 },
+      { categoria: 'Fawna Perro', porcentaje: 6.5 },
+      { categoria: 'Fawna Gato', porcentaje: 6.5 },
+      { categoria: 'Old Prince Equilibrium Perro', porcentaje: 4.5 },
+      { categoria: 'Old Prince Equilibrium Gato', porcentaje: 4.5 },
+      { categoria: 'Old Prince Noveles Perro', porcentaje: 5.5 },
+      { categoria: 'Old Prince Premium Gato', porcentaje: 4 },
+      { categoria: 'Old Prince Premium Perro', porcentaje: 4 },
+      { categoria: 'Company Gato', porcentaje: 3.5 },
+      { categoria: 'Company Perro', porcentaje: 3.5 },
+      { categoria: 'ORIGEN GATO', porcentaje: 3.5 },
+      { categoria: 'ORIGEN PERRO', porcentaje: 3.5 },
+      { categoria: 'Manada', porcentaje: 3 },
+      { categoria: 'Seguidor', porcentaje: 3 }
+    ];
+    
+    let creadas = 0;
+    let actualizadas = 0;
+    
+    for (const regla of reglas) {
+      const docRef = adminDb.collection('comisiones_reglas').doc(regla.categoria);
+      const docSnapshot = await docRef.get();
+      
+      const reglaData = {
+        categoria: regla.categoria,
+        porcentaje: regla.porcentaje,
+        activa: true,
+        createdAt: docSnapshot.exists ? docSnapshot.data().createdAt : new Date(),
+        updatedAt: new Date()
+      };
+      
+      await docRef.set(reglaData, { merge: true });
+      
+      if (docSnapshot.exists) {
+        actualizadas++;
+      } else {
+        creadas++;
+      }
+    }
+    
+    console.log(`[COMISIONES] Seed completado: ${creadas} creadas, ${actualizadas} actualizadas`);
+    
+    res.json({
+      success: true,
+      creadas,
+      actualizadas,
+      total: reglas.length
+    });
+    
+  } catch (error) {
+    console.error('[COMISIONES] Error en seed de reglas:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para sincronizar facturas desde payments (manual)
+app.post("/api/comisiones/sync-facturas", async (req, res) => {
+  try {
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const resultado = await sincronizarFacturasDesdePayments(adminDb);
+    res.json(resultado);
+    
+  } catch (error) {
+    console.error('[COMISIONES] Error sincronizando facturas:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para calcular comisiones de un período
+app.post("/api/comisiones/calcular/:periodo", async (req, res) => {
+  try {
+    const { periodo } = req.params;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const resultados = await calcularComisionesMensuales(adminDb, periodo);
+    
+    res.json({
+      success: true,
+      periodo,
+      resultados
+    });
+    
+  } catch (error) {
+    console.error('[COMISIONES] Error calculando comisiones:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para obtener comisiones de un vendedor y período
+app.get("/api/comisiones/:vendedor/:periodo", async (req, res) => {
+  try {
+    const { vendedor, periodo } = req.params;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const docRef = adminDb.collection('comisiones_mensuales')
+      .doc(vendedor)
+      .collection(periodo)
+      .doc(periodo);
+    
+    const docSnapshot = await docRef.get();
+    
+    if (!docSnapshot.exists) {
+      return res.json({
+        vendedor,
+        periodo,
+        totalCobrado: 0,
+        totalComision: 0,
+        detalle: []
+      });
+    }
+    
+    const data = docSnapshot.data();
+    res.json(data);
+    
+  } catch (error) {
+    console.error('[COMISIONES] Error obteniendo comisiones:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para obtener todas las comisiones de un vendedor
+app.get("/api/comisiones/:vendedor", async (req, res) => {
+  try {
+    const { vendedor } = req.params;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const snapshot = await adminDb.collection('comisiones_mensuales')
+      .doc(vendedor)
+      .listCollections();
+    
+    const comisiones = [];
+    
+    for (const subcollection of snapshot) {
+      const periodo = subcollection.id;
+      const docRef = subcollection.doc(periodo);
+      const docSnapshot = await docRef.get();
+      
+      if (docSnapshot.exists) {
+        comisiones.push(docSnapshot.data());
+      }
+    }
+    
+    // Ordenar por período descendente
+    comisiones.sort((a, b) => b.periodo.localeCompare(a.periodo));
+    
+    res.json(comisiones);
+    
+  } catch (error) {
+    console.error('[COMISIONES] Error obteniendo comisiones del vendedor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoint para obtener reglas de comisión
+app.get("/api/comisiones/reglas", async (req, res) => {
+  try {
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const reglas = await getReglasComisiones(adminDb);
+    res.json(reglas);
+    
+  } catch (error) {
+    console.error('[COMISIONES] Error obteniendo reglas:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

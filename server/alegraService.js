@@ -214,3 +214,81 @@ export async function getAlegraItems() {
   }
   return await response.json();
 }
+
+// 🆕 Obtener payments de Alegra (últimos N días)
+export async function getAlegraPayments(dias = 30) {
+  const email = process.env.ALEGRA_EMAIL?.trim();
+  const apiKey = process.env.ALEGRA_API_KEY?.trim();
+  
+  if (!email || !apiKey) {
+    throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
+  }
+  
+  // Calcular fecha límite
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() - dias);
+  fechaLimite.setHours(0, 0, 0, 0);
+  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+  
+  const params = new URLSearchParams({
+    date_afterOrNow: fechaLimiteStr,
+    order_direction: 'DESC',
+    order_field: 'date',
+    limit: '30' // Máximo permitido por Alegra
+  });
+  
+  const url = `https://api.alegra.com/api/v1/payments?${params.toString()}`;
+  const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+  
+  console.log(`[COMISIONES] Obteniendo payments desde ${fechaLimiteStr} (últimos ${dias} días)`);
+  
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json',
+      authorization
+    }
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[COMISIONES] Error obteniendo payments:', response.status, errorText);
+    throw new Error(`Error al obtener payments de Alegra: ${response.status} ${response.statusText}`);
+  }
+  
+  const payments = await response.json();
+  console.log(`[COMISIONES] Payments obtenidos: ${payments.length || 0}`);
+  
+  return Array.isArray(payments) ? payments : [];
+}
+
+// 🆕 Obtener invoice individual por ID
+export async function getAlegraInvoiceById(invoiceId) {
+  const email = process.env.ALEGRA_EMAIL?.trim();
+  const apiKey = process.env.ALEGRA_API_KEY?.trim();
+  
+  if (!email || !apiKey) {
+    throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
+  }
+  
+  const url = `https://api.alegra.com/api/v1/invoices/${invoiceId}`;
+  const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+  
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json',
+      authorization
+    }
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    if (response.status === 404) {
+      console.warn(`[COMISIONES] Invoice ${invoiceId} no encontrada en Alegra`);
+      return null;
+    }
+    console.error(`[COMISIONES] Error obteniendo invoice ${invoiceId}:`, response.status, errorText);
+    throw new Error(`Error al obtener invoice de Alegra: ${response.status} ${response.statusText}`);
+  }
+  
+  return await response.json();
+}

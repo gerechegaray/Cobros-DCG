@@ -1,0 +1,301 @@
+/* ============================================
+   ESTILOS COMISIONES - Sistema de Gestión DCG
+   ============================================ */
+
+/* Importar design tokens */
+@import './design-tokens.css';
+@import './colors.css';
+
+/* ============================================
+   CONTENEDOR PRINCIPAL
+   ============================================ */
+.comisiones-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-6) var(--spacing-4);
+  background: var(--dcg-bg-secondary);
+  min-height: 100vh;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.comisiones-header-card {
+  background: var(--dcg-bg-elevated) !important;
+  border: var(--border-width-thin) solid var(--dcg-border) !important;
+  border-radius: var(--border-radius-xl) !important;
+  box-shadow: var(--dcg-shadow-lg) !important;
+  margin-bottom: var(--spacing-6) !important;
+}
+
+.comisiones-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+}
+
+.comisiones-title {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-3xl) !important;
+  font-weight: var(--font-weight-bold) !important;
+  margin: 0 0 var(--spacing-2) 0 !important;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.comisiones-subtitle {
+  color: var(--dcg-text-secondary) !important;
+  font-size: var(--font-size-base) !important;
+  margin: 0 !important;
+  font-weight: var(--font-weight-medium);
+}
+
+.comisiones-admin-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+/* ============================================
+   FILTROS (Admin)
+   ============================================ */
+.comisiones-filters-card {
+  background: var(--dcg-bg-elevated) !important;
+  border: var(--border-width-thin) solid var(--dcg-border) !important;
+  border-radius: var(--border-radius-lg) !important;
+  margin-bottom: var(--spacing-6) !important;
+}
+
+.comisiones-filters {
+  display: flex;
+  gap: var(--spacing-4);
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.comisiones-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  min-width: 200px;
+}
+
+.comisiones-filter-item label {
+  color: var(--dcg-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================
+   KPIs
+   ============================================ */
+.comisiones-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-6);
+}
+
+.comisiones-kpi-card {
+  background: var(--dcg-bg-elevated) !important;
+  border: var(--border-width-thin) solid var(--dcg-border) !important;
+  border-radius: var(--border-radius-lg) !important;
+  box-shadow: var(--dcg-shadow) !important;
+  padding: var(--spacing-6) !important;
+  transition: all var(--transition-base);
+  text-align: center;
+}
+
+.comisiones-kpi-card:hover {
+  box-shadow: var(--dcg-shadow-md) !important;
+  border-color: var(--dcg-border-hover) !important;
+  transform: translateY(-2px);
+}
+
+.comisiones-kpi-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.comisiones-kpi-icon {
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-2);
+}
+
+.comisiones-kpi-icon.primary {
+  color: var(--dcg-primary);
+}
+
+.comisiones-kpi-icon.success {
+  color: var(--dcg-success);
+}
+
+.comisiones-kpi-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.comisiones-kpi-value.primary {
+  color: var(--dcg-primary);
+}
+
+.comisiones-kpi-value.success {
+  color: var(--dcg-success);
+}
+
+.comisiones-kpi-label {
+  color: var(--dcg-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* ============================================
+   DETALLE
+   ============================================ */
+.comisiones-detail-card {
+  background: var(--dcg-bg-elevated) !important;
+  border: var(--border-width-thin) solid var(--dcg-border) !important;
+  border-radius: var(--border-radius-lg) !important;
+  box-shadow: var(--dcg-shadow) !important;
+  padding: var(--spacing-6) !important;
+}
+
+.comisiones-detail-card h2 {
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-xl) !important;
+  font-weight: var(--font-weight-bold) !important;
+  margin: 0 0 var(--spacing-4) 0 !important;
+}
+
+.comisiones-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  background: var(--dcg-warning-alpha);
+  border: var(--border-width-thin) solid var(--dcg-warning);
+  border-radius: var(--border-radius-md);
+  color: var(--dcg-warning);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--spacing-4);
+}
+
+.comisiones-warning i {
+  font-size: var(--font-size-lg);
+}
+
+/* ============================================
+   TABLA
+   ============================================ */
+.comisiones-table {
+  margin-top: var(--spacing-4);
+}
+
+.comisiones-table .p-datatable-thead > tr > th {
+  background: var(--dcg-bg-secondary) !important;
+  color: var(--dcg-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  border-bottom: var(--border-width-medium) solid var(--dcg-border) !important;
+  padding: var(--spacing-3) var(--spacing-4) !important;
+}
+
+.comisiones-table .p-datatable-tbody > tr {
+  background: var(--dcg-bg-elevated) !important;
+  transition: background-color var(--transition-base);
+}
+
+.comisiones-table .p-datatable-tbody > tr:nth-child(even) {
+  background: var(--dcg-bg-secondary) !important;
+}
+
+.comisiones-table .p-datatable-tbody > tr:hover {
+  background: var(--dcg-bg-hover) !important;
+}
+
+.comisiones-table .p-datatable-tbody > tr > td {
+  color: var(--dcg-text-primary) !important;
+  padding: var(--spacing-3) var(--spacing-4) !important;
+  border-bottom: var(--border-width-thin) solid var(--dcg-border-light) !important;
+}
+
+.comisiones-categoria-badge {
+  display: inline-block;
+  padding: var(--spacing-1) var(--spacing-2);
+  background: var(--dcg-primary-alpha);
+  color: var(--dcg-primary);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.comisiones-comision-value {
+  color: var(--dcg-success) !important;
+  font-weight: var(--font-weight-bold) !important;
+}
+
+/* ============================================
+   ESTADO VACÍO
+   ============================================ */
+.comisiones-empty {
+  text-align: center;
+  padding: var(--spacing-8);
+  color: var(--dcg-text-secondary);
+}
+
+.comisiones-empty p {
+  margin: var(--spacing-2) 0;
+  font-size: var(--font-size-base);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .comisiones-container {
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+  
+  .comisiones-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .comisiones-admin-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  
+  .comisiones-admin-actions .p-button {
+    width: 100%;
+  }
+  
+  .comisiones-kpis-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .comisiones-filters {
+    flex-direction: column;
+  }
+  
+  .comisiones-filter-item {
+    width: 100%;
+  }
+  
+  .comisiones-table {
+    font-size: var(--font-size-sm);
+  }
+  
+  .comisiones-table .p-datatable-thead > tr > th,
+  .comisiones-table .p-datatable-tbody > tr > td {
+    padding: var(--spacing-2) var(--spacing-2) !important;
+  }
+}
+
