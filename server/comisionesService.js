@@ -292,18 +292,24 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
             name: invoice.seller.name
           },
           items: (invoice.items || []).map(item => {
-            // Intentar diferentes campos posibles para el subtotal
+            // El campo correcto es "total" según la estructura de Alegra
+            // total = price * quantity (ya calculado por Alegra)
             let subtotal = 0;
             
-            if (item.subtotal !== undefined && item.subtotal !== null) {
-              subtotal = parseFloat(item.subtotal) || 0;
-            } else if (item.total !== undefined && item.total !== null) {
-              subtotal = parseFloat(item.total) || 0;
+            if (item.total !== undefined && item.total !== null) {
+              subtotal = parseFloat(item.total);
+              if (isNaN(subtotal)) subtotal = 0;
+            } else if (item.subtotal !== undefined && item.subtotal !== null) {
+              subtotal = parseFloat(item.subtotal);
+              if (isNaN(subtotal)) subtotal = 0;
             } else if (item.price !== undefined && item.quantity !== undefined) {
-              // Calcular: price * quantity
-              subtotal = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
+              // Calcular: price * quantity como fallback
+              const price = parseFloat(item.price) || 0;
+              const quantity = parseFloat(item.quantity) || 0;
+              subtotal = price * quantity;
             } else if (item.amount !== undefined && item.amount !== null) {
-              subtotal = parseFloat(item.amount) || 0;
+              subtotal = parseFloat(item.amount);
+              if (isNaN(subtotal)) subtotal = 0;
             }
             
             return {
