@@ -6,7 +6,7 @@ import { useRef } from 'react';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
-import { getComisiones, calcularComisiones } from './comisionesService';
+import { getComisiones, calcularComisiones, getComisionFlete, calcularComisionFlete } from './comisionesService';
 // Formatter de monto (mismo formato que EstadoCuenta)
 
 function ComisionesVendedor({ user }) {
@@ -14,6 +14,7 @@ function ComisionesVendedor({ user }) {
   const [loading, setLoading] = useState(false);
   const [calculando, setCalculando] = useState(false);
   const [comisiones, setComisiones] = useState(null);
+  const [comisionFlete, setComisionFlete] = useState(null);
   
   // Obtener nombre del vendedor desde el rol
   const vendedorNombre = user?.role === 'Guille' ? 'Guille' : 
@@ -41,8 +42,12 @@ function ComisionesVendedor({ user }) {
     
     setLoading(true);
     try {
-      const data = await getComisiones(vendedorNombre, periodoActual);
+      const [data, flete] = await Promise.all([
+        getComisiones(vendedorNombre, periodoActual),
+        getComisionFlete(vendedorNombre, periodoActual)
+      ]);
       setComisiones(data);
+      setComisionFlete(flete);
     } catch (error) {
       console.error('Error cargando comisiones:', error);
       toast.current?.show({
@@ -60,7 +65,10 @@ function ComisionesVendedor({ user }) {
     
     setCalculando(true);
     try {
-      await calcularComisiones(periodoActual);
+      await Promise.all([
+        calcularComisiones(periodoActual),
+        calcularComisionFlete(periodoActual)
+      ]);
       toast.current?.show({
         severity: 'success',
         summary: 'Comisiones calculadas',
@@ -90,10 +98,43 @@ function ComisionesVendedor({ user }) {
     }).format(valor);
   };
   
+  // Agrupar detalle por categoría
+  const agruparPorCategoria = (detalle) => {
+    if (!detalle || !Array.isArray(detalle) || detalle.length === 0) {
+      return [];
+    }
+    
+    const agrupado = {};
+    
+    detalle.forEach(item => {
+      const categoria = item.categoria || 'Sin categoría';
+      
+      if (!agrupado[categoria]) {
+        agrupado[categoria] = {
+          categoria: categoria,
+          porcentaje: item.porcentaje || 0,
+          subtotal: 0,
+          comision: 0
+        };
+      }
+      
+      agrupado[categoria].subtotal += parseFloat(item.subtotal) || 0;
+      agrupado[categoria].comision += parseFloat(item.comision) || 0;
+    });
+    
+    // Convertir a array y ordenar por comisión descendente
+    return Object.values(agrupado).sort((a, b) => b.comision - a.comision);
+  };
+  
   const periodoLabel = new Date().toLocaleDateString('es-AR', { 
     year: 'numeric', 
     month: 'long' 
   });
+  
+  // Obtener resumen por categoría
+  const resumenPorCategoria = comisiones?.detalle 
+    ? agruparPorCategoria(comisiones.detalle)
+    : [];
   
   if (loading && !comisiones) {
     return (
@@ -145,28 +186,48 @@ function ComisionesVendedor({ user }) {
                 <div className="comisiones-kpi-value success">
                   {formatMonto(comisiones.totalComision)}
                 </div>
-                <div className="comisiones-kpi-label">Comisión Estimada</div>
+                <div className="comisiones-kpi-label">Comisión por Cobranza</div>
               </div>
             </Card>
           </div>
           
-          <Card className="comisiones-detail-card">
+          {comisionFlete && (
+            <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
+              <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Comisión por Flete</h2>
+              <div className="comisiones-kpis-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                <div>
+                  <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
+                    Total Transportado
+                  </div>
+                  <div style={{ color: 'var(--dcg-text-primary)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
+                    {formatMonto(comisionFlete.totalFlete || 0)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
+                    Comisión por Flete ({comisionFlete.porcentaje || 4}%)
+                  </div>
+                  <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
+                    {formatMonto(comisionFlete.comisionFlete || 0)}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+          
+          <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
             <div className="comisiones-warning">
               <i className="pi pi-info-circle"></i>
               <span>Monto estimado – sujeto a validación administrativa</span>
             </div>
             
-            <h2>Detalle por Factura</h2>
+            <h2 style={{ marginTop: 'var(--spacing-4)' }}>Resumen por Categoría</h2>
             
-            {comisiones.detalle && comisiones.detalle.length > 0 ? (
+            {resumenPorCategoria.length > 0 ? (
               <DataTable
-                value={comisiones.detalle}
-                paginator
-                rows={10}
+                value={resumenPorCategoria}
                 className="comisiones-table"
               >
-                <Column field="facturaId" header="Factura ID" />
-                <Column field="producto" header="Producto" />
                 <Column 
                   field="categoria" 
                   header="Categoría"
@@ -177,15 +238,15 @@ function ComisionesVendedor({ user }) {
                   )}
                 />
                 <Column 
-                  field="subtotal" 
-                  header="Subtotal"
-                  body={(rowData) => formatMonto(rowData.subtotal)}
+                  field="porcentaje" 
+                  header="% Comisión"
+                  body={(rowData) => `${rowData.porcentaje}%`}
                   align="right"
                 />
                 <Column 
-                  field="porcentaje" 
-                  header="%"
-                  body={(rowData) => `${rowData.porcentaje}%`}
+                  field="subtotal" 
+                  header="Base"
+                  body={(rowData) => formatMonto(rowData.subtotal)}
                   align="right"
                 />
                 <Column 
@@ -205,6 +266,27 @@ function ComisionesVendedor({ user }) {
                 <p>Haz clic en "Recalcular Comisiones" para calcularlas.</p>
               </div>
             )}
+            
+            <div style={{ marginTop: 'var(--spacing-6)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--dcg-border)' }}>
+              <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Total Estimado del Período</h2>
+              <div style={{ 
+                fontSize: 'var(--font-size-3xl)', 
+                fontWeight: 'var(--font-weight-bold)', 
+                color: 'var(--dcg-success)',
+                marginTop: 'var(--spacing-4)'
+              }}>
+                {formatMonto(
+                  (comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
+                )}
+              </div>
+              <div style={{ 
+                color: 'var(--dcg-text-secondary)', 
+                fontSize: 'var(--font-size-sm)',
+                marginTop: 'var(--spacing-2)'
+              }}>
+                = Comisión por Cobranza + Comisión por Flete
+              </div>
+            </div>
           </Card>
         </>
       )}

@@ -147,3 +147,44 @@ export const seedReglas = async () => {
   }
 };
 
+// 🆕 Comisiones por flete
+// Calcular comisión por flete de un período
+export const calcularComisionFlete = async (periodo) => {
+  try {
+    const url = `${API_BASE_URL}/api/comisiones/flete/calcular/${periodo}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error calculando comisión por flete:', error);
+    throw error;
+  }
+};
+
+// Obtener comisión por flete de un vendedor y período
+export const getComisionFlete = async (vendedor, periodo) => {
+  try {
+    const url = `${API_BASE_URL}/api/comisiones/flete/${vendedor}/${periodo}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error obteniendo comisión por flete:', error);
+    throw error;
+  }
+};
+

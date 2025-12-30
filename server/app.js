@@ -13,6 +13,11 @@ import {
   calcularComisionesMensuales, 
   getReglasComisiones 
 } from "./comisionesService.js";
+// Importo el servicio de comisiones por flete
+import { 
+  calcularComisionFleteMensual,
+  getComisionFlete
+} from "./comisionesFleteService.js";
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
@@ -3065,6 +3070,48 @@ app.get("/api/comisiones/reglas", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error obteniendo reglas:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 Endpoints para comisiones por flete
+// Endpoint para calcular comisión por flete de un período
+app.post("/api/comisiones/flete/calcular/:periodo", async (req, res) => {
+  try {
+    const { periodo } = req.params;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const resultados = await calcularComisionFleteMensual(adminDb, periodo);
+    
+    res.json({
+      success: true,
+      periodo,
+      resultados
+    });
+    
+  } catch (error) {
+    console.error('[COMISIONES FLETE] Error calculando comisión por flete:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para obtener comisión por flete de un vendedor y período
+app.get("/api/comisiones/flete/:vendedor/:periodo", async (req, res) => {
+  try {
+    const { vendedor, periodo } = req.params;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const comisionFlete = await getComisionFlete(adminDb, vendedor, periodo);
+    res.json(comisionFlete);
+    
+  } catch (error) {
+    console.error('[COMISIONES FLETE] Error obteniendo comisión por flete:', error);
     res.status(500).json({ error: error.message });
   }
 });
