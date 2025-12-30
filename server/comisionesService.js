@@ -199,19 +199,54 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
     
     console.log(`[COMISIONES SYNC] Payments encontrados: ${payments.length}`);
     
+    // Debug: mostrar estructura del primer payment
+    if (payments.length > 0) {
+      console.log('[COMISIONES SYNC] Estructura del primer payment:', JSON.stringify(payments[0], null, 2));
+    }
+    
     // Extraer invoice IDs únicos
     const invoiceIds = new Set();
+    let paymentsConInvoice = 0;
+    let paymentsSinInvoice = 0;
+    
     payments.forEach(payment => {
+      // Intentar diferentes estructuras posibles
+      let invoiceId = null;
+      
       if (payment.invoice && payment.invoice.id) {
-        invoiceIds.add(payment.invoice.id.toString());
+        invoiceId = payment.invoice.id.toString();
+        paymentsConInvoice++;
+      } else if (payment.invoiceId) {
+        invoiceId = payment.invoiceId.toString();
+        paymentsConInvoice++;
+      } else if (payment.invoice && typeof payment.invoice === 'object' && payment.invoice.id) {
+        invoiceId = payment.invoice.id.toString();
+        paymentsConInvoice++;
+      } else {
+        paymentsSinInvoice++;
+        console.log('[COMISIONES SYNC] Payment sin invoice válido:', {
+          paymentId: payment.id,
+          paymentDate: payment.date,
+          invoice: payment.invoice
+        });
+      }
+      
+      if (invoiceId) {
+        invoiceIds.add(invoiceId);
       }
     });
     
+    console.log(`[COMISIONES SYNC] Payments con invoice: ${paymentsConInvoice}`);
+    console.log(`[COMISIONES SYNC] Payments sin invoice: ${paymentsSinInvoice}`);
     console.log(`[COMISIONES SYNC] Invoice IDs únicos: ${invoiceIds.size}`);
     
     let nuevas = 0;
     let actualizadas = 0;
     let errores = 0;
+    let sinSeller = 0;
+    let vendedorInvalido = 0;
+    
+    console.log(`[COMISIONES SYNC] Procesando ${invoiceIds.size} invoices...`);
     
     // Procesar cada invoice
     for (const invoiceId of invoiceIds) {
@@ -232,14 +267,18 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
         // Validar que tenga seller
         if (!invoice.seller || !invoice.seller.name) {
           console.log(`[COMISIONES SYNC] Invoice ${invoiceId} sin seller, ignorada`);
+          sinSeller++;
           continue;
         }
         
         // Validar vendedor
         if (!VENDEDORES_VALIDOS.includes(invoice.seller.name)) {
           console.log(`[COMISIONES SYNC] Invoice ${invoiceId} con vendedor inválido: ${invoice.seller.name}`);
+          vendedorInvalido++;
           continue;
         }
+        
+        console.log(`[COMISIONES SYNC] Procesando invoice ${invoiceId} - Vendedor: ${invoice.seller.name}`);
         
         // Extraer solo lo necesario
         const facturaData = {
@@ -274,13 +313,19 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
     }
     
     console.log(`[COMISIONES SYNC] Completado: ${nuevas} nuevas, ${actualizadas} actualizadas, ${errores} errores`);
+    console.log(`[COMISIONES SYNC] Estadísticas: ${sinSeller} sin seller, ${vendedorInvalido} con vendedor inválido`);
     
     return {
       success: true,
       total: invoiceIds.size,
       nuevas,
       actualizadas,
-      errores
+      errores,
+      sinSeller,
+      vendedorInvalido,
+      paymentsProcesados: payments.length,
+      paymentsConInvoice: paymentsConInvoice,
+      paymentsSinInvoice: paymentsSinInvoice
     };
     
   } catch (error) {
