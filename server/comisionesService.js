@@ -72,18 +72,22 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
   }
   
   // Obtener facturas del período desde facturas_comisiones
+  // IMPORTANTE: Filtramos por fecha de PAYMENT (cobro), no por fecha de invoice
   const [anio, mes] = periodo.split('-');
   const fechaInicio = new Date(parseInt(anio), parseInt(mes) - 1, 1);
   const fechaFin = new Date(parseInt(anio), parseInt(mes), 0, 23, 59, 59);
   
-  console.log(`[COMISIONES] Buscando facturas entre ${fechaInicio.toISOString()} y ${fechaFin.toISOString()}`);
+  const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
+  const fechaFinStr = fechaFin.toISOString().split('T')[0];
+  
+  console.log(`[COMISIONES] Buscando facturas COBRADAS (payment date) entre ${fechaInicioStr} y ${fechaFinStr}`);
   
   const snapshot = await adminDb.collection('facturas_comisiones')
-    .where('fecha', '>=', fechaInicio.toISOString().split('T')[0])
-    .where('fecha', '<=', fechaFin.toISOString().split('T')[0])
+    .where('fecha', '>=', fechaInicioStr)
+    .where('fecha', '<=', fechaFinStr)
     .get();
   
-  console.log(`[COMISIONES] Facturas encontradas en período: ${snapshot.size}`);
+  console.log(`[COMISIONES] Facturas encontradas cobradas en período: ${snapshot.size}`);
   
   // Agrupar por vendedor
   const comisionesPorVendedor = {};
@@ -240,23 +244,37 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
       console.log('[COMISIONES SYNC] Estructura del primer payment:', JSON.stringify(payments[0], null, 2));
     }
     
-    // Extraer invoice IDs únicos
+    // Extraer invoice IDs únicos y mapear a fecha de payment
     // NOTA: Los payments de Alegra tienen "invoices" (array), no "invoice" (objeto)
-    const invoiceIds = new Set();
+    // IMPORTANTE: Guardamos la fecha del PAYMENT (cobro), no la fecha de la invoice
+    const invoiceIdToPaymentDate = new Map(); // Map<invoiceId, paymentDate>
     let paymentsConInvoice = 0;
     let paymentsSinInvoice = 0;
     let totalInvoicesEncontradas = 0;
     
     payments.forEach(payment => {
+      const paymentDate = payment.date; // Fecha del payment (cobro)
+      
       // Los payments tienen "invoices" como array
       if (payment.invoices && Array.isArray(payment.invoices) && payment.invoices.length > 0) {
         paymentsConInvoice++;
         totalInvoicesEncontradas += payment.invoices.length;
         
-        // Extraer IDs de todas las invoices del array
+        // Extraer IDs de todas las invoices del array y mapear a fecha de payment
         payment.invoices.forEach(invoice => {
           if (invoice && invoice.id) {
-            invoiceIds.add(invoice.id.toString());
+            const invoiceId = invoice.id.toString();
+            
+            // Si la invoice ya existe en el mapa, usar la fecha de payment más reciente
+            if (invoiceIdToPaymentDate.has(invoiceId)) {
+              const fechaExistente = invoiceIdToPaymentDate.get(invoiceId);
+              // Comparar fechas y quedarse con la más reciente
+              if (paymentDate > fechaExistente) {
+                invoiceIdToPaymentDate.set(invoiceId, paymentDate);
+              }
+            } else {
+              invoiceIdToPaymentDate.set(invoiceId, paymentDate);
+            }
           }
         });
       } else {
@@ -271,10 +289,12 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
       }
     });
     
+    const invoiceIds = Array.from(invoiceIdToPaymentDate.keys());
+    
     console.log(`[COMISIONES SYNC] Payments con invoices: ${paymentsConInvoice}`);
     console.log(`[COMISIONES SYNC] Payments sin invoices: ${paymentsSinInvoice}`);
     console.log(`[COMISIONES SYNC] Total invoices encontradas en payments: ${totalInvoicesEncontradas}`);
-    console.log(`[COMISIONES SYNC] Invoice IDs únicos: ${invoiceIds.size}`);
+    console.log(`[COMISIONES SYNC] Invoice IDs únicos: ${invoiceIds.length}`);
     
     let nuevas = 0;
     let actualizadas = 0;
@@ -282,10 +302,12 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
     let sinSeller = 0;
     let vendedorInvalido = 0;
     
-    console.log(`[COMISIONES SYNC] Procesando ${invoiceIds.size} invoices...`);
+    console.log(`[COMISIONES SYNC] Procesando ${invoiceIds.length} invoices...`);
     
     // Procesar cada invoice
     for (const invoiceId of invoiceIds) {
+      // Obtener la fecha del payment asociado a esta invoice
+      const paymentDate = invoiceIdToPaymentDate.get(invoiceId);
       try {
         // Verificar si ya existe en Firestore
         const docRef = adminDb.collection('facturas_comisiones').doc(invoiceId);
@@ -322,6 +344,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
         }
         
         // Extraer solo lo necesario
+        // IMPORTANTE: Guardamos fecha del PAYMENT (cobro), no fecha de la invoice
         const facturaData = {
           invoiceId: invoice.id.toString(),
           seller: {
@@ -353,7 +376,8 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
               subtotal: subtotal
             };
           }),
-          fecha: invoice.date || new Date().toISOString().split('T')[0],
+          fecha: paymentDate, // FECHA DEL PAYMENT (cobro), no fecha de invoice
+          fechaInvoice: invoice.date, // Guardamos también la fecha de invoice para referencia
           fechaSync: new Date()
         };
         
