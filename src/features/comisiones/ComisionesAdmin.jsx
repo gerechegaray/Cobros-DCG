@@ -201,10 +201,18 @@ function ComisionesAdmin({ user }) {
     return Object.values(agrupado).sort((a, b) => b.comision - a.comision);
   };
   
-  const periodoLabel = periodo ? new Date(periodo + '-01').toLocaleDateString('es-AR', { 
-    year: 'numeric', 
-    month: 'long' 
-  }) : '';
+  // Generar label del período desde periodo (YYYY-MM)
+  // Asegurar que el formato sea correcto para evitar problemas de zona horaria
+  const periodoLabel = periodo ? (() => {
+    const [anio, mes] = periodo.split('-').map(Number);
+    // Crear fecha en UTC para evitar problemas de zona horaria
+    const fecha = new Date(Date.UTC(anio, mes - 1, 1));
+    return fecha.toLocaleDateString('es-AR', { 
+      year: 'numeric', 
+      month: 'long',
+      timeZone: 'UTC'
+    });
+  })() : '';
   
   // Obtener resumen por categoría
   const resumenPorCategoria = comisiones?.detalle 
