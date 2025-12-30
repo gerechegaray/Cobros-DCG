@@ -171,6 +171,8 @@ function ComisionesVendedor({ user }) {
             onClick={handleCalcular}
             loading={calculando}
             className="p-button-outlined"
+            disabled={comisiones?.estado === 'cerrado' || comisiones?.estado === 'pagado'}
+            tooltip={comisiones?.estado === 'cerrado' || comisiones?.estado === 'pagado' ? 'El período está cerrado o pagado, no se puede recalcular' : ''}
           />
         </div>
       </Card>
@@ -199,6 +201,50 @@ function ComisionesVendedor({ user }) {
             </Card>
           </div>
           
+          {/* 🆕 FASE 3: Badge de estado */}
+          {comisiones?.estado && (
+            <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 'var(--spacing-3)',
+                padding: 'var(--spacing-3)',
+                borderRadius: 'var(--border-radius-md)',
+                background: comisiones.estado === 'calculado' ? 'var(--dcg-warning-alpha)' :
+                           comisiones.estado === 'cerrado' ? 'var(--dcg-info-alpha)' :
+                           'var(--dcg-success-alpha)',
+                border: `1px solid ${
+                  comisiones.estado === 'calculado' ? 'var(--dcg-warning)' :
+                  comisiones.estado === 'cerrado' ? 'var(--dcg-info)' :
+                  'var(--dcg-success)'
+                }`
+              }}>
+                <i className={`pi ${
+                  comisiones.estado === 'calculado' ? 'pi-clock' :
+                  comisiones.estado === 'cerrado' ? 'pi-lock' :
+                  'pi-check-circle'
+                }`} style={{ 
+                  fontSize: 'var(--font-size-xl)',
+                  color: comisiones.estado === 'calculado' ? 'var(--dcg-warning)' :
+                         comisiones.estado === 'cerrado' ? 'var(--dcg-info)' :
+                         'var(--dcg-success)'
+                }}></i>
+                <div>
+                  <div style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--dcg-text-primary)' }}>
+                    Estado: {comisiones.estado === 'calculado' ? 'Calculado' :
+                            comisiones.estado === 'cerrado' ? 'Cerrado – pendiente de pago' :
+                            'Pagado'}
+                  </div>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--dcg-text-secondary)' }}>
+                    {comisiones.estado === 'calculado' ? 'Monto estimado – sujeto a validación administrativa' :
+                     comisiones.estado === 'cerrado' ? 'El período ha sido cerrado y está pendiente de pago' :
+                     'Comisión pagada'}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+          
           {comisionFlete && (
             <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
               <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Comisión por Flete</h2>
@@ -223,13 +269,49 @@ function ComisionesVendedor({ user }) {
             </Card>
           )}
           
+          {/* 🆕 FASE 3: Mostrar ajustes si existen */}
+          {comisiones?.ajustes && comisiones.ajustes.length > 0 && (
+            <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
+              <h2>Ajustes Manuales</h2>
+              <div style={{ marginTop: 'var(--spacing-3)' }}>
+                {comisiones.ajustes.map((ajuste, index) => (
+                  <div key={index} style={{
+                    padding: 'var(--spacing-3)',
+                    marginBottom: 'var(--spacing-2)',
+                    background: 'var(--dcg-bg-secondary)',
+                    borderRadius: 'var(--border-radius-md)',
+                    border: '1px solid var(--dcg-border)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--dcg-text-primary)' }}>
+                          {ajuste.tipo === 'positivo' ? '+' : '-'} {formatMonto(ajuste.monto)}
+                        </div>
+                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--dcg-text-secondary)', marginTop: 'var(--spacing-1)' }}>
+                          {ajuste.motivo}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--dcg-text-secondary)' }}>
+                        {ajuste.createdAt?.toDate ? new Date(ajuste.createdAt.toDate()).toLocaleDateString('es-AR') : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+          
           <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
-            <div className="comisiones-warning">
-              <i className="pi pi-info-circle"></i>
-              <span>Monto estimado – sujeto a validación administrativa</span>
-            </div>
+            {comisiones?.estado === 'calculado' && (
+              <div className="comisiones-warning">
+                <i className="pi pi-info-circle"></i>
+                <span>Monto estimado – sujeto a validación administrativa</span>
+              </div>
+            )}
             
-            <h2 style={{ marginTop: 'var(--spacing-4)' }}>Resumen por Categoría</h2>
+            <h2 style={{ marginTop: comisiones?.estado === 'calculado' ? 'var(--spacing-4)' : '0' }}>
+              Resumen por Categoría
+            </h2>
             
             {resumenPorCategoria.length > 0 ? (
               <DataTable
@@ -276,7 +358,9 @@ function ComisionesVendedor({ user }) {
             )}
             
             <div style={{ marginTop: 'var(--spacing-6)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--dcg-border)' }}>
-              <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Total Estimado del Período</h2>
+              <h2 style={{ marginBottom: 'var(--spacing-4)' }}>
+                {comisiones?.estado === 'pagado' ? 'Total Pagado del Período' : 'Total Estimado del Período'}
+              </h2>
               <div style={{ 
                 fontSize: 'var(--font-size-3xl)', 
                 fontWeight: 'var(--font-weight-bold)', 
@@ -284,7 +368,7 @@ function ComisionesVendedor({ user }) {
                 marginTop: 'var(--spacing-4)'
               }}>
                 {formatMonto(
-                  (comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
+                  (comisiones?.totalFinal || comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
                 )}
               </div>
               <div style={{ 
@@ -292,8 +376,22 @@ function ComisionesVendedor({ user }) {
                 fontSize: 'var(--font-size-sm)',
                 marginTop: 'var(--spacing-2)'
               }}>
-                = Comisión por Cobranza + Comisión por Flete
+                = Comisión por Cobranza {comisiones?.ajustes && comisiones.ajustes.length > 0 ? '+ Ajustes' : ''} + Comisión por Flete
               </div>
+              {comisiones?.ajustes && comisiones.ajustes.length > 0 && (
+                <div style={{ 
+                  color: 'var(--dcg-text-secondary)', 
+                  fontSize: 'var(--font-size-xs)',
+                  marginTop: 'var(--spacing-1)',
+                  fontStyle: 'italic'
+                }}>
+                  Comisión base: {formatMonto(comisiones.totalComision || 0)} | 
+                  Ajustes: {formatMonto(
+                    comisiones.ajustes.reduce((sum, a) => sum + (a.tipo === 'positivo' ? a.monto : -a.monto), 0)
+                  )} | 
+                  Total: {formatMonto(comisiones.totalFinal || comisiones.totalComision || 0)}
+                </div>
+              )}
             </div>
           </Card>
         </>

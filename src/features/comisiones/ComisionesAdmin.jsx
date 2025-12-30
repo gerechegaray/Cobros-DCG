@@ -8,7 +8,11 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
-import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, calcularComisionFlete } from './comisionesService';
+import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, calcularComisionFlete, cerrarPeriodo, agregarAjuste, pagarComision } from './comisionesService';
+import { Dialog } from 'primereact/dialog';
+import { InputTextarea } from 'primereact/inputtextarea';
+import { InputNumber } from 'primereact/inputnumber';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 
 function ComisionesAdmin({ user }) {
   const toast = useRef(null);
@@ -20,6 +24,10 @@ function ComisionesAdmin({ user }) {
   const [comisionFlete, setComisionFlete] = useState(null);
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState('Guille');
   const [periodo, setPeriodo] = useState('');
+  const [cerrando, setCerrando] = useState(false);
+  const [pagando, setPagando] = useState(false);
+  const [mostrarDialogAjuste, setMostrarDialogAjuste] = useState(false);
+  const [ajusteForm, setAjusteForm] = useState({ tipo: 'positivo', monto: 0, motivo: '' });
   
   const vendedores = [
     { label: 'Guille', value: 'Guille' },
@@ -163,6 +171,136 @@ function ComisionesAdmin({ user }) {
     }
   };
   
+  // 🆕 FASE 3: Cerrar período
+  const handleCerrarPeriodo = async () => {
+    if (!periodo) {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Período requerido',
+        detail: 'Selecciona un período para cerrar'
+      });
+      return;
+    }
+    
+    confirmDialog({
+      message: `¿Estás seguro de cerrar el período ${periodo}? Este período quedará cerrado y no podrá recalcularse.`,
+      header: 'Confirmar Cierre de Período',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, cerrar',
+      rejectLabel: 'Cancelar',
+      acceptClassName: 'p-button-warning',
+      accept: async () => {
+        setCerrando(true);
+        try {
+          const resultado = await cerrarPeriodo(periodo);
+          toast.current?.show({
+            severity: 'success',
+            summary: 'Período cerrado',
+            detail: `El período ${periodo} ha sido cerrado correctamente`
+          });
+          await cargarComisiones();
+        } catch (error) {
+          console.error('Error cerrando período:', error);
+          toast.current?.show({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.message || 'No se pudo cerrar el período'
+          });
+        } finally {
+          setCerrando(false);
+        }
+      }
+    });
+  };
+  
+  // 🆕 FASE 3: Agregar ajuste
+  const handleAgregarAjuste = async () => {
+    if (!ajusteForm.monto || ajusteForm.monto <= 0) {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Monto inválido',
+        detail: 'El monto debe ser mayor a 0'
+      });
+      return;
+    }
+    
+    if (!ajusteForm.motivo || ajusteForm.motivo.trim() === '') {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Motivo requerido',
+        detail: 'Debes ingresar un motivo para el ajuste'
+      });
+      return;
+    }
+    
+    try {
+      await agregarAjuste(
+        vendedorSeleccionado,
+        periodo,
+        ajusteForm.tipo,
+        ajusteForm.monto,
+        ajusteForm.motivo
+      );
+      toast.current?.show({
+        severity: 'success',
+        summary: 'Ajuste agregado',
+        detail: `Ajuste ${ajusteForm.tipo === 'positivo' ? 'sumado' : 'restado'} correctamente`
+      });
+      setMostrarDialogAjuste(false);
+      setAjusteForm({ tipo: 'positivo', monto: 0, motivo: '' });
+      await cargarComisiones();
+    } catch (error) {
+      console.error('Error agregando ajuste:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: error.message || 'No se pudo agregar el ajuste'
+      });
+    }
+  };
+  
+  // 🆕 FASE 3: Pagar comisión
+  const handlePagarComision = async () => {
+    if (!vendedorSeleccionado || !periodo) {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Datos requeridos',
+        detail: 'Selecciona vendedor y período'
+      });
+      return;
+    }
+    
+    confirmDialog({
+      message: `¿Marcar como pagada la comisión de ${vendedorSeleccionado} para ${periodo}?`,
+      header: 'Confirmar Pago',
+      icon: 'pi pi-check-circle',
+      acceptLabel: 'Sí, marcar como pagado',
+      rejectLabel: 'Cancelar',
+      acceptClassName: 'p-button-success',
+      accept: async () => {
+        setPagando(true);
+        try {
+          await pagarComision(vendedorSeleccionado, periodo);
+          toast.current?.show({
+            severity: 'success',
+            summary: 'Comisión pagada',
+            detail: `La comisión de ${vendedorSeleccionado} para ${periodo} ha sido marcada como pagada`
+          });
+          await cargarComisiones();
+        } catch (error) {
+          console.error('Error pagando comisión:', error);
+          toast.current?.show({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.message || 'No se pudo marcar como pagado'
+          });
+        } finally {
+          setPagando(false);
+        }
+      }
+    });
+  };
+  
   const formatMonto = (monto) => {
     const valor = parseFloat(monto) || 0;
     return new Intl.NumberFormat('es-AR', {
@@ -267,10 +405,40 @@ function ComisionesAdmin({ user }) {
               onClick={handleCalcular}
               loading={calculando}
               className="p-button-outlined"
+              disabled={comisiones?.estado === 'cerrado' || comisiones?.estado === 'pagado'}
             />
+            {comisiones?.estado === 'calculado' && (
+              <Button
+                label="Cerrar Período"
+                icon="pi pi-lock"
+                onClick={handleCerrarPeriodo}
+                loading={cerrando}
+                className="p-button-warning"
+                tooltip="Cierra el período y bloquea recálculos"
+              />
+            )}
+            {comisiones?.estado === 'cerrado' && (
+              <>
+                <Button
+                  label="Agregar Ajuste"
+                  icon="pi pi-plus-circle"
+                  onClick={() => setMostrarDialogAjuste(true)}
+                  className="p-button-outlined p-button-info"
+                />
+                <Button
+                  label="Marcar como Pagado"
+                  icon="pi pi-check"
+                  onClick={handlePagarComision}
+                  loading={pagando}
+                  className="p-button-success"
+                />
+              </>
+            )}
           </div>
         </div>
       </Card>
+      
+      <ConfirmDialog />
       
       <Card className="comisiones-filters-card">
         <div className="comisiones-filters">
@@ -343,17 +511,16 @@ function ComisionesAdmin({ user }) {
           )}
           
           <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
-            <div className="comisiones-warning">
-              <i className="pi pi-info-circle"></i>
-              <span>Monto estimado – sujeto a validación administrativa</span>
-            </div>
+            {comisiones?.estado === 'calculado' && (
+              <div className="comisiones-warning">
+                <i className="pi pi-info-circle"></i>
+                <span>Monto estimado – sujeto a validación administrativa</span>
+              </div>
+            )}
             
-            <div className="comisiones-warning">
-              <i className="pi pi-info-circle"></i>
-              <span>Monto estimado – sujeto a validación administrativa</span>
-            </div>
-            
-            <h2>Resumen por Categoría - {vendedorSeleccionado} - {periodoLabel}</h2>
+            <h2 style={{ marginTop: comisiones?.estado === 'calculado' ? 'var(--spacing-4)' : '0' }}>
+              Resumen por Categoría - {vendedorSeleccionado} - {periodoLabel}
+            </h2>
             
             {resumenPorCategoria.length > 0 ? (
               <DataTable
@@ -400,7 +567,9 @@ function ComisionesAdmin({ user }) {
             )}
             
             <div style={{ marginTop: 'var(--spacing-6)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--dcg-border)' }}>
-              <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Total Estimado del Período</h2>
+              <h2 style={{ marginBottom: 'var(--spacing-4)' }}>
+                {comisiones?.estado === 'pagado' ? 'Total Pagado del Período' : 'Total Estimado del Período'}
+              </h2>
               <div style={{ 
                 fontSize: 'var(--font-size-3xl)', 
                 fontWeight: 'var(--font-weight-bold)', 
@@ -408,7 +577,7 @@ function ComisionesAdmin({ user }) {
                 marginTop: 'var(--spacing-4)'
               }}>
                 {formatMonto(
-                  (comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
+                  (comisiones?.totalFinal || comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
                 )}
               </div>
               <div style={{ 
@@ -416,12 +585,92 @@ function ComisionesAdmin({ user }) {
                 fontSize: 'var(--font-size-sm)',
                 marginTop: 'var(--spacing-2)'
               }}>
-                = Comisión por Cobranza + Comisión por Flete
+                = Comisión por Cobranza {comisiones?.ajustes && comisiones.ajustes.length > 0 ? '+ Ajustes' : ''} + Comisión por Flete
               </div>
+              {comisiones?.ajustes && comisiones.ajustes.length > 0 && (
+                <div style={{ 
+                  color: 'var(--dcg-text-secondary)', 
+                  fontSize: 'var(--font-size-xs)',
+                  marginTop: 'var(--spacing-1)',
+                  fontStyle: 'italic'
+                }}>
+                  Comisión base: {formatMonto(comisiones.totalComision || 0)} | 
+                  Ajustes: {formatMonto(
+                    comisiones.ajustes.reduce((sum, a) => sum + (a.tipo === 'positivo' ? a.monto : -a.monto), 0)
+                  )} | 
+                  Total: {formatMonto(comisiones.totalFinal || comisiones.totalComision || 0)}
+                </div>
+              )}
             </div>
           </Card>
         </>
       )}
+      
+      {/* 🆕 FASE 3: Dialog para agregar ajuste */}
+      <Dialog
+        header="Agregar Ajuste Manual"
+        visible={mostrarDialogAjuste}
+        style={{ width: '500px' }}
+        onHide={() => {
+          setMostrarDialogAjuste(false);
+          setAjusteForm({ tipo: 'positivo', monto: 0, motivo: '' });
+        }}
+        footer={
+          <div>
+            <Button
+              label="Cancelar"
+              icon="pi pi-times"
+              onClick={() => {
+                setMostrarDialogAjuste(false);
+                setAjusteForm({ tipo: 'positivo', monto: 0, motivo: '' });
+              }}
+              className="p-button-text"
+            />
+            <Button
+              label="Agregar Ajuste"
+              icon="pi pi-check"
+              onClick={handleAgregarAjuste}
+              className="p-button-primary"
+            />
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
+          <div>
+            <label>Tipo de Ajuste:</label>
+            <Dropdown
+              value={ajusteForm.tipo}
+              options={[
+                { label: 'Suma (+)', value: 'positivo' },
+                { label: 'Resta (-)', value: 'negativo' }
+              ]}
+              onChange={(e) => setAjusteForm({ ...ajusteForm, tipo: e.value })}
+              style={{ width: '100%', marginTop: 'var(--spacing-2)' }}
+            />
+          </div>
+          <div>
+            <label>Monto:</label>
+            <InputNumber
+              value={ajusteForm.monto}
+              onValueChange={(e) => setAjusteForm({ ...ajusteForm, monto: e.value || 0 })}
+              mode="currency"
+              currency="ARS"
+              locale="es-AR"
+              style={{ width: '100%', marginTop: 'var(--spacing-2)' }}
+            />
+          </div>
+          <div>
+            <label>Motivo (obligatorio):</label>
+            <InputTextarea
+              value={ajusteForm.motivo}
+              onChange={(e) => setAjusteForm({ ...ajusteForm, motivo: e.target.value })}
+              rows={4}
+              style={{ width: '100%', marginTop: 'var(--spacing-2)' }}
+              placeholder="Describe el motivo del ajuste..."
+            />
+          </div>
+        </div>
+      </Dialog>
       
       {!comisiones && !loading && (
         <Card>

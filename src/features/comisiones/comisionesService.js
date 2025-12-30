@@ -188,3 +188,83 @@ export const getComisionFlete = async (vendedor, periodo) => {
   }
 };
 
+// 🆕 FASE 3: Cierre, ajustes y pago
+// Cerrar período de comisiones
+export const cerrarPeriodo = async (periodo) => {
+  try {
+    const url = `${API_BASE_URL}/api/comisiones/cerrar/${periodo}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error cerrando período:', error);
+    throw error;
+  }
+};
+
+// Agregar ajuste manual
+export const agregarAjuste = async (vendedor, periodo, tipo, monto, motivo) => {
+  try {
+    const url = `${API_BASE_URL}/api/comisiones/ajuste`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        vendedor,
+        periodo,
+        tipo,
+        monto,
+        motivo
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error agregando ajuste:', error);
+    throw error;
+  }
+};
+
+// Marcar comisión como pagada
+export const pagarComision = async (vendedor, periodo, notaPago = '') => {
+  try {
+    const url = `${API_BASE_URL}/api/comisiones/pagar/${vendedor}/${periodo}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        notaPago
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error marcando como pagado:', error);
+    throw error;
+  }
+};
+

@@ -11,7 +11,10 @@ import { getAlegraInvoices, getAlegraContacts, getAlegraItems } from "./alegraSe
 import { 
   sincronizarFacturasDesdePayments, 
   calcularComisionesMensuales, 
-  getReglasComisiones 
+  getReglasComisiones,
+  cerrarPeriodoComisiones,
+  agregarAjusteComision,
+  pagarComision
 } from "./comisionesService.js";
 // Importo el servicio de comisiones por flete
 import { 
@@ -3009,11 +3012,34 @@ app.get("/api/comisiones/:vendedor/:periodo", async (req, res) => {
         periodo,
         totalCobrado: 0,
         totalComision: 0,
-        detalle: []
+        detalle: [],
+        estado: 'calculado',
+        ajustes: [],
+        totalFinal: 0
       });
     }
     
     const data = docSnapshot.data();
+    
+    // 🆕 FASE 3: Calcular totalFinal si no existe (compatibilidad con datos antiguos)
+    if (data.totalFinal === undefined || data.totalFinal === null) {
+      const ajustes = data.ajustes || [];
+      const totalAjustes = ajustes.reduce((sum, ajuste) => {
+        return sum + (ajuste.tipo === 'positivo' ? ajuste.monto : -ajuste.monto);
+      }, 0);
+      data.totalFinal = (data.totalComision || 0) + totalAjustes;
+    }
+    
+    // Asegurar que tenga estado por defecto
+    if (!data.estado) {
+      data.estado = 'calculado';
+    }
+    
+    // Asegurar que tenga ajustes por defecto
+    if (!data.ajustes) {
+      data.ajustes = [];
+    }
+    
     res.json(data);
     
   } catch (error) {
@@ -3070,6 +3096,83 @@ app.get("/api/comisiones/reglas", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error obteniendo reglas:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 FASE 3: Endpoints para cierre, ajustes y pago
+// Endpoint para cerrar período de comisiones
+app.post("/api/comisiones/cerrar/:periodo", async (req, res) => {
+  try {
+    const { periodo } = req.params;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const resultados = await cerrarPeriodoComisiones(adminDb, periodo);
+    
+    res.json({
+      success: true,
+      periodo,
+      resultados
+    });
+    
+  } catch (error) {
+    console.error('[COMISIONES CIERRE] Error cerrando período:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para agregar ajuste manual
+app.post("/api/comisiones/ajuste", async (req, res) => {
+  try {
+    const { vendedor, periodo, tipo, monto, motivo } = req.body;
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    if (!vendedor || !periodo || !tipo || !monto || !motivo) {
+      return res.status(400).json({ error: 'Faltan campos requeridos: vendedor, periodo, tipo, monto, motivo' });
+    }
+    
+    const resultado = await agregarAjusteComision(adminDb, vendedor, periodo, {
+      tipo,
+      monto,
+      motivo
+    });
+    
+    res.json({
+      success: true,
+      ...resultado
+    });
+    
+  } catch (error) {
+    console.error('[COMISIONES AJUSTE] Error agregando ajuste:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para marcar comisión como pagada
+app.post("/api/comisiones/pagar/:vendedor/:periodo", async (req, res) => {
+  try {
+    const { vendedor, periodo } = req.params;
+    const { notaPago } = req.body || {};
+    
+    if (!adminDb) {
+      return res.status(500).json({ error: 'Firebase no inicializado' });
+    }
+    
+    const resultado = await pagarComision(adminDb, vendedor, periodo, notaPago);
+    
+    res.json({
+      success: true,
+      ...resultado
+    });
+    
+  } catch (error) {
+    console.error('[COMISIONES PAGO] Error marcando como pagado:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -2,6 +2,7 @@
 // FASE 1: Cálculo simple basado en reglas de categoría
 
 import { getAlegraPayments, getAlegraInvoiceById } from './alegraService.js';
+import { Timestamp } from 'firebase-admin/firestore';
 
 // Vendedores válidos
 const VENDEDORES_VALIDOS = ['Guille', 'Santi'];
@@ -166,14 +167,43 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
       .collection(periodo)
       .doc(periodo);
     
+    // Verificar si el período ya está cerrado
+    const docSnapshot = await docRef.get();
+    const datosExistentes = docSnapshot.exists ? docSnapshot.data() : {};
+    
+    // Si está cerrado o pagado, no recalcular
+    if (datosExistentes.estado === 'cerrado' || datosExistentes.estado === 'pagado') {
+      console.log(`[COMISIONES] ${vendedorNombre} - Período ${periodo} está ${datosExistentes.estado}, no se recalcula`);
+      resultados.push(datosExistentes);
+      continue;
+    }
+    
+    // Preservar ajustes y estado existentes
+    const ajustes = datosExistentes.ajustes || [];
+    const estado = datosExistentes.estado || 'calculado';
+    
+    // Calcular total final (comisión + ajustes)
+    const totalAjustes = ajustes.reduce((sum, ajuste) => {
+      return sum + (ajuste.tipo === 'positivo' ? ajuste.monto : -ajuste.monto);
+    }, 0);
+    const totalFinal = resultado.totalComision + totalAjustes;
+    
     await docRef.set({
       ...resultado,
-      updatedAt: new Date()
+      estado: estado,
+      ajustes: ajustes,
+      totalFinal: totalFinal,
+      updatedAt: Timestamp.now()
     }, { merge: true });
     
-    resultados.push(resultado);
+    resultados.push({
+      ...resultado,
+      estado: estado,
+      ajustes: ajustes,
+      totalFinal: totalFinal
+    });
     
-    console.log(`[COMISIONES] ${vendedorNombre} - Total cobrado: ${resultado.totalCobrado}, Comisión: ${resultado.totalComision}`);
+    console.log(`[COMISIONES] ${vendedorNombre} - Total cobrado: ${resultado.totalCobrado}, Comisión: ${resultado.totalComision}, Total final: ${totalFinal}`);
   }
   
   console.log(`[COMISIONES] Cálculo completado para ${resultados.length} vendedores`);
@@ -415,5 +445,186 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
     console.error('[COMISIONES SYNC] Error en sincronización:', error);
     throw error;
   }
+}
+
+/**
+ * Cerrar período de comisiones (bloquear recálculo)
+ */
+export async function cerrarPeriodoComisiones(adminDb, periodo) {
+  if (!adminDb) {
+    throw new Error('Firebase no inicializado');
+  }
+  
+  console.log(`[COMISIONES CIERRE] Cerrando período: ${periodo}`);
+  
+  // Validar formato de período
+  if (!/^\d{4}-\d{2}$/.test(periodo)) {
+    throw new Error('Formato de período inválido. Debe ser YYYY-MM');
+  }
+  
+  const resultados = [];
+  
+  // Cerrar comisiones de todos los vendedores válidos
+  for (const vendedor of VENDEDORES_VALIDOS) {
+    const docRef = adminDb.collection('comisiones_mensuales')
+      .doc(vendedor)
+      .collection(periodo)
+      .doc(periodo);
+    
+    const docSnapshot = await docRef.get();
+    
+    if (docSnapshot.exists) {
+      const datos = docSnapshot.data();
+      
+      // Solo cerrar si está en estado "calculado"
+      if (datos.estado === 'calculado') {
+        await docRef.update({
+          estado: 'cerrado',
+          cerradoAt: Timestamp.now()
+        });
+        
+        console.log(`[COMISIONES CIERRE] ${vendedor} - Período ${periodo} cerrado`);
+        resultados.push({ vendedor, periodo, estado: 'cerrado' });
+      } else {
+        console.log(`[COMISIONES CIERRE] ${vendedor} - Período ${periodo} ya está ${datos.estado}, no se puede cerrar`);
+        resultados.push({ vendedor, periodo, estado: datos.estado, mensaje: 'Ya estaba cerrado o pagado' });
+      }
+    } else {
+      console.log(`[COMISIONES CIERRE] ${vendedor} - No hay comisiones calculadas para ${periodo}`);
+      resultados.push({ vendedor, periodo, estado: 'no_existe', mensaje: 'No hay comisiones calculadas' });
+    }
+  }
+  
+  return resultados;
+}
+
+/**
+ * Agregar ajuste manual a comisión
+ */
+export async function agregarAjusteComision(adminDb, vendedor, periodo, ajuste) {
+  if (!adminDb) {
+    throw new Error('Firebase no inicializado');
+  }
+  
+  if (!VENDEDORES_VALIDOS.includes(vendedor)) {
+    throw new Error(`Vendedor inválido: ${vendedor}`);
+  }
+  
+  if (!/^\d{4}-\d{2}$/.test(periodo)) {
+    throw new Error('Formato de período inválido. Debe ser YYYY-MM');
+  }
+  
+  if (!ajuste.tipo || !['positivo', 'negativo'].includes(ajuste.tipo)) {
+    throw new Error('Tipo de ajuste inválido. Debe ser "positivo" o "negativo"');
+  }
+  
+  if (!ajuste.monto || ajuste.monto <= 0) {
+    throw new Error('Monto de ajuste inválido. Debe ser mayor a 0');
+  }
+  
+  if (!ajuste.motivo || ajuste.motivo.trim() === '') {
+    throw new Error('Motivo del ajuste es obligatorio');
+  }
+  
+  const docRef = adminDb.collection('comisiones_mensuales')
+    .doc(vendedor)
+    .collection(periodo)
+    .doc(periodo);
+  
+  const docSnapshot = await docRef.get();
+  
+  if (!docSnapshot.exists) {
+    throw new Error(`No hay comisiones calculadas para ${vendedor} en ${periodo}`);
+  }
+  
+  const datos = docSnapshot.data();
+  
+  // No permitir ajustes si está pagado
+  if (datos.estado === 'pagado') {
+    throw new Error('No se pueden agregar ajustes a comisiones ya pagadas');
+  }
+  
+  // Agregar ajuste
+  const ajustes = datos.ajustes || [];
+  const nuevoAjuste = {
+    tipo: ajuste.tipo,
+    monto: parseFloat(ajuste.monto),
+    motivo: ajuste.motivo.trim(),
+    createdAt: Timestamp.now()
+  };
+  
+  ajustes.push(nuevoAjuste);
+  
+  // Recalcular total final
+  const totalAjustes = ajustes.reduce((sum, a) => {
+    return sum + (a.tipo === 'positivo' ? a.monto : -a.monto);
+  }, 0);
+  const totalFinal = (datos.totalComision || 0) + totalAjustes;
+  
+  await docRef.update({
+    ajustes: ajustes,
+    totalFinal: totalFinal,
+    updatedAt: Timestamp.now()
+  });
+  
+  console.log(`[COMISIONES AJUSTE] ${vendedor} - Ajuste agregado: ${ajuste.tipo} $${ajuste.monto}, Total final: $${totalFinal}`);
+  
+  return {
+    vendedor,
+    periodo,
+    ajuste: nuevoAjuste,
+    totalFinal
+  };
+}
+
+/**
+ * Marcar comisión como pagada
+ */
+export async function pagarComision(adminDb, vendedor, periodo, notaPago = '') {
+  if (!adminDb) {
+    throw new Error('Firebase no inicializado');
+  }
+  
+  if (!VENDEDORES_VALIDOS.includes(vendedor)) {
+    throw new Error(`Vendedor inválido: ${vendedor}`);
+  }
+  
+  if (!/^\d{4}-\d{2}$/.test(periodo)) {
+    throw new Error('Formato de período inválido. Debe ser YYYY-MM');
+  }
+  
+  const docRef = adminDb.collection('comisiones_mensuales')
+    .doc(vendedor)
+    .collection(periodo)
+    .doc(periodo);
+  
+  const docSnapshot = await docRef.get();
+  
+  if (!docSnapshot.exists) {
+    throw new Error(`No hay comisiones calculadas para ${vendedor} en ${periodo}`);
+  }
+  
+  const datos = docSnapshot.data();
+  
+  // Solo pagar si está cerrado
+  if (datos.estado !== 'cerrado') {
+    throw new Error(`No se puede pagar un período que no está cerrado. Estado actual: ${datos.estado}`);
+  }
+  
+  await docRef.update({
+    estado: 'pagado',
+    pagadoAt: Timestamp.now(),
+    notaPago: notaPago.trim() || '',
+    updatedAt: Timestamp.now()
+  });
+  
+  console.log(`[COMISIONES PAGO] ${vendedor} - Período ${periodo} marcado como pagado`);
+  
+  return {
+    vendedor,
+    periodo,
+    estado: 'pagado',
+    totalFinal: datos.totalFinal || datos.totalComision || 0
+  };
 }
 
