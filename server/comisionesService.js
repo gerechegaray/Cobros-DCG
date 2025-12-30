@@ -205,39 +205,39 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
     }
     
     // Extraer invoice IDs únicos
+    // NOTA: Los payments de Alegra tienen "invoices" (array), no "invoice" (objeto)
     const invoiceIds = new Set();
     let paymentsConInvoice = 0;
     let paymentsSinInvoice = 0;
+    let totalInvoicesEncontradas = 0;
     
     payments.forEach(payment => {
-      // Intentar diferentes estructuras posibles
-      let invoiceId = null;
-      
-      if (payment.invoice && payment.invoice.id) {
-        invoiceId = payment.invoice.id.toString();
+      // Los payments tienen "invoices" como array
+      if (payment.invoices && Array.isArray(payment.invoices) && payment.invoices.length > 0) {
         paymentsConInvoice++;
-      } else if (payment.invoiceId) {
-        invoiceId = payment.invoiceId.toString();
-        paymentsConInvoice++;
-      } else if (payment.invoice && typeof payment.invoice === 'object' && payment.invoice.id) {
-        invoiceId = payment.invoice.id.toString();
-        paymentsConInvoice++;
+        totalInvoicesEncontradas += payment.invoices.length;
+        
+        // Extraer IDs de todas las invoices del array
+        payment.invoices.forEach(invoice => {
+          if (invoice && invoice.id) {
+            invoiceIds.add(invoice.id.toString());
+          }
+        });
       } else {
         paymentsSinInvoice++;
-        console.log('[COMISIONES SYNC] Payment sin invoice válido:', {
+        console.log('[COMISIONES SYNC] Payment sin invoices válidas:', {
           paymentId: payment.id,
           paymentDate: payment.date,
-          invoice: payment.invoice
+          tieneInvoices: !!payment.invoices,
+          esArray: Array.isArray(payment.invoices),
+          cantidad: payment.invoices?.length || 0
         });
-      }
-      
-      if (invoiceId) {
-        invoiceIds.add(invoiceId);
       }
     });
     
-    console.log(`[COMISIONES SYNC] Payments con invoice: ${paymentsConInvoice}`);
-    console.log(`[COMISIONES SYNC] Payments sin invoice: ${paymentsSinInvoice}`);
+    console.log(`[COMISIONES SYNC] Payments con invoices: ${paymentsConInvoice}`);
+    console.log(`[COMISIONES SYNC] Payments sin invoices: ${paymentsSinInvoice}`);
+    console.log(`[COMISIONES SYNC] Total invoices encontradas en payments: ${totalInvoicesEncontradas}`);
     console.log(`[COMISIONES SYNC] Invoice IDs únicos: ${invoiceIds.size}`);
     
     let nuevas = 0;
@@ -325,7 +325,8 @@ export async function sincronizarFacturasDesdePayments(adminDb) {
       vendedorInvalido,
       paymentsProcesados: payments.length,
       paymentsConInvoice: paymentsConInvoice,
-      paymentsSinInvoice: paymentsSinInvoice
+      paymentsSinInvoice: paymentsSinInvoice,
+      totalInvoicesEncontradas: totalInvoicesEncontradas
     };
     
   } catch (error) {
