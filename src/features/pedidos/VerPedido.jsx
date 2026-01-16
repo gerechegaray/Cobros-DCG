@@ -142,12 +142,10 @@ const VerPedido = ({ visible, onHide, pedido }) => {
                   <div key={index} className="mb-2 p-2 border-1 border-100 border-round">
                     <div className="flex justify-content-between">
                       <div className="flex-1">
-                        <div className="font-bold">{producto.nombre}</div>
-                        {producto.codigo && (
-                          <div className="text-sm text-500 mb-1">
-                            <strong>Código:</strong> {producto.codigo}
-                          </div>
-                        )}
+                        <div className="font-bold">
+                          {producto.nombre}
+                          {producto.codigo && <span className="text-500 font-normal"> ({producto.codigo})</span>}
+                        </div>
                         <div className="text-sm text-600">
                           {producto.cantidad} × {formatearMoneda(producto.precioUnitario || 0)}
                           {producto.descuento && producto.descuento > 0 && (
