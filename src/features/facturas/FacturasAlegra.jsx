@@ -1331,10 +1331,11 @@ const FacturasAlegra = ({ user }) => {
       pdfContainer.style.position = 'absolute';
       pdfContainer.style.left = '-9999px';
       pdfContainer.style.top = '0';
-                   pdfContainer.style.width = '800px';
-             pdfContainer.style.backgroundColor = 'white';
-             pdfContainer.style.padding = '20px';
-             pdfContainer.style.fontFamily = 'Arial, sans-serif';
+      pdfContainer.style.width = '800px';
+      pdfContainer.style.backgroundColor = 'white';
+      pdfContainer.style.color = '#000000'; // Color base oscuro para evitar herencia de tema
+      pdfContainer.style.padding = '20px';
+      pdfContainer.style.fontFamily = 'Arial, sans-serif';
 
       // Obtener productos por cliente
       const productosPorCliente = obtenerDetalleProductos(hoja.pedidos);
@@ -1344,41 +1345,41 @@ const FacturasAlegra = ({ user }) => {
 
       // Crear el contenido del PDF
       pdfContainer.innerHTML = `
-        <div style="text-align: center; margin-bottom: 15px;">
-          <h1 style="color: #2c3e50; margin: 0; font-size: 18px;">HOJA DE RUTA</h1>
+        <div style="text-align: center; margin-bottom: 15px; color: #000000;">
+          <h1 style="color: #2c3e50 !important; margin: 0; font-size: 18px;">HOJA DE RUTA</h1>
         </div>
         
-        <div style="margin-bottom: 10px;">
-          <p style="margin: 2px 0; font-size: 11px;"><strong>Responsable:</strong> ${hoja.responsable || 'N/A'}</p>
-          <p style="margin: 2px 0; font-size: 11px;"><strong>Fecha:</strong> ${formatFecha(hoja.fechaCreacion)}</p>
-          <p style="margin: 2px 0; color: #7f8c8d; font-size: 11px;"><strong>Generado el:</strong> ${new Date().toLocaleDateString('es-AR')}</p>
+        <div style="margin-bottom: 10px; color: #000000;">
+          <p style="margin: 2px 0; font-size: 11px; color: #000000 !important;"><strong style="color: #000000 !important;">Responsable:</strong> ${hoja.responsable || 'N/A'}</p>
+          <p style="margin: 2px 0; font-size: 11px; color: #000000 !important;"><strong style="color: #000000 !important;">Fecha:</strong> ${formatFecha(hoja.fechaCreacion)}</p>
+          <p style="margin: 2px 0; color: #7f8c8d !important; font-size: 11px;"><strong style="color: #7f8c8d !important;">Generado el:</strong> ${new Date().toLocaleDateString('es-AR')}</p>
         </div>
         
-        <div style="margin-bottom: 12px;">
-          <h2 style="color: #2c3e50; margin-bottom: 6px; font-size: 14px;">RESUMEN</h2>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
-            <span style="color: #2c3e50;"><strong>Total de Pedidos:</strong> ${totalPedidos}</span>
+        <div style="margin-bottom: 12px; color: #000000;">
+          <h2 style="color: #2c3e50 !important; margin-bottom: 6px; font-size: 14px;">RESUMEN</h2>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; color: #000000;">
+            <span style="color: #2c3e50 !important;"><strong style="color: #2c3e50 !important;">Total de Pedidos:</strong> ${totalPedidos}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
-            <span style="color: #27ae60;"><strong>Entregados:</strong> ${entregados}</span>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; color: #000000;">
+            <span style="color: #27ae60 !important;"><strong style="color: #27ae60 !important;">Entregados:</strong> ${entregados}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
-            <span style="color: #e74c3c;"><strong>Pendientes:</strong> ${totalPedidos - entregados}</span>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; color: #000000;">
+            <span style="color: #e74c3c !important;"><strong style="color: #e74c3c !important;">Pendientes:</strong> ${totalPedidos - entregados}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px;">
-            <span style="color: #2c3e50;"><strong>Total General:</strong> ${formatearMoneda(totalHoja)}</span>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; color: #000000;">
+            <span style="color: #2c3e50 !important;"><strong style="color: #2c3e50 !important;">Total General:</strong> ${formatearMoneda(totalHoja)}</span>
           </div>
         </div>
         
-        <div style="margin-bottom: 10px;">
-          <h2 style="color: #2c3e50; margin-bottom: 6px; font-size: 14px;">DETALLE DE PRODUCTOS POR CLIENTE</h2>
+        <div style="margin-bottom: 10px; color: #000000;">
+          <h2 style="color: #2c3e50 !important; margin-bottom: 6px; font-size: 14px;">DETALLE DE PRODUCTOS POR CLIENTE</h2>
           ${Object.entries(productosPorCliente).map(([cliente, productos]) => `
-            <div style="margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px; padding: 6px;">
-              <h3 style="color: #34495e; margin: 0 0 4px 0; font-size: 12px;">${cliente}</h3>
-              <ul style="margin: 0; padding-left: 15px; list-style-type: none;">
+            <div style="margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px; padding: 6px; color: #000000;">
+              <h3 style="color: #34495e !important; margin: 0 0 4px 0; font-size: 12px;">${cliente}</h3>
+              <ul style="margin: 0; padding-left: 15px; list-style-type: none; color: #000000;">
                 ${productos.map(producto => `
-                  <li style="margin: 2px 0; font-size: 10px; padding: 1px 0;">
-                    <span style="font-weight: bold; color: #2c3e50;">${producto.cantidad}x</span> ${producto.producto}
+                  <li style="margin: 2px 0; font-size: 10px; padding: 1px 0; color: #000000 !important;">
+                    <span style="font-weight: bold; color: #2c3e50 !important;">${producto.cantidad}x</span> <span style="color: #000000 !important;">${producto.producto}</span>
                   </li>
                 `).join('')}
               </ul>
