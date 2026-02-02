@@ -51,6 +51,23 @@
   font-weight: var(--font-weight-medium);
 }
 
+.comisiones-periodo-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.comisiones-periodo-selector label {
+  color: var(--dcg-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.comisiones-periodo-dropdown {
+  min-width: 200px;
+}
+
 .comisiones-admin-actions {
   display: flex;
   gap: var(--spacing-3);
@@ -242,6 +259,49 @@
 }
 
 /* ============================================
+   TOP CLIENTES Y PRODUCTOS
+   ============================================ */
+.comisiones-tops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-4);
+}
+
+.comisiones-top-card {
+  min-width: 0;
+}
+
+.comisiones-top-title {
+  display: flex;
+  align-items: center;
+  color: var(--dcg-text-primary) !important;
+  font-size: var(--font-size-lg) !important;
+  font-weight: var(--font-weight-bold) !important;
+  margin: 0 0 var(--spacing-2) 0 !important;
+}
+
+.comisiones-top-subtitle {
+  color: var(--dcg-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--spacing-4) 0;
+}
+
+.comisiones-top-table .p-datatable-thead > tr > th,
+.comisiones-top-table .p-datatable-tbody > tr > td {
+  padding: var(--spacing-2) var(--spacing-3) !important;
+  font-size: var(--font-size-sm);
+}
+
+.comisiones-top-producto {
+  max-width: 200px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================
    ESTADO VACÍO
    ============================================ */
 .comisiones-empty {
@@ -296,6 +356,19 @@
   .comisiones-table .p-datatable-thead > tr > th,
   .comisiones-table .p-datatable-tbody > tr > td {
     padding: var(--spacing-2) var(--spacing-2) !important;
+  }
+  
+  .comisiones-tops-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .comisiones-periodo-selector {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .comisiones-periodo-dropdown {
+    width: 100%;
   }
 }
 

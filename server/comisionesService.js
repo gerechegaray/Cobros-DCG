@@ -143,14 +143,18 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
       comisionesPorVendedor[vendedorNombre].totalCobrado += subtotal;
       comisionesPorVendedor[vendedorNombre].totalComision += comision;
       
-      // Agregar al detalle
+      // Agregar al detalle (incluir cliente para reportes de top clientes)
+      const clientId = factura.client?.id || null;
+      const clientName = factura.client?.name || null;
       comisionesPorVendedor[vendedorNombre].detalle.push({
         facturaId: factura.invoiceId,
         producto: description,
         categoria: categoria,
         subtotal: subtotal,
         porcentaje: porcentaje,
-        comision: comision
+        comision: comision,
+        clientId,
+        clientName
       });
     });
   });
@@ -370,11 +374,16 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
         
         // Extraer solo lo necesario
         // IMPORTANTE: Guardamos fecha del PAYMENT (cobro), no fecha de la invoice
+        const clientInfo = invoice.client || invoice.clientUser;
         const facturaData = {
           invoiceId: invoice.id.toString(),
           seller: {
             name: invoice.seller.name
           },
+          client: clientInfo ? {
+            id: (clientInfo.id ?? clientInfo.identifier)?.toString?.() || String(clientInfo.id || ''),
+            name: clientInfo.name || clientInfo.organization || 'Sin nombre'
+          } : null,
           items: (invoice.items || []).map(item => {
             // El campo correcto es "total" según la estructura de Alegra
             // total = price * quantity (ya calculado por Alegra)
@@ -429,7 +438,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
     
     return {
       success: true,
-      total: invoiceIds.size,
+      total: invoiceIds.length,
       nuevas,
       actualizadas,
       errores,

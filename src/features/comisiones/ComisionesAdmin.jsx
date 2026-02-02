@@ -339,6 +339,36 @@ function ComisionesAdmin({ user }) {
     return Object.values(agrupado).sort((a, b) => b.comision - a.comision);
   };
   
+  // Agrupar por producto (top por valor/incidencia)
+  const agruparPorProducto = (detalle, totalCobrado) => {
+    if (!detalle || !Array.isArray(detalle) || detalle.length === 0) return [];
+    const agrupado = {};
+    detalle.forEach(item => {
+      const producto = (item.producto || 'Sin nombre').trim() || 'Sin nombre';
+      if (!agrupado[producto]) agrupado[producto] = { producto, subtotal: 0 };
+      agrupado[producto].subtotal += parseFloat(item.subtotal) || 0;
+    });
+    const total = totalCobrado > 0 ? totalCobrado : Object.values(agrupado).reduce((s, x) => s + x.subtotal, 0);
+    return Object.values(agrupado)
+      .map(x => ({ ...x, pctTotal: total > 0 ? (x.subtotal / total) * 100 : 0 }))
+      .sort((a, b) => b.subtotal - a.subtotal)
+      .slice(0, 10);
+  };
+  
+  // Agrupar por cliente
+  const agruparPorCliente = (detalle) => {
+    if (!detalle || !Array.isArray(detalle) || detalle.length === 0) return [];
+    const agrupado = {};
+    detalle.forEach(item => {
+      const clave = item.clientId || item.clientName;
+      if (!clave) return;
+      const nombre = item.clientName || item.clientId;
+      if (!agrupado[clave]) agrupado[clave] = { clientName: nombre, clientId: item.clientId, subtotal: 0 };
+      agrupado[clave].subtotal += parseFloat(item.subtotal) || 0;
+    });
+    return Object.values(agrupado).sort((a, b) => b.subtotal - a.subtotal).slice(0, 10);
+  };
+  
   // Generar label del período desde periodo (YYYY-MM)
   // Asegurar que el formato sea correcto para evitar problemas de zona horaria
   const periodoLabel = periodo ? (() => {
@@ -356,6 +386,8 @@ function ComisionesAdmin({ user }) {
   const resumenPorCategoria = comisiones?.detalle 
     ? agruparPorCategoria(comisiones.detalle)
     : [];
+  const topProductos = comisiones?.detalle ? agruparPorProducto(comisiones.detalle, comisiones.totalCobrado) : [];
+  const topClientes = comisiones?.detalle ? agruparPorCliente(comisiones.detalle) : [];
   
   if (loading && !comisiones) {
     return (
@@ -509,6 +541,41 @@ function ComisionesAdmin({ user }) {
               </div>
             </Card>
           )}
+          
+          {/* Top clientes y productos por valor */}
+          <div className="comisiones-tops-grid">
+            {topClientes.length > 0 && (
+              <Card className="comisiones-detail-card comisiones-top-card">
+                <h2 className="comisiones-top-title">
+                  <i className="pi pi-users" style={{ marginRight: 'var(--spacing-2)' }}></i>
+                  Top clientes por cobranza
+                </h2>
+                <p className="comisiones-top-subtitle">Clientes a los que más se les cobró este período</p>
+                <DataTable value={topClientes} size="small" className="comisiones-top-table">
+                  <Column field="clientName" header="Cliente" />
+                  <Column field="subtotal" header="Monto cobrado" body={(row) => formatMonto(row.subtotal)} style={{ textAlign: 'right' }} />
+                </DataTable>
+              </Card>
+            )}
+            {topProductos.length > 0 && (
+              <Card className="comisiones-detail-card comisiones-top-card">
+                <h2 className="comisiones-top-title">
+                  <i className="pi pi-box" style={{ marginRight: 'var(--spacing-2)' }}></i>
+                  Top productos por valor (incidencia)
+                </h2>
+                <p className="comisiones-top-subtitle">Productos que más aportaron al total cobrado</p>
+                <DataTable value={topProductos} size="small" className="comisiones-top-table">
+                  <Column field="producto" header="Producto" body={(row) => (
+                    <span title={row.producto} className="comisiones-top-producto">
+                      {row.producto.length > 40 ? row.producto.slice(0, 40) + '…' : row.producto}
+                    </span>
+                  )} />
+                  <Column field="subtotal" header="Monto" body={(row) => formatMonto(row.subtotal)} style={{ textAlign: 'right' }} />
+                  <Column field="pctTotal" header="% del total" body={(row) => `${row.pctTotal.toFixed(1)}%`} style={{ textAlign: 'right' }} />
+                </DataTable>
+              </Card>
+            )}
+          </div>
           
           <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
             {comisiones?.estado === 'calculado' && (

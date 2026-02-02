@@ -6,8 +6,23 @@ import { useRef } from 'react';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
+import { Dropdown } from 'primereact/dropdown';
 import { getComisiones, calcularComisiones, getComisionFlete, calcularComisionFlete } from './comisionesService';
-// Formatter de monto (mismo formato que EstadoCuenta)
+
+// Generar lista de últimos N períodos (YYYY-MM)
+function generarOpcionesPeriodos(cantidad = 12) {
+  const opciones = [];
+  const now = new Date();
+  for (let i = 0; i < cantidad; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const anio = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const valor = `${anio}-${mes}`;
+    const label = d.toLocaleDateString('es-AR', { year: 'numeric', month: 'long' });
+    opciones.push({ label, value: valor });
+  }
+  return opciones;
+}
 
 function ComisionesVendedor({ user }) {
   const toast = useRef(null);
@@ -15,36 +30,33 @@ function ComisionesVendedor({ user }) {
   const [calculando, setCalculando] = useState(false);
   const [comisiones, setComisiones] = useState(null);
   const [comisionFlete, setComisionFlete] = useState(null);
+  const [periodo, setPeriodo] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  
+  const opcionesPeriodo = generarOpcionesPeriodos(12);
   
   // Obtener nombre del vendedor desde el rol
   const vendedorNombre = user?.role === 'Guille' ? 'Guille' : 
                          user?.role === 'Santi' ? 'Santi' : null;
   
-  // Obtener período actual (YYYY-MM)
-  const getPeriodoActual = () => {
-    const now = new Date();
-    const anio = now.getFullYear();
-    const mes = String(now.getMonth() + 1).padStart(2, '0');
-    return `${anio}-${mes}`;
-  };
-  
-  const periodoActual = getPeriodoActual();
-  
-  // Cargar comisiones del mes actual
+  // Cargar comisiones cuando cambian vendedor o período
   useEffect(() => {
-    if (vendedorNombre) {
-      cargarComisiones();
+    if (vendedorNombre && periodo) {
+      cargarComisiones(periodo);
     }
-  }, [vendedorNombre]);
+  }, [vendedorNombre, periodo]);
   
-  const cargarComisiones = async () => {
-    if (!vendedorNombre) return;
+  const cargarComisiones = async (periodoParam) => {
+    const p = periodoParam || periodo;
+    if (!vendedorNombre || !p) return;
     
     setLoading(true);
     try {
       const [data, flete] = await Promise.all([
-        getComisiones(vendedorNombre, periodoActual),
-        getComisionFlete(vendedorNombre, periodoActual)
+        getComisiones(vendedorNombre, p),
+        getComisionFlete(vendedorNombre, p)
       ]);
       setComisiones(data);
       setComisionFlete(flete);
@@ -61,21 +73,20 @@ function ComisionesVendedor({ user }) {
   };
   
   const handleCalcular = async () => {
-    if (!vendedorNombre) return;
+    if (!vendedorNombre || !periodo) return;
     
     setCalculando(true);
     try {
       await Promise.all([
-        calcularComisiones(periodoActual),
-        calcularComisionFlete(periodoActual)
+        calcularComisiones(periodo),
+        calcularComisionFlete(periodo)
       ]);
       toast.current?.show({
         severity: 'success',
         summary: 'Comisiones calculadas',
-        detail: 'Las comisiones del mes actual han sido calculadas'
+        detail: `Las comisiones de ${periodo} han sido calculadas`
       });
-      // Recargar comisiones
-      await cargarComisiones();
+      await cargarComisiones(periodo);
     } catch (error) {
       console.error('Error calculando comisiones:', error);
       toast.current?.show({
@@ -126,10 +137,50 @@ function ComisionesVendedor({ user }) {
     return Object.values(agrupado).sort((a, b) => b.comision - a.comision);
   };
   
-  // Generar label del período desde periodoActual (YYYY-MM)
-  // Asegurar que el formato sea correcto para evitar problemas de zona horaria
-  const periodoLabel = periodoActual ? (() => {
-    const [anio, mes] = periodoActual.split('-').map(Number);
+  // Agrupar detalle por producto (valor/incidencia - ordenado por monto cobrado)
+  const agruparPorProducto = (detalle, totalCobrado) => {
+    if (!detalle || !Array.isArray(detalle) || detalle.length === 0) return [];
+    
+    const agrupado = {};
+    detalle.forEach(item => {
+      const producto = (item.producto || 'Sin nombre').trim() || 'Sin nombre';
+      if (!agrupado[producto]) {
+        agrupado[producto] = { producto, subtotal: 0 };
+      }
+      agrupado[producto].subtotal += parseFloat(item.subtotal) || 0;
+    });
+    
+    const total = totalCobrado > 0 ? totalCobrado : Object.values(agrupado).reduce((s, x) => s + x.subtotal, 0);
+    return Object.values(agrupado)
+      .map(x => ({ ...x, pctTotal: total > 0 ? (x.subtotal / total) * 100 : 0 }))
+      .sort((a, b) => b.subtotal - a.subtotal)
+      .slice(0, 10);
+  };
+  
+  // Agrupar detalle por cliente (requiere clientName/clientId en el detalle desde backend)
+  const agruparPorCliente = (detalle) => {
+    if (!detalle || !Array.isArray(detalle) || detalle.length === 0) return [];
+    
+    const agrupado = {};
+    detalle.forEach(item => {
+      const clave = item.clientId || item.clientName;
+      if (!clave) return; // Solo agrupar si hay datos de cliente
+      
+      const nombre = item.clientName || item.clientId;
+      if (!agrupado[clave]) {
+        agrupado[clave] = { clientName: nombre, clientId: item.clientId, subtotal: 0 };
+      }
+      agrupado[clave].subtotal += parseFloat(item.subtotal) || 0;
+    });
+    
+    return Object.values(agrupado)
+      .sort((a, b) => b.subtotal - a.subtotal)
+      .slice(0, 10);
+  };
+  
+  // Generar label del período desde periodo (YYYY-MM)
+  const periodoLabel = periodo ? (() => {
+    const [anio, mes] = periodo.split('-').map(Number);
     // Crear fecha en UTC para evitar problemas de zona horaria
     const fecha = new Date(Date.UTC(anio, mes - 1, 1));
     return fecha.toLocaleDateString('es-AR', { 
@@ -142,6 +193,14 @@ function ComisionesVendedor({ user }) {
   // Obtener resumen por categoría
   const resumenPorCategoria = comisiones?.detalle 
     ? agruparPorCategoria(comisiones.detalle)
+    : [];
+  
+  // Top productos por valor (incidencia) y top clientes
+  const topProductos = comisiones?.detalle
+    ? agruparPorProducto(comisiones.detalle, comisiones.totalCobrado)
+    : [];
+  const topClientes = comisiones?.detalle
+    ? agruparPorCliente(comisiones.detalle)
     : [];
   
   if (loading && !comisiones) {
@@ -161,9 +220,17 @@ function ComisionesVendedor({ user }) {
         <div className="comisiones-header">
           <div>
             <h1 className="comisiones-title">Mis Comisiones</h1>
-            <p className="comisiones-subtitle">
-              Período: {periodoLabel}
-            </p>
+            <div className="comisiones-periodo-selector">
+              <label htmlFor="periodo-vendedor">Período:</label>
+              <Dropdown
+                id="periodo-vendedor"
+                value={periodo}
+                options={opcionesPeriodo}
+                onChange={(e) => setPeriodo(e.value)}
+                placeholder="Seleccionar período"
+                className="comisiones-periodo-dropdown"
+              />
+            </div>
           </div>
           <Button
             label="Recalcular Comisiones"
@@ -269,7 +336,57 @@ function ComisionesVendedor({ user }) {
             </Card>
           )}
           
-          {/* 🆕 FASE 3: Mostrar ajustes si existen */}
+          {/* Top clientes y productos por valor (incidencia) */}
+          <div className="comisiones-tops-grid">
+            {topClientes.length > 0 && (
+              <Card className="comisiones-detail-card comisiones-top-card">
+                <h2 className="comisiones-top-title">
+                  <i className="pi pi-users" style={{ marginRight: 'var(--spacing-2)' }}></i>
+                  Top clientes por cobranza
+                </h2>
+                <p className="comisiones-top-subtitle">Clientes a los que más les cobraste este período</p>
+                <DataTable value={topClientes} size="small" className="comisiones-top-table">
+                  <Column field="clientName" header="Cliente" />
+                  <Column
+                    field="subtotal"
+                    header="Monto cobrado"
+                    body={(row) => formatMonto(row.subtotal)}
+                    style={{ textAlign: 'right' }}
+                  />
+                </DataTable>
+              </Card>
+            )}
+            {topProductos.length > 0 && (
+              <Card className="comisiones-detail-card comisiones-top-card">
+                <h2 className="comisiones-top-title">
+                  <i className="pi pi-box" style={{ marginRight: 'var(--spacing-2)' }}></i>
+                  Top productos por valor (incidencia)
+                </h2>
+                <p className="comisiones-top-subtitle">Productos que más aportaron al total cobrado</p>
+                <DataTable value={topProductos} size="small" className="comisiones-top-table">
+                  <Column field="producto" header="Producto" body={(row) => (
+                    <span title={row.producto} className="comisiones-top-producto">
+                      {row.producto.length > 40 ? row.producto.slice(0, 40) + '…' : row.producto}
+                    </span>
+                  )} />
+                  <Column
+                    field="subtotal"
+                    header="Monto"
+                    body={(row) => formatMonto(row.subtotal)}
+                    style={{ textAlign: 'right' }}
+                  />
+                  <Column
+                    field="pctTotal"
+                    header="% del total"
+                    body={(row) => `${row.pctTotal.toFixed(1)}%`}
+                    style={{ textAlign: 'right' }}
+                  />
+                </DataTable>
+              </Card>
+            )}
+          </div>
+          
+          {/* FASE 3: Mostrar ajustes si existen */}
           {comisiones?.ajustes && comisiones.ajustes.length > 0 && (
             <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
               <h2>Ajustes Manuales</h2>
