@@ -273,7 +273,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
       console.log('[COMISIONES SYNC] Sincronización completa forzada, obteniendo todos los payments históricos');
     }
     
-    // Obtener payments (todos si forzarCompleta, o solo los últimos N días si incremental)
+    // 1. Obtener todos los payments
     payments = await getAlegraPayments(dias);
     
     if (!payments || payments.length === 0) {
@@ -281,123 +281,134 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
       return { success: true, total: 0, nuevas: 0, actualizadas: 0 };
     }
     
-    console.log(`[COMISIONES SYNC] Payments encontrados: ${payments.length}`);
+    console.log(`[COMISIONES SYNC] Payments encontrados en Alegra: ${payments.length}`);
+    
+    // 2. Extraer movimientos individuales y recolectar unique invoice IDs
+    const movimientosAPreparar = [];
+    const uniqueInvoiceIds = new Set();
+    
+    for (const payment of payments) {
+      const paymentId = payment.id.toString();
+      if (payment.invoices && Array.isArray(payment.invoices)) {
+        for (const invBasic of payment.invoices) {
+          if (!invBasic || !invBasic.id) continue;
+          
+          const invoiceId = invBasic.id.toString();
+          const amountPaid = parseFloat(invBasic.amount) || 0;
+          
+          // Solo procesar cobros con monto
+          if (amountPaid !== 0) {
+            movimientosAPreparar.push({
+              paymentId,
+              invoiceId,
+              amountPaid,
+              fecha: payment.date
+            });
+            uniqueInvoiceIds.add(invoiceId);
+          }
+        }
+      }
+    }
+    
+    console.log(`[COMISIONES SYNC] Total movimientos detectados: ${movimientosAPreparar.length}`);
+    console.log(`[COMISIONES SYNC] Total facturas únicas a consultar: ${uniqueInvoiceIds.size}`);
+    
+    // 3. Obtener detalles de facturas en paralelo (con límite de concurrencia)
+    const invoiceCache = new Map();
+    const invoiceIdsArr = Array.from(uniqueInvoiceIds);
+    const CONCURRENCY_LIMIT = 10;
+    
+    console.log(`[COMISIONES SYNC] Iniciando descarga de facturas en paralelo (límite ${CONCURRENCY_LIMIT})...`);
+    
+    for (let i = 0; i < invoiceIdsArr.length; i += CONCURRENCY_LIMIT) {
+      const batch = invoiceIdsArr.slice(i, i + CONCURRENCY_LIMIT);
+      const promises = batch.map(id => getAlegraInvoiceById(id).catch(err => {
+        console.error(`[COMISIONES SYNC] Error descargando factura ${id}:`, err.message);
+        return null;
+      }));
+      
+      const results = await Promise.all(promises);
+      results.forEach((inv, idx) => {
+        if (inv) invoiceCache.set(batch[idx], inv);
+      });
+      
+      console.log(`[COMISIONES SYNC] Progreso facturas: ${Math.min(i + CONCURRENCY_LIMIT, invoiceIdsArr.length)}/${invoiceIdsArr.length}`);
+      
+      // Pequeña pausa entre ráfagas para no agotar el rate limit de Alegra
+      if (i + CONCURRENCY_LIMIT < invoiceIdsArr.length) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+    }
     
     let nuevas = 0;
     let actualizadas = 0;
     let errores = 0;
     let sinSeller = 0;
     let vendedorInvalido = 0;
-    let totalMovimientos = 0;
     
-    // Caché de facturas para evitar múltiples llamadas a la misma factura en el mismo proceso
-    const invoiceCache = new Map();
+    console.log(`[COMISIONES SYNC] Guardando movimientos en Firestore...`);
     
-    console.log(`[COMISIONES SYNC] Procesando payments para extraer movimientos...`);
+    // 4. Procesar y guardar movimientos (por lotes de Firestore para rendimiento)
+    // Firestore permite hasta 500 operaciones por batch
+    const FIRESTORE_BATCH_SIZE = 400; 
     
-    // Procesar cada payment
-    for (const payment of payments) {
-      const paymentDate = payment.date;
-      const paymentId = payment.id.toString();
+    for (let i = 0; i < movimientosAPreparar.length; i += FIRESTORE_BATCH_SIZE) {
+      const dbBatch = adminDb.batch();
+      const currentMovimientos = movimientosAPreparar.slice(i, i + FIRESTORE_BATCH_SIZE);
       
-      // Los payments tienen "invoices" como array
-      if (!payment.invoices || !Array.isArray(payment.invoices) || payment.invoices.length === 0) {
-        continue;
-      }
-      
-      for (const invBasic of payment.invoices) {
-        if (!invBasic || !invBasic.id) continue;
-        
-        const invoiceId = invBasic.id.toString();
-        const amountPaidToInvoice = parseFloat(invBasic.amount) || 0;
-        
-        if (amountPaidToInvoice === 0) continue;
-        
-        totalMovimientos++;
-        
+      for (const mov of currentMovimientos) {
         try {
-          // Identificador único para el movimiento: pago_factura
-          const docId = `pay_${paymentId}_inv_${invoiceId}`;
-          const docRef = adminDb.collection('movimientos_comisiones').doc(docId);
-          const docSnapshot = await docRef.get();
-          
-          // Obtener invoice desde caché o Alegra
-          let invoice = invoiceCache.get(invoiceId);
-          if (!invoice) {
-            invoice = await getAlegraInvoiceById(invoiceId);
-            if (invoice) {
-              invoiceCache.set(invoiceId, invoice);
-              // Pequeña pausa para no saturar Alegra
-              await new Promise(resolve => setTimeout(resolve, 50));
-            }
-          }
+          const invoice = invoiceCache.get(mov.invoiceId);
           
           if (!invoice) {
-            console.warn(`[COMISIONES SYNC] Invoice ${invoiceId} no encontrada en Alegra`);
             errores++;
             continue;
           }
           
-          // Validar que tenga seller
+          // Validar vendedor
           if (!invoice.seller || !invoice.seller.name) {
             sinSeller++;
             continue;
           }
           
-          // Validar vendedor
           if (!VENDEDORES_VALIDOS.includes(invoice.seller.name)) {
             vendedorInvalido++;
             continue;
           }
           
-          // Construir datos del movimiento
+          const docId = `pay_${mov.paymentId}_inv_${mov.invoiceId}`;
+          const docRef = adminDb.collection('movimientos_comisiones').doc(docId);
+          
           const clientInfo = invoice.client || invoice.clientUser;
           const movimientoData = {
-            paymentId: paymentId,
-            invoiceId: invoiceId,
-            amountPaid: amountPaidToInvoice,
+            paymentId: mov.paymentId,
+            invoiceId: mov.invoiceId,
+            amountPaid: mov.amountPaid,
             totalInvoice: parseFloat(invoice.total) || 0,
-            seller: {
-              name: invoice.seller.name
-            },
+            seller: { name: invoice.seller.name },
             client: clientInfo ? {
-              id: (clientInfo.id ?? clientInfo.identifier)?.toString?.() || String(clientInfo.id || ''),
+              id: (clientInfo.id ?? clientInfo.identifier)?.toString() || String(clientInfo.id || ''),
               name: clientInfo.name || clientInfo.organization || 'Sin nombre'
             } : null,
-            items: (invoice.items || []).map(item => {
-              let itemSubtotal = 0;
-              if (item.total !== undefined && item.total !== null) {
-                itemSubtotal = parseFloat(item.total);
-              } else if (item.subtotal !== undefined && item.subtotal !== null) {
-                itemSubtotal = parseFloat(item.subtotal);
-              } else if (item.price !== undefined && item.quantity !== undefined) {
-                itemSubtotal = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
-              }
-              
-              return {
-                description: item.description || '',
-                subtotal: itemSubtotal
-              };
-            }),
-            fecha: paymentDate, // FECHA DEL PAYMENT (el cobro parcial)
+            items: (invoice.items || []).map(item => ({
+              description: item.description || '',
+              subtotal: parseFloat(item.total || item.subtotal || (parseFloat(item.price || 0) * parseFloat(item.quantity || 0))) || 0
+            })),
+            fecha: mov.fecha,
             fechaInvoice: invoice.date,
             fechaSync: new Date()
           };
           
-          // Guardar en Firestore
-          await docRef.set(movimientoData, { merge: true });
-          
-          if (docSnapshot.exists) {
-            actualizadas++;
-          } else {
-            nuevas++;
-          }
-          
-        } catch (error) {
-          console.error(`[COMISIONES SYNC] Error procesando movimiento ${paymentId}_${invoiceId}:`, error.message);
+          dbBatch.set(docRef, movimientoData, { merge: true });
+          nuevas++; // Simplificado: contamos como nuevas todas por lote
+        } catch (err) {
+          console.error(`[COMISIONES SYNC] Error preparando batch:`, err.message);
           errores++;
         }
       }
+      
+      await dbBatch.commit();
+      console.log(`[COMISIONES SYNC] Progreso guardado: ${Math.min(i + FIRESTORE_BATCH_SIZE, movimientosAPreparar.length)}/${movimientosAPreparar.length}`);
     }
     
     console.log(`[COMISIONES SYNC] Completado: ${nuevas} nuevos movimientos, ${actualizadas} actualizados, ${errores} errores`);
@@ -410,7 +421,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
     
     return {
       success: true,
-      total: totalMovimientos,
+      total: movimientosAPreparar.length,
       nuevas,
       actualizadas,
       errores,
