@@ -295,6 +295,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
           
           const invoiceId = invBasic.id.toString();
           const amountPaid = parseFloat(invBasic.amount) || 0;
+          const totalInvoice = parseFloat(invBasic.total) || 0;
           
           // Solo procesar cobros con monto
           if (amountPaid !== 0) {
@@ -302,6 +303,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
               paymentId,
               invoiceId,
               amountPaid,
+              totalInvoice,
               fecha: payment.date
             });
             uniqueInvoiceIds.add(invoiceId);
@@ -311,32 +313,49 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
     }
     
     console.log(`[COMISIONES SYNC] Total movimientos detectados: ${movimientosAPreparar.length}`);
-    console.log(`[COMISIONES SYNC] Total facturas únicas a consultar: ${uniqueInvoiceIds.size}`);
+    console.log(`[COMISIONES SYNC] Total facturas únicas a procesar: ${uniqueInvoiceIds.size}`);
     
-    // 3. Obtener detalles de facturas en paralelo (con límite de concurrencia)
+    // 3. Obtener detalles de facturas (con caché de Firestore y Alegra)
     const invoiceCache = new Map();
     const invoiceIdsArr = Array.from(uniqueInvoiceIds);
-    const CONCURRENCY_LIMIT = 10;
+    // Bajamos concurrencia para evitar 429, el caché hará el trabajo pesado
+    const CONCURRENCY_LIMIT = 3; 
     
-    console.log(`[COMISIONES SYNC] Iniciando descarga de facturas en paralelo (límite ${CONCURRENCY_LIMIT})...`);
+    console.log(`[COMISIONES SYNC] Iniciando recuperación de facturas (Caché Firestore + Alegra)...`);
     
     for (let i = 0; i < invoiceIdsArr.length; i += CONCURRENCY_LIMIT) {
       const batch = invoiceIdsArr.slice(i, i + CONCURRENCY_LIMIT);
-      const promises = batch.map(id => getAlegraInvoiceById(id).catch(err => {
-        console.error(`[COMISIONES SYNC] Error descargando factura ${id}:`, err.message);
-        return null;
-      }));
+      
+      const promises = batch.map(async (id) => {
+        try {
+          // 1. Buscar en la colección vieja (caché)
+          const oldDoc = await adminDb.collection('facturas_comisiones').doc(id).get();
+          if (oldDoc.exists) {
+            return { ...oldDoc.data(), _fromCache: true };
+          }
+          
+          // 2. Si no está en la vieja, pedir a Alegra
+          const inv = await getAlegraInvoiceById(id);
+          return inv ? { ...inv, _fromCache: false } : null;
+        } catch (err) {
+          console.error(`[COMISIONES SYNC] Error recuperando factura ${id}:`, err.message);
+          return null;
+        }
+      });
       
       const results = await Promise.all(promises);
       results.forEach((inv, idx) => {
         if (inv) invoiceCache.set(batch[idx], inv);
       });
       
-      console.log(`[COMISIONES SYNC] Progreso facturas: ${Math.min(i + CONCURRENCY_LIMIT, invoiceIdsArr.length)}/${invoiceIdsArr.length}`);
+      if (i % 50 === 0) {
+        console.log(`[COMISIONES SYNC] Progreso recuperación facturas: ${Math.min(i + CONCURRENCY_LIMIT, invoiceIdsArr.length)}/${invoiceIdsArr.length}`);
+      }
       
-      // Pequeña pausa entre ráfagas para no agotar el rate limit de Alegra
-      if (i + CONCURRENCY_LIMIT < invoiceIdsArr.length) {
-        await new Promise(resolve => setTimeout(resolve, 150));
+      // Pequeña pausa para no saturar si hay muchas de Alegra
+      const currentBatchHasAlegra = results.some(inv => inv && !inv._fromCache);
+      if (currentBatchHasAlegra) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
     
@@ -380,11 +399,12 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
           const docRef = adminDb.collection('movimientos_comisiones').doc(docId);
           
           const clientInfo = invoice.client || invoice.clientUser;
-          const movimientoData = {
+          const movimentoData = {
             paymentId: mov.paymentId,
             invoiceId: mov.invoiceId,
             amountPaid: mov.amountPaid,
-            totalInvoice: parseFloat(invoice.total) || 0,
+            // Usar el total que viene del pago si está disponible, sino el de la factura
+            totalInvoice: mov.totalInvoice || parseFloat(invoice.total) || 0,
             seller: { name: invoice.seller.name },
             client: clientInfo ? {
               id: (clientInfo.id ?? clientInfo.identifier)?.toString() || String(clientInfo.id || ''),
@@ -392,10 +412,10 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
             } : null,
             items: (invoice.items || []).map(item => ({
               description: item.description || '',
-              subtotal: parseFloat(item.total || item.subtotal || (parseFloat(item.price || 0) * parseFloat(item.quantity || 0))) || 0
+              subtotal: parseFloat(item.subtotal || item.total || (parseFloat(item.price || 0) * parseFloat(item.quantity || 0))) || 0
             })),
             fecha: mov.fecha,
-            fechaInvoice: invoice.date,
+            fechaInvoice: invoice.date || invoice.fechaInvoice,
             fechaSync: new Date()
           };
           

@@ -306,8 +306,8 @@ export async function getAlegraPayments(dias = 30) {
   return allPayments;
 }
 
-// 🆕 Obtener invoice individual por ID
-export async function getAlegraInvoiceById(invoiceId) {
+// 🆕 Obtener invoice individual por ID con Reintentos para manejar 429
+export async function getAlegraInvoiceById(invoiceId, retries = 3) {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
@@ -318,22 +318,48 @@ export async function getAlegraInvoiceById(invoiceId) {
   const url = `https://api.alegra.com/api/v1/invoices/${invoiceId}`;
   const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
   
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/json',
-      authorization
+  let lastError;
+  let delay = 1000; // Empezar con 1 segundo de espera
+
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          accept: 'application/json',
+          authorization
+        }
+      });
+      
+      if (response.ok) {
+        return await response.json();
+      }
+      
+      if (response.status === 429) {
+        console.warn(`[ALEGRA API] 429 Too Many Requests para invoice ${invoiceId}. Reintento ${i+1}/${retries} en ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponencial
+        continue;
+      }
+
+      if (response.status === 404) {
+        console.warn(`[COMISIONES] Invoice ${invoiceId} no encontrada en Alegra`);
+        return null;
+      }
+      
+      const errorText = await response.text();
+      console.error(`[COMISIONES] Error obteniendo invoice ${invoiceId}:`, response.status, errorText);
+      throw new Error(`Error al obtener invoice de Alegra: ${response.status} ${response.statusText}`);
+
+    } catch (error) {
+      lastError = error;
+      if (i < retries && (error.message.includes('429') || error.code === 'ECONNRESET')) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+      throw error;
     }
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    if (response.status === 404) {
-      console.warn(`[COMISIONES] Invoice ${invoiceId} no encontrada en Alegra`);
-      return null;
-    }
-    console.error(`[COMISIONES] Error obteniendo invoice ${invoiceId}:`, response.status, errorText);
-    throw new Error(`Error al obtener invoice de Alegra: ${response.status} ${response.statusText}`);
   }
   
-  return await response.json();
+  throw lastError;
 }
