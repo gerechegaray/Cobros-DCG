@@ -399,7 +399,7 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
           const docRef = adminDb.collection('movimientos_comisiones').doc(docId);
           
           const clientInfo = invoice.client || invoice.clientUser;
-          const movimentoData = {
+          const movimientoData = {
             paymentId: mov.paymentId,
             invoiceId: mov.invoiceId,
             amountPaid: mov.amountPaid,
