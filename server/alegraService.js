@@ -216,7 +216,8 @@ export async function getAlegraItems() {
 }
 
 // 🆕 Obtener payments de Alegra (últimos N días o todos si dias = null)
-export async function getAlegraPayments(dias = 30) {
+// Optimizado con onPage para evitar cargar miles de objetos en memoria
+export async function getAlegraPayments(dias = 30, onPage = null) {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
@@ -234,7 +235,7 @@ export async function getAlegraPayments(dias = 30) {
   const obtenerTodos = dias === null;
   
   if (obtenerTodos) {
-    console.log('[COMISIONES] Obteniendo TODOS los payments históricos (paginación)...');
+    console.log('[COMISIONES] Obteniendo TODOS los payments históricos (procesando por página)...');
   } else {
     // Calcular fecha límite
     const fechaLimite = new Date();
@@ -273,6 +274,11 @@ export async function getAlegraPayments(dias = 30) {
     });
     
     if (!response.ok) {
+      if (response.status === 429) {
+         console.warn(`[COMISIONES] Rate limit en payments. Esperando 2s...`);
+         await new Promise(resolve => setTimeout(resolve, 2000));
+         continue; // Reintentar la misma página
+      }
       const errorText = await response.text();
       console.error('[COMISIONES] Error obteniendo payments:', response.status, errorText);
       throw new Error(`Error al obtener payments de Alegra: ${response.status} ${response.statusText}`);
@@ -286,7 +292,13 @@ export async function getAlegraPayments(dias = 30) {
       break;
     }
     
-    allPayments.push(...payments);
+    // Si hay callback, procesar y descartar de memoria
+    if (onPage) {
+      await onPage(payments);
+    } else {
+      allPayments.push(...payments);
+    }
+    
     offset += payments.length;
     
     // Si recibimos menos payments de los solicitados, no hay más páginas
@@ -297,13 +309,16 @@ export async function getAlegraPayments(dias = 30) {
     
     // Pequeña pausa entre peticiones
     if (hasMore) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 150));
     }
   }
   
-  console.log(`[COMISIONES] Total payments obtenidos: ${allPayments.length}`);
+  if (!onPage) {
+    console.log(`[COMISIONES] Total payments obtenidos: ${allPayments.length}`);
+    return allPayments;
+  }
   
-  return allPayments;
+  return null;
 }
 
 // 🆕 Obtener invoice individual por ID con Reintentos para manejar 429
