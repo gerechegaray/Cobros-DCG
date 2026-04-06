@@ -81,14 +81,14 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
   const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
   const fechaFinStr = fechaFin.toISOString().split('T')[0];
   
-  console.log(`[COMISIONES] Buscando facturas COBRADAS (payment date) entre ${fechaInicioStr} y ${fechaFinStr}`);
+  console.log(`[COMISIONES] Buscando MOVIMIENTOS de cobro entre ${fechaInicioStr} y ${fechaFinStr}`);
   
-  const snapshot = await adminDb.collection('facturas_comisiones')
+  const snapshot = await adminDb.collection('movimientos_comisiones')
     .where('fecha', '>=', fechaInicioStr)
     .where('fecha', '<=', fechaFinStr)
     .get();
   
-  console.log(`[COMISIONES] Facturas encontradas cobradas en período: ${snapshot.size}`);
+  console.log(`[COMISIONES] Movimientos encontrados en período: ${snapshot.size}`);
   
   // Agrupar por vendedor
   const comisionesPorVendedor = {};
@@ -116,14 +116,22 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
     
     // Procesar items de la factura
     const items = factura.items || [];
+    const amountPaid = parseFloat(factura.amountPaid) || 0;
+    const totalInvoice = parseFloat(factura.totalInvoice) || 0;
+    
+    // Calcular proporción del cobro (si totalInvoice es 0, asumimos 1 para evitar error)
+    const proporcionCobro = totalInvoice > 0 ? (amountPaid / totalInvoice) : 1;
     
     items.forEach(item => {
       const description = item.description || '';
-      const subtotal = parseFloat(item.subtotal) || 0;
+      const subtotalOriginal = parseFloat(item.subtotal) || 0;
       
-      if (subtotal <= 0) {
+      if (subtotalOriginal <= 0) {
         return; // Ignorar items sin subtotal
       }
+      
+      // Calcular subtotal proporcional al cobro recibido
+      const subtotalProporcional = subtotalOriginal * proporcionCobro;
       
       // Detectar categoría
       const categoria = detectarCategoria(description, reglas);
@@ -136,11 +144,11 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
       // Obtener porcentaje de la regla
       const porcentaje = reglas[categoria];
       
-      // Calcular comisión
-      const comision = subtotal * (porcentaje / 100);
+      // Calcular comisión sobre el subtotal proporcional
+      const comision = subtotalProporcional * (porcentaje / 100);
       
       // Acumular
-      comisionesPorVendedor[vendedorNombre].totalCobrado += subtotal;
+      comisionesPorVendedor[vendedorNombre].totalCobrado += subtotalProporcional;
       comisionesPorVendedor[vendedorNombre].totalComision += comision;
       
       // Agregar al detalle (incluir cliente para reportes de top clientes)
@@ -148,9 +156,11 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
       const clientName = factura.client?.name || null;
       comisionesPorVendedor[vendedorNombre].detalle.push({
         facturaId: factura.invoiceId,
+        paymentId: factura.paymentId,
         producto: description,
         categoria: categoria,
-        subtotal: subtotal,
+        subtotal: subtotalProporcional,
+        subtotalOriginal: subtotalOriginal, // Para referencia
         porcentaje: porcentaje,
         comision: comision,
         clientId,
@@ -273,181 +283,138 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
     
     console.log(`[COMISIONES SYNC] Payments encontrados: ${payments.length}`);
     
-    // Debug: mostrar estructura del primer payment
-    if (payments.length > 0) {
-      console.log('[COMISIONES SYNC] Estructura del primer payment:', JSON.stringify(payments[0], null, 2));
-    }
-    
-    // Extraer invoice IDs únicos y mapear a fecha de payment
-    // NOTA: Los payments de Alegra tienen "invoices" (array), no "invoice" (objeto)
-    // IMPORTANTE: Guardamos la fecha del PAYMENT (cobro), no la fecha de la invoice
-    const invoiceIdToPaymentDate = new Map(); // Map<invoiceId, paymentDate>
-    let paymentsConInvoice = 0;
-    let paymentsSinInvoice = 0;
-    let totalInvoicesEncontradas = 0;
-    
-    payments.forEach(payment => {
-      const paymentDate = payment.date; // Fecha del payment (cobro)
-      
-      // Los payments tienen "invoices" como array
-      if (payment.invoices && Array.isArray(payment.invoices) && payment.invoices.length > 0) {
-        paymentsConInvoice++;
-        totalInvoicesEncontradas += payment.invoices.length;
-        
-        // Extraer IDs de todas las invoices del array y mapear a fecha de payment
-        payment.invoices.forEach(invoice => {
-          if (invoice && invoice.id) {
-            const invoiceId = invoice.id.toString();
-            
-            // Si la invoice ya existe en el mapa, usar la fecha de payment más reciente
-            if (invoiceIdToPaymentDate.has(invoiceId)) {
-              const fechaExistente = invoiceIdToPaymentDate.get(invoiceId);
-              // Comparar fechas y quedarse con la más reciente
-              if (paymentDate > fechaExistente) {
-                invoiceIdToPaymentDate.set(invoiceId, paymentDate);
-              }
-            } else {
-              invoiceIdToPaymentDate.set(invoiceId, paymentDate);
-            }
-          }
-        });
-      } else {
-        paymentsSinInvoice++;
-        console.log('[COMISIONES SYNC] Payment sin invoices válidas:', {
-          paymentId: payment.id,
-          paymentDate: payment.date,
-          tieneInvoices: !!payment.invoices,
-          esArray: Array.isArray(payment.invoices),
-          cantidad: payment.invoices?.length || 0
-        });
-      }
-    });
-    
-    const invoiceIds = Array.from(invoiceIdToPaymentDate.keys());
-    
-    console.log(`[COMISIONES SYNC] Payments con invoices: ${paymentsConInvoice}`);
-    console.log(`[COMISIONES SYNC] Payments sin invoices: ${paymentsSinInvoice}`);
-    console.log(`[COMISIONES SYNC] Total invoices encontradas en payments: ${totalInvoicesEncontradas}`);
-    console.log(`[COMISIONES SYNC] Invoice IDs únicos: ${invoiceIds.length}`);
-    
     let nuevas = 0;
     let actualizadas = 0;
     let errores = 0;
     let sinSeller = 0;
     let vendedorInvalido = 0;
+    let totalMovimientos = 0;
     
-    console.log(`[COMISIONES SYNC] Procesando ${invoiceIds.length} invoices...`);
+    // Caché de facturas para evitar múltiples llamadas a la misma factura en el mismo proceso
+    const invoiceCache = new Map();
     
-    // Procesar cada invoice
-    for (const invoiceId of invoiceIds) {
-      // Obtener la fecha del payment asociado a esta invoice
-      const paymentDate = invoiceIdToPaymentDate.get(invoiceId);
-      try {
-        // Verificar si ya existe en Firestore
-        const docRef = adminDb.collection('facturas_comisiones').doc(invoiceId);
-        const docSnapshot = await docRef.get();
+    console.log(`[COMISIONES SYNC] Procesando payments para extraer movimientos...`);
+    
+    // Procesar cada payment
+    for (const payment of payments) {
+      const paymentDate = payment.date;
+      const paymentId = payment.id.toString();
+      
+      // Los payments tienen "invoices" como array
+      if (!payment.invoices || !Array.isArray(payment.invoices) || payment.invoices.length === 0) {
+        continue;
+      }
+      
+      for (const invBasic of payment.invoices) {
+        if (!invBasic || !invBasic.id) continue;
         
-        // Obtener invoice desde Alegra
-        const invoice = await getAlegraInvoiceById(invoiceId);
+        const invoiceId = invBasic.id.toString();
+        const amountPaidToInvoice = parseFloat(invBasic.amount) || 0;
         
-        if (!invoice) {
-          console.warn(`[COMISIONES SYNC] Invoice ${invoiceId} no encontrada en Alegra`);
-          errores++;
-          continue;
-        }
+        if (amountPaidToInvoice === 0) continue;
         
-        // Validar que tenga seller
-        if (!invoice.seller || !invoice.seller.name) {
-          console.log(`[COMISIONES SYNC] Invoice ${invoiceId} sin seller, ignorada`);
-          sinSeller++;
-          continue;
-        }
+        totalMovimientos++;
         
-        // Validar vendedor
-        if (!VENDEDORES_VALIDOS.includes(invoice.seller.name)) {
-          console.log(`[COMISIONES SYNC] Invoice ${invoiceId} con vendedor inválido: ${invoice.seller.name}`);
-          vendedorInvalido++;
-          continue;
-        }
-        
-        console.log(`[COMISIONES SYNC] Procesando invoice ${invoiceId} - Vendedor: ${invoice.seller.name}`);
-        
-        // Extraer solo lo necesario
-        // IMPORTANTE: Guardamos fecha del PAYMENT (cobro), no fecha de la invoice
-        const clientInfo = invoice.client || invoice.clientUser;
-        const facturaData = {
-          invoiceId: invoice.id.toString(),
-          seller: {
-            name: invoice.seller.name
-          },
-          client: clientInfo ? {
-            id: (clientInfo.id ?? clientInfo.identifier)?.toString?.() || String(clientInfo.id || ''),
-            name: clientInfo.name || clientInfo.organization || 'Sin nombre'
-          } : null,
-          items: (invoice.items || []).map(item => {
-            // El campo correcto es "total" según la estructura de Alegra
-            // total = price * quantity (ya calculado por Alegra)
-            let subtotal = 0;
-            
-            if (item.total !== undefined && item.total !== null) {
-              subtotal = parseFloat(item.total);
-              if (isNaN(subtotal)) subtotal = 0;
-            } else if (item.subtotal !== undefined && item.subtotal !== null) {
-              subtotal = parseFloat(item.subtotal);
-              if (isNaN(subtotal)) subtotal = 0;
-            } else if (item.price !== undefined && item.quantity !== undefined) {
-              // Calcular: price * quantity como fallback
-              const price = parseFloat(item.price) || 0;
-              const quantity = parseFloat(item.quantity) || 0;
-              subtotal = price * quantity;
-            } else if (item.amount !== undefined && item.amount !== null) {
-              subtotal = parseFloat(item.amount);
-              if (isNaN(subtotal)) subtotal = 0;
+        try {
+          // Identificador único para el movimiento: pago_factura
+          const docId = `pay_${paymentId}_inv_${invoiceId}`;
+          const docRef = adminDb.collection('movimientos_comisiones').doc(docId);
+          const docSnapshot = await docRef.get();
+          
+          // Obtener invoice desde caché o Alegra
+          let invoice = invoiceCache.get(invoiceId);
+          if (!invoice) {
+            invoice = await getAlegraInvoiceById(invoiceId);
+            if (invoice) {
+              invoiceCache.set(invoiceId, invoice);
+              // Pequeña pausa para no saturar Alegra
+              await new Promise(resolve => setTimeout(resolve, 50));
             }
-            
-            return {
-              description: item.description || '',
-              subtotal: subtotal
-            };
-          }),
-          fecha: paymentDate, // FECHA DEL PAYMENT (cobro), no fecha de invoice
-          fechaInvoice: invoice.date, // Guardamos también la fecha de invoice para referencia
-          fechaSync: new Date()
-        };
-        
-        // Guardar en Firestore
-        await docRef.set(facturaData, { merge: true });
-        
-        if (docSnapshot.exists) {
-          actualizadas++;
-        } else {
-          nuevas++;
+          }
+          
+          if (!invoice) {
+            console.warn(`[COMISIONES SYNC] Invoice ${invoiceId} no encontrada en Alegra`);
+            errores++;
+            continue;
+          }
+          
+          // Validar que tenga seller
+          if (!invoice.seller || !invoice.seller.name) {
+            sinSeller++;
+            continue;
+          }
+          
+          // Validar vendedor
+          if (!VENDEDORES_VALIDOS.includes(invoice.seller.name)) {
+            vendedorInvalido++;
+            continue;
+          }
+          
+          // Construir datos del movimiento
+          const clientInfo = invoice.client || invoice.clientUser;
+          const movimientoData = {
+            paymentId: paymentId,
+            invoiceId: invoiceId,
+            amountPaid: amountPaidToInvoice,
+            totalInvoice: parseFloat(invoice.total) || 0,
+            seller: {
+              name: invoice.seller.name
+            },
+            client: clientInfo ? {
+              id: (clientInfo.id ?? clientInfo.identifier)?.toString?.() || String(clientInfo.id || ''),
+              name: clientInfo.name || clientInfo.organization || 'Sin nombre'
+            } : null,
+            items: (invoice.items || []).map(item => {
+              let itemSubtotal = 0;
+              if (item.total !== undefined && item.total !== null) {
+                itemSubtotal = parseFloat(item.total);
+              } else if (item.subtotal !== undefined && item.subtotal !== null) {
+                itemSubtotal = parseFloat(item.subtotal);
+              } else if (item.price !== undefined && item.quantity !== undefined) {
+                itemSubtotal = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
+              }
+              
+              return {
+                description: item.description || '',
+                subtotal: itemSubtotal
+              };
+            }),
+            fecha: paymentDate, // FECHA DEL PAYMENT (el cobro parcial)
+            fechaInvoice: invoice.date,
+            fechaSync: new Date()
+          };
+          
+          // Guardar en Firestore
+          await docRef.set(movimientoData, { merge: true });
+          
+          if (docSnapshot.exists) {
+            actualizadas++;
+          } else {
+            nuevas++;
+          }
+          
+        } catch (error) {
+          console.error(`[COMISIONES SYNC] Error procesando movimiento ${paymentId}_${invoiceId}:`, error.message);
+          errores++;
         }
-        
-        // Pequeña pausa para no saturar Alegra
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } catch (error) {
-        console.error(`[COMISIONES SYNC] Error procesando invoice ${invoiceId}:`, error.message);
-        errores++;
       }
     }
     
-    console.log(`[COMISIONES SYNC] Completado: ${nuevas} nuevas, ${actualizadas} actualizadas, ${errores} errores`);
-    console.log(`[COMISIONES SYNC] Estadísticas: ${sinSeller} sin seller, ${vendedorInvalido} con vendedor inválido`);
+    console.log(`[COMISIONES SYNC] Completado: ${nuevas} nuevos movimientos, ${actualizadas} actualizados, ${errores} errores`);
+    console.log(`[COMISIONES SYNC] Estadísticas: ${sinSeller} sin seller, ${vendedorInvalido} vendedor no comisionable`);
+    
+    // Actualizar fecha de última sincronización
+    await adminDb.collection('comisiones_sync_metadata').doc('last_sync').set({
+      fechaSync: Timestamp.now()
+    });
     
     return {
       success: true,
-      total: invoiceIds.length,
+      total: totalMovimientos,
       nuevas,
       actualizadas,
       errores,
-      sinSeller,
-      vendedorInvalido,
-      paymentsProcesados: payments.length,
-      paymentsConInvoice: paymentsConInvoice,
-      paymentsSinInvoice: paymentsSinInvoice,
-      totalInvoicesEncontradas: totalInvoicesEncontradas
+      vendedoresProcesados: VENDEDORES_VALIDOS.length
     };
     
   } catch (error) {
