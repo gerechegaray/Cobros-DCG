@@ -216,8 +216,9 @@ export async function getAlegraItems() {
 }
 
 // 🆕 Obtener payments de Alegra (últimos N días o todos si dias = null)
-// Optimizado con onPage para evitar cargar miles de objetos en memoria
-export async function getAlegraPayments(dias = 30, onPage = null) {
+// startOffset: desde dónde empezar (para fragmentar procesos largos)
+// maxPages: cuántas páginas procesar antes de devolver el control (para evitar timeouts)
+export async function getAlegraPayments(dias = 30, onPage = null, startOffset = 0, maxPages = null) {
   const email = process.env.ALEGRA_EMAIL?.trim();
   const apiKey = process.env.ALEGRA_API_KEY?.trim();
   
@@ -228,14 +229,15 @@ export async function getAlegraPayments(dias = 30, onPage = null) {
   const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
   const limit = 30; // Máximo permitido por Alegra por petición
   const allPayments = [];
-  let offset = 0;
+  let offset = startOffset;
   let hasMore = true;
+  let pagesProcessed = 0;
   
   // Si dias es null, obtener todos los payments históricos
   const obtenerTodos = dias === null;
   
   if (obtenerTodos) {
-    console.log('[COMISIONES] Obteniendo TODOS los payments históricos (procesando por página)...');
+    console.log(`[COMISIONES] Obteniendo pagos históricos (desde offset ${offset})...`);
   } else {
     // Calcular fecha límite
     const fechaLimite = new Date();
@@ -246,6 +248,12 @@ export async function getAlegraPayments(dias = 30, onPage = null) {
   }
   
   while (hasMore) {
+    // Si alcanzamos el límite de páginas para esta llamada, paramos
+    if (maxPages && pagesProcessed >= maxPages) {
+      console.log(`[COMISIONES] Límite de páginas (${maxPages}) alcanzado para esta petición. Próximo offset: ${offset}`);
+      return { payments: onPage ? null : allPayments, nextOffset: offset, hasMore: true };
+    }
+
     const params = new URLSearchParams({
       order_direction: 'DESC',
       order_field: 'date',
@@ -300,6 +308,7 @@ export async function getAlegraPayments(dias = 30, onPage = null) {
     }
     
     offset += payments.length;
+    pagesProcessed++;
     
     // Si recibimos menos payments de los solicitados, no hay más páginas
     if (payments.length < limit) {
@@ -313,12 +322,11 @@ export async function getAlegraPayments(dias = 30, onPage = null) {
     }
   }
   
-  if (!onPage) {
-    console.log(`[COMISIONES] Total payments obtenidos: ${allPayments.length}`);
-    return allPayments;
-  }
-  
-  return null;
+  return { 
+    payments: onPage ? null : allPayments, 
+    nextOffset: offset, 
+    hasMore: false 
+  };
 }
 
 // 🆕 Obtener invoice individual por ID con Reintentos para manejar 429

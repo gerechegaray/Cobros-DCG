@@ -2948,17 +2948,19 @@ app.post("/api/comisiones/reglas/seed", async (req, res) => {
   }
 });
 
-// 🆕 Endpoint para sincronizar facturas desde payments (manual)
+// 🆕 Endpoint para sincronizar facturas desde payments (manual / chunked)
 app.post("/api/comisiones/sync-facturas", async (req, res) => {
   try {
     if (!adminDb) {
       return res.status(500).json({ error: 'Firebase no inicializado' });
     }
     
-    // Permitir forzar sincronización completa con parámetro ?completa=true
+    // Parámetros para sincronización completa o fragmentada
     const forzarCompleta = req.query.completa === 'true' || req.body.completa === true;
+    const startOffset = parseInt(req.query.offset || req.body.offset || 0);
+    const maxPages = parseInt(req.query.limit || req.body.limit || 20); // Por defecto 20 páginas por petición (~600 pagos)
     
-    const resultado = await sincronizarFacturasDesdePayments(adminDb, forzarCompleta);
+    const resultado = await sincronizarFacturasDesdePayments(adminDb, forzarCompleta, startOffset, maxPages);
     res.json(resultado);
     
   } catch (error) {

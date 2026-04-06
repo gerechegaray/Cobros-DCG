@@ -129,24 +129,46 @@ function ComisionesAdmin({ user }) {
   
   const handleSyncFacturasCompleta = async () => {
     // Confirmar antes de ejecutar sincronización completa
-    if (!window.confirm('¿Estás seguro? La sincronización completa procesará todos los payments históricos y puede tardar varios minutos.')) {
+    if (!window.confirm('La sincronización histórica se realizará en varios pasos automáticos para evitar errores. Puede tardar unos minutos. ¿Continuar?')) {
       return;
     }
     
     setSincronizandoCompleta(true);
+    let currentOffset = 0;
+    let totalNuevas = 0;
+    let totalErrores = 0;
+    let continueSync = true;
+    
     try {
-      const resultado = await syncFacturasCompleta();
-      toast.current?.show({
-        severity: 'success',
-        summary: 'Sincronización completa finalizada',
-        detail: `${resultado.nuevas} nuevas, ${resultado.actualizadas} actualizadas. Tipo: ${resultado.tipo}`
-      });
+      while (continueSync) {
+        toast.current?.show({
+          severity: 'info',
+          summary: 'Sincronizando...',
+          detail: `Procesando lote histórico desde ${currentOffset}...`,
+          life: 3000
+        });
+        
+        const resultado = await syncFacturasCompleta(currentOffset, 20);
+        
+        totalNuevas += resultado.nuevas || 0;
+        totalErrores += resultado.errores || 0;
+        currentOffset = resultado.nextOffset;
+        continueSync = resultado.hasMore;
+        
+        if (!continueSync) {
+          toast.current?.show({
+            severity: 'success',
+            summary: 'Historial Completo',
+            detail: `Se sincronizaron ${totalNuevas} movimientos exitosamenteota.`
+          });
+        }
+      }
     } catch (error) {
-      console.error('Error sincronizando facturas completa:', error);
+      console.error('Error en loop de sincronización:', error);
       toast.current?.show({
         severity: 'error',
-        summary: 'Error',
-        detail: error.message || 'No se pudo completar la sincronización completa'
+        summary: 'Error en sincronización',
+        detail: 'El proceso se interrumpió, pero puedes continuarlo pulsando el botón otra vez.'
       });
     } finally {
       setSincronizandoCompleta(false);

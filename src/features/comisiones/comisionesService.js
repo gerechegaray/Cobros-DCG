@@ -101,10 +101,10 @@ export const syncFacturas = async () => {
   }
 };
 
-// Sincronizar facturas completa (todos los payments históricos)
-export const syncFacturasCompleta = async () => {
+// Sincronizar facturas completa (iterativo)
+export const syncFacturasCompleta = async (offset = 0, limit = 20) => {
   try {
-    const url = `${API_BASE_URL}/api/comisiones/sync-facturas?completa=true`;
+    const url = `${API_BASE_URL}/api/comisiones/sync-facturas?completa=true&offset=${offset}&limit=${limit}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {

@@ -231,46 +231,31 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
  * @param {Object} adminDb - Instancia de Firestore Admin
  * @param {boolean} forzarCompleta - Si es true, sincroniza todos los payments históricos. Si es false, solo los nuevos desde la última sync
  */
-export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta = false) {
+export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta = false, startOffset = 0, maxPages = 20) {
   if (!adminDb) {
     throw new Error('Firebase no inicializado');
   }
   
-  console.log(`[COMISIONES SYNC] Iniciando sincronización de facturas desde payments... (${forzarCompleta ? 'COMPLETA' : 'INCREMENTAL'})`);
+  console.log(`[COMISIONES SYNC] Iniciando sincronización de facturas desde ${startOffset} (máximo ${maxPages} páginas)... (${forzarCompleta ? 'COMPLETA' : 'INCREMENTAL'})`);
   
   try {
-    let payments;
-    let dias = null; // Por defecto, todos los payments
+    let dias = 30; // Por defecto últimos 30 días
     
     if (!forzarCompleta) {
-      // Sincronización incremental: obtener fecha de última sincronización
       const syncDocRef = adminDb.collection('comisiones_sync_metadata').doc('last_sync');
       const syncDoc = await syncDocRef.get();
-      
       if (syncDoc.exists) {
-        const lastSyncDate = syncDoc.data().fechaSync?.toDate?.() || 
-                            (syncDoc.data().fechaSync ? new Date(syncDoc.data().fechaSync) : null);
-        
+        const lastSyncDate = syncDoc.data().fechaSync?.toDate?.() || (syncDoc.data().fechaSync ? new Date(syncDoc.data().fechaSync) : null);
         if (lastSyncDate) {
-          // Calcular días desde última sincronización (mínimo 1 día, máximo 30 para seguridad)
-          const ahora = new Date();
-          const diffMs = ahora - lastSyncDate;
+          const diffMs = Date.now() - lastSyncDate;
           const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          dias = Math.max(1, Math.min(diffDias, 30)); // Entre 1 y 30 días
-          
-          console.log(`[COMISIONES SYNC] Última sincronización: ${lastSyncDate.toISOString()}`);
-          console.log(`[COMISIONES SYNC] Sincronizando payments de los últimos ${dias} días (incremental)`);
-        } else {
-          console.log('[COMISIONES SYNC] No hay fecha de última sincronización, sincronizando últimos 30 días');
-          dias = 30;
+          dias = Math.max(1, Math.min(diffDias, 30));
+          console.log(`[COMISIONES SYNC] Sincronización incremental: últimos ${dias} días`);
         }
-      } else {
-        // Primera vez: sincronizar últimos 30 días
-        console.log('[COMISIONES SYNC] Primera sincronización, obteniendo últimos 30 días');
-        dias = 30;
       }
     } else {
-      console.log('[COMISIONES SYNC] Sincronización completa forzada, obteniendo todos los payments históricos');
+      dias = null; // Todos los pagos
+      console.log(`[COMISIONES SYNC] Sincronización histórica Completa: offset ${startOffset}, max ${maxPages} páginas`);
     }
     
     let nuevas = 0;
@@ -396,22 +381,26 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
       }
     };
     
-    // EJECUTAR SINCRONIZACIÓN POR PÁGINAS (callback)
-    await getAlegraPayments(dias, procesarPaginaDePayments);
+    // EJECUTAR SINCRONIZACIÓN POR PÁGINAS (llamada chunked)
+    const syncResult = await getAlegraPayments(dias, procesarPaginaDePayments, startOffset, maxPages);
     
     console.log(`[COMISIONES SYNC] Completado: ${totalMovimientosProcesados} movimientos procesados`);
     console.log(`[COMISIONES SYNC] Estadísticas: ${nuevas} guardados, ${errores} errores, ${sinSeller} sin seller`);
     
-    // Actualizar fecha de última sincronización
-    await adminDb.collection('comisiones_sync_metadata').doc('last_sync').set({
-      fechaSync: Timestamp.now()
-    });
+    // Solo actualizar fecha de última sincronización si fue incremental o terminó la completa
+    if (!forzarCompleta || (syncResult && !syncResult.hasMore)) {
+      await adminDb.collection('comisiones_sync_metadata').doc('last_sync').set({
+        fechaSync: Timestamp.now()
+      });
+    }
     
     return {
       success: true,
       total: totalMovimientosProcesados,
       nuevas,
       errores,
+      hasMore: syncResult?.hasMore || false,
+      nextOffset: syncResult?.nextOffset || 0,
       vendedoresProcesados: VENDEDORES_VALIDOS.length
     };
   } catch (error) {
