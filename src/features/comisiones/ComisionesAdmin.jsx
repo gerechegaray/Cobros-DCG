@@ -905,29 +905,6 @@ function ComisionesAdmin({ user }) {
                 <p>Haz clic en "Calcular Comisiones" para calcularlas.</p>
               </div>
             )}
-
-            {comisiones?.detalle && comisiones.detalle.length > 0 && (
-              <div style={{ marginTop: 'var(--spacing-6)' }}>
-                <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Detalle de Movimientos</h2>
-                <DataTable 
-                  value={comisiones.detalle} 
-                  paginator 
-                  rows={10} 
-                  rowsPerPageOptions={[10, 20, 50]}
-                  className="comisiones-table shadow-1"
-                  size="small"
-                  rowClassName={rowClassName}
-                  responsiveLayout="scroll"
-                >
-                  <Column field="clientName" header="Cliente" sortable style={{ minWidth: '150px' }} />
-                  <Column field="producto" header="Producto" sortable style={{ minWidth: '200px' }} />
-                  <Column field="categoria" header="Categoría" sortable />
-                  <Column field="porcentaje" header="%" body={porcentajeBody} align="right" />
-                  <Column field="subtotal" header="Monto" body={(r) => formatearMoneda(r.subtotal)} align="right" />
-                  <Column field="comision" header="Comisión" body={comisionBody} align="right" />
-                </DataTable>
-              </div>
-            )}
             
             <div style={{ marginTop: 'var(--spacing-6)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--dcg-border)' }}>
               <h2 style={{ marginBottom: 'var(--spacing-4)' }}>
