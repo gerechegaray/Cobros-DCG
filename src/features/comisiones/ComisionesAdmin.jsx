@@ -13,6 +13,8 @@ import { Dialog } from 'primereact/dialog';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { InputNumber } from 'primereact/inputnumber';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { formatearMoneda } from '../pedidos/utils';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 function ComisionesAdmin({ user }) {
   const toast = useRef(null);
@@ -21,6 +23,7 @@ function ComisionesAdmin({ user }) {
   const [sincronizando, setSincronizando] = useState(false);
   const [sincronizandoCompleta, setSincronizandoCompleta] = useState(false);
   const [comisiones, setComisiones] = useState(null);
+  const [comisionesPrevias, setComisionesPrevias] = useState(null);
   const [comisionFlete, setComisionFlete] = useState(null);
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState('Guille');
   const [periodo, setPeriodo] = useState('');
@@ -61,6 +64,16 @@ function ComisionesAdmin({ user }) {
       ]);
       setComisiones(data);
       setComisionFlete(flete);
+      
+      // Cargar mes anterior para comparación (opcional, no bloquea)
+      const [anio, mes] = periodo.split('-').map(Number);
+      const prevAnio = mes === 1 ? anio - 1 : anio;
+      const prevMes = mes === 1 ? 12 : mes - 1;
+      const prevPeriodo = `${prevAnio}-${String(prevMes).padStart(2, '0')}`;
+      getComisiones(vendedorSeleccionado, prevPeriodo)
+        .then(prevData => setComisionesPrevias(prevData))
+        .catch(() => setComisionesPrevias(null));
+
     } catch (error) {
       console.error('Error cargando comisiones:', error);
       toast.current?.show({
@@ -71,6 +84,38 @@ function ComisionesAdmin({ user }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 📈 Lógica de KPIs y Auditoría
+  const totalComisionBruta = comisiones?.totalComision || 0;
+  const totalAjustes = (comisiones?.ajustes || []).reduce((sum, a) => sum + (a.tipo === 'positivo' ? a.monto : -a.monto), 0);
+  const totalFinal = comisiones?.totalFinal || (totalComisionBruta + totalAjustes);
+  const itemsSinCategoria = (comisiones?.detalle || []).filter(item => (item.porcentaje || 0) === 0);
+
+  // Formateadores para la tabla
+  const comisionBody = (rowData) => {
+    const isZero = (rowData.porcentaje || 0) === 0;
+    return (
+      <span style={{ color: isZero ? 'var(--dcg-error)' : 'inherit', fontWeight: isZero ? 'bold' : 'normal' }}>
+        {formatearMoneda(rowData.comision)}
+        {isZero && <i className="pi pi-exclamation-triangle p-ml-2" title="Producto sin categoría detectada"></i>}
+      </span>
+    );
+  };
+
+  const porcentajeBody = (rowData) => {
+    const isZero = (rowData.porcentaje || 0) === 0;
+    return (
+      <span style={{ color: isZero ? 'var(--dcg-error)' : 'inherit', fontWeight: isZero ? 'bold' : 'normal' }}>
+        {rowData.porcentaje}%
+      </span>
+    );
+  };
+
+  const rowClassName = (data) => {
+    return {
+      'bg-red-50': (data.porcentaje || 0) === 0
+    };
   };
   
   const handleCalcular = async () => {
@@ -324,15 +369,138 @@ function ComisionesAdmin({ user }) {
     });
   };
   
-  const formatMonto = (monto) => {
-    const valor = parseFloat(monto) || 0;
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(valor);
+  const handleExportPDF = () => {
+    try {
+      const { jsPDF } = window.jspdf ? window : { jsPDF: null };
+      if (!jsPDF) {
+        // Fallback si no está en el window
+        import('jspdf').then(module => {
+          const doc = new module.jsPDF();
+          generarPDFContent(doc);
+        });
+      } else {
+        const doc = new jsPDF();
+        generarPDFContent(doc);
+      }
+    } catch (error) {
+      console.error('Error exportando PDF:', error);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el PDF' });
+    }
   };
+
+  const generarPDFContent = (doc) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Colores corporativos (basados en el logo)
+    const AZUL_OSCURO = [30, 41, 75]; // #1e294b
+    const AZUL_CLARO = [14, 165, 233]; // #0ea5e9
+    
+    // Encabezado
+    doc.setFillColor(...AZUL_OSCURO);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text('LIQUIDACIÓN DE COMISIONES', 15, 25);
+    
+    doc.setFontSize(10);
+    doc.text(`Período: ${periodoLabel.toUpperCase()}`, 15, 33);
+    
+    // Datos Empresa/Vendedor
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('Distribuidora DCG', 15, 55);
+    doc.setFont(undefined, 'normal');
+    doc.text('Liquidación generada automáticamente', 15, 60);
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('Vendedor:', pageWidth - 80, 55);
+    doc.setFont(undefined, 'normal');
+    const nameVendedor = vendedores.find(v => v.value === vendedorSeleccionado)?.label || vendedorSeleccionado;
+    doc.text(nameVendedor, pageWidth - 80, 60);
+    
+    // Línea divisoria
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, 70, pageWidth - 15, 70);
+    
+    // Cuadro de Resumen
+    doc.setFillColor(245, 247, 250);
+    doc.rect(15, 80, pageWidth - 30, 45, 'F');
+    
+    doc.setFontSize(11);
+    doc.setTextColor(...AZUL_OSCURO);
+    doc.text('RESUMEN DE LIQUIDACIÓN', 20, 90);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(vendedorSeleccionado === 'Victor' ? 'Base de Ventas:' : 'Base de Cobranza:', 25, 100);
+    doc.text(formatearMoneda(comisiones.totalCobrado), pageWidth - 60, 100, { align: 'right' });
+    
+    doc.text('Comisión Bruta:', 25, 107);
+    doc.text(formatearMoneda(totalComisionBruta), pageWidth - 60, 107, { align: 'right' });
+    
+    if (comisionFlete?.comisionFlete > 0) {
+      doc.text(`Comisión Flete (${comisionFlete.porcentaje}%):`, 25, 114);
+      doc.text(formatearMoneda(comisionFlete.comisionFlete), pageWidth - 60, 114, { align: 'right' });
+    }
+    
+    doc.text('Ajustes Manuales:', 25, 121);
+    doc.text(formatearMoneda(totalAjustes), pageWidth - 60, 121, { align: 'right' });
+    
+    // Total Final resaltado
+    doc.setFillColor(...AZUL_CLARO);
+    doc.rect(pageWidth - 85, 135, 70, 12, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('TOTAL A PAGAR:', pageWidth - 80, 143);
+    doc.text(formatearMoneda(totalFinal + (comisionFlete?.comisionFlete || 0)), pageWidth - 20, 143, { align: 'right' });
+    
+    // Tabla de Categorías
+    doc.setTextColor(...AZUL_OSCURO);
+    doc.setFontSize(12);
+    doc.text('DESGLOSE POR CATEGORÍAS', 15, 165);
+    
+    // Dibujar tabla manualmente
+    let currentY = 175;
+    doc.setFillColor(230, 230, 230);
+    doc.rect(15, currentY, pageWidth - 30, 8, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Categoría', 20, currentY + 5);
+    doc.text('%', 80, currentY + 5);
+    doc.text('Subtotal', pageWidth - 80, currentY + 5);
+    doc.text('Comisión', pageWidth - 25, currentY + 5, { align: 'right' });
+    
+    currentY += 8;
+    resumenPorCategoria.forEach((cat, index) => {
+      if (index % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(15, currentY, pageWidth - 30, 7, 'F');
+      }
+      doc.text(cat.categoria, 20, currentY + 5);
+      doc.text(`${cat.porcentaje}%`, 80, currentY + 5);
+      doc.text(formatearMoneda(cat.subtotal), pageWidth - 80, currentY + 5);
+      doc.text(formatearMoneda(cat.comision), pageWidth - 25, currentY + 5, { align: 'right' });
+      currentY += 7;
+
+      // Nueva página si es necesario
+      if (currentY > 270) {
+        doc.addPage();
+        currentY = 20;
+      }
+    });
+
+    // Pie de página
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    const dateStr = new Date().toLocaleString();
+    doc.text(`Documento generado el ${dateStr} - Cobranzas App`, pageWidth / 2, 285, { align: 'center' });
+    
+    doc.save(`Liquidacion_${vendedorSeleccionado}_${periodo}.pdf`);
+  };
+
   
   // Agrupar detalle por categoría
   const agruparPorCategoria = (detalle) => {
@@ -462,6 +630,15 @@ function ComisionesAdmin({ user }) {
               className="p-button-outlined"
               disabled={comisiones?.estado === 'cerrado' || comisiones?.estado === 'pagado'}
             />
+            {comisiones && user.role === 'admin' && (
+              <Button
+                label="Exportar PDF"
+                icon="pi pi-file-pdf"
+                onClick={handleExportPDF}
+                className="p-button-danger"
+                tooltip="Exportar liquidación mensual"
+              />
+            )}
             {comisiones?.estado === 'calculado' && (
               <Button
                 label="Cerrar Período"
@@ -519,27 +696,100 @@ function ComisionesAdmin({ user }) {
       
       {comisiones && (
         <>
-          <div className="comisiones-kpis-grid">
-            <Card className="comisiones-kpi-card">
+          <div className="comisiones-kpis-grid" style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: 'var(--spacing-4)',
+            marginBottom: 'var(--spacing-4)'
+          }}>
+            <Card className="comisiones-kpi-card shadow-1">
               <div className="comisiones-kpi-content">
-                <i className="pi pi-wallet comisiones-kpi-icon primary"></i>
-                <div className="comisiones-kpi-value primary">
-                  {formatMonto(comisiones.totalCobrado)}
+                <i className="pi pi-briefcase comisiones-kpi-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: 'var(--dcg-azul-oscuro)' }}>
+                  {formatearMoneda(comisiones.totalCobrado)}
                 </div>
-                <div className="comisiones-kpi-label">Total Cobrado</div>
+                <div className="comisiones-kpi-label">{vendedorSeleccionado === 'Victor' ? 'Total Ventas' : 'Total Cobrado'}</div>
               </div>
             </Card>
             
-            <Card className="comisiones-kpi-card">
+            <Card className="comisiones-kpi-card shadow-1">
               <div className="comisiones-kpi-content">
-                <i className="pi pi-money-bill comisiones-kpi-icon success"></i>
-                <div className="comisiones-kpi-value success">
-                  {formatMonto(comisiones.totalComision)}
+                <i className="pi pi-plus-circle comisiones-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: 'var(--dcg-success)' }}>
+                  {formatearMoneda(totalComisionBruta)}
                 </div>
-                <div className="comisiones-kpi-label">Comisión por Cobranza</div>
+                <div className="comisiones-kpi-label">Comisión Bruta</div>
+              </div>
+            </Card>
+
+            <Card className="comisiones-kpi-card shadow-1">
+              <div className="comisiones-kpi-content">
+                <i className="pi pi-sliders-h comisiones-kpi-icon" style={{ color: 'var(--dcg-naranja)' }}></i>
+                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: totalAjustes < 0 ? 'var(--dcg-error)' : 'var(--dcg-success)' }}>
+                  {totalAjustes > 0 ? '+' : ''}{formatearMoneda(totalAjustes)}
+                </div>
+                <div className="comisiones-kpi-label">Ajustes Netos</div>
+              </div>
+            </Card>
+
+            <Card className={`comisiones-kpi-card shadow-1 ${itemsSinCategoria.length > 0 ? 'border-red-500' : ''}`}>
+              <div className="comisiones-kpi-content">
+                <i className="pi pi-search comisiones-kpi-icon" style={{ color: itemsSinCategoria.length > 0 ? 'var(--dcg-error)' : 'var(--dcg-azul-claro)' }}></i>
+                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: itemsSinCategoria.length > 0 ? 'var(--dcg-error)' : 'inherit' }}>
+                  {itemsSinCategoria.length}
+                </div>
+                <div className="comisiones-kpi-label">Sin Categoría</div>
+              </div>
+            </Card>
+
+            <Card className="comisiones-kpi-card shadow-1 bg-blue-50 relative overflow-hidden">
+              <div className="comisiones-kpi-content">
+                <i className="pi pi-dollar comisiones-kpi-icon" style={{ color: 'var(--dcg-azul-oscuro)' }}></i>
+                <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'bold', color: 'var(--dcg-azul-oscuro)' }}>
+                  {formatearMoneda(totalFinal + (comisionFlete?.comisionFlete || 0))}
+                </div>
+                <div className="comisiones-kpi-label" style={{ fontWeight: 'bold' }}>Total a Liquidar</div>
+                
+                {comisionesPrevias && (
+                  <div style={{ 
+                    fontSize: 'var(--font-size-xs)', 
+                    marginTop: '4px',
+                    color: (totalFinal + (comisionFlete?.comisionFlete || 0)) >= comisionesPrevias.totalFinal ? 'var(--dcg-success)' : 'var(--dcg-error)',
+                    fontWeight: 'bold'
+                  }}>
+                    <i className={`pi pi-arrow-${(totalFinal + (comisionFlete?.comisionFlete || 0)) >= (comisionesPrevias.totalFinal || 0) ? 'up' : 'down'}`} style={{ fontSize: '10px' }}></i>
+                    {' '}{Math.abs(((totalFinal - (comisionesPrevias.totalFinal || 0)) / (comisionesPrevias.totalFinal || 1)) * 100).toFixed(1)}% vs anterior
+                  </div>
+                )}
               </div>
             </Card>
           </div>
+
+          {/* Gráfico Comparativo de Desempeño */}
+          {comisionesPrevias && (
+            <Card className="shadow-1" style={{ marginBottom: 'var(--spacing-4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-4)' }}>
+                <h3 style={{ margin: 0 }}>Tendencia de Desempeño</h3>
+                <span style={{ fontSize: 'var(--font-size-sm)', opacity: 0.7 }}>Periodo actual vs anterior</span>
+              </div>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { label: 'Anterior', value: comisionesPrevias.totalFinal || 0, fill: '#cbd5e1' },
+                    { label: 'Actual', value: totalFinal, fill: 'var(--dcg-azul-claro)' }
+                  ]} barSize={50} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} />
+                    <RechartsTooltip formatter={(val) => formatearMoneda(val)} />
+                    <Bar dataKey="value">
+                      { [0, 1].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === 0 ? '#cbd5e1' : 'var(--dcg-azul-claro)'} radius={[4, 4, 0, 0]} />
+                      )) }
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          )}
           
           {comisionFlete && (
             <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
@@ -653,6 +903,29 @@ function ComisionesAdmin({ user }) {
               <div className="comisiones-empty">
                 <p>No hay comisiones calculadas para este período.</p>
                 <p>Haz clic en "Calcular Comisiones" para calcularlas.</p>
+              </div>
+            )}
+
+            {comisiones?.detalle && comisiones.detalle.length > 0 && (
+              <div style={{ marginTop: 'var(--spacing-6)' }}>
+                <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Detalle de Movimientos</h2>
+                <DataTable 
+                  value={comisiones.detalle} 
+                  paginator 
+                  rows={10} 
+                  rowsPerPageOptions={[10, 20, 50]}
+                  className="comisiones-table shadow-1"
+                  size="small"
+                  rowClassName={rowClassName}
+                  responsiveLayout="scroll"
+                >
+                  <Column field="clientName" header="Cliente" sortable style={{ minWidth: '150px' }} />
+                  <Column field="producto" header="Producto" sortable style={{ minWidth: '200px' }} />
+                  <Column field="categoria" header="Categoría" sortable />
+                  <Column field="porcentaje" header="%" body={porcentajeBody} align="right" />
+                  <Column field="subtotal" header="Monto" body={(r) => formatearMoneda(r.subtotal)} align="right" />
+                  <Column field="comision" header="Comisión" body={comisionBody} align="right" />
+                </DataTable>
               </div>
             )}
             
