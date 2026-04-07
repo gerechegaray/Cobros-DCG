@@ -2204,6 +2204,10 @@ app.post("/api/cobros", async (req, res) => {
         vendedorId = 1;
         cobrador = 'Guille';
         console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}, cobrador: ${cobrador}`);
+      } else if (usuarioLower.includes('victor')) {
+        vendedorId = 3;
+        cobrador = 'Victor';
+        console.log(`🆕 Usuario "${req.body.usuario}" -> vendedorId asignado automáticamente: ${vendedorId}, cobrador: ${cobrador}`);
       } else {
         // Si es admin, permitir que asigne manualmente o usar por defecto
         vendedorId = req.body.vendedorId || 1;

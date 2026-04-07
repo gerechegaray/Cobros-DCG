@@ -31,7 +31,8 @@ function ComisionesAdmin({ user }) {
   
   const vendedores = [
     { label: 'Guille', value: 'Guille' },
-    { label: 'Santi', value: 'Santi' }
+    { label: 'Santi', value: 'Santi' },
+    { label: 'Victor', value: 'Victor' }
   ];
   
   // Obtener período actual por defecto

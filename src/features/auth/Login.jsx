@@ -41,7 +41,7 @@ function Login({ onLogin }) {
         console.log("Rol del usuario:", role);
         
         // Validar roles permitidos
-        const validRoles = ["admin", "Santi", "Guille"];
+        const validRoles = ["admin", "Santi", "Guille", "Victor"];
         
         if (role && validRoles.includes(role)) {
           console.log("Rol válido, iniciando sesión...");

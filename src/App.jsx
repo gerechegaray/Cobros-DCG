@@ -30,7 +30,7 @@ function App() {
           const userDoc = await getDoc(doc(db, "usuarios", firebaseUser.email));
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            const validRoles = ["admin", "Santi", "Guille"];
+            const validRoles = ["admin", "Santi", "Guille", "Victor"];
             
             if (userData.role && validRoles.includes(userData.role)) {
               setUser(userData);

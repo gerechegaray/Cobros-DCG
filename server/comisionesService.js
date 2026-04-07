@@ -5,7 +5,7 @@ import { getAlegraPayments, getAlegraInvoiceById } from './alegraService.js';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // Vendedores válidos
-const VENDEDORES_VALIDOS = ['Guille', 'Santi'];
+const VENDEDORES_VALIDOS = ['Guille', 'Santi', 'Victor'];
 
 /**
  * Obtener reglas de comisión desde Firestore
@@ -72,8 +72,6 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
     throw new Error('No hay reglas de comisión activas. Ejecuta el seed de reglas primero.');
   }
   
-  // Obtener facturas del período desde facturas_comisiones
-  // IMPORTANTE: Filtramos por fecha de PAYMENT (cobro), no por fecha de invoice
   const [anio, mes] = periodo.split('-');
   const fechaInicio = new Date(parseInt(anio), parseInt(mes) - 1, 1);
   const fechaFin = new Date(parseInt(anio), parseInt(mes), 0, 23, 59, 59);
@@ -81,29 +79,33 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
   const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
   const fechaFinStr = fechaFin.toISOString().split('T')[0];
   
-  console.log(`[COMISIONES] Buscando MOVIMIENTOS de cobro entre ${fechaInicioStr} y ${fechaFinStr}`);
-  
-  const snapshot = await adminDb.collection('movimientos_comisiones')
+  // 1. Obtener Cobros (para Guille y Santi)
+  console.log(`[COMISIONES] Buscando COBROS entre ${fechaInicioStr} y ${fechaFinStr}`);
+  const snapshotCobros = await adminDb.collection('movimientos_comisiones')
+    .where('fecha', '>=', fechaInicioStr)
+    .where('fecha', '<=', fechaFinStr)
+    .get();
+
+  // 2. Obtener Ventas (para Victor)
+  console.log(`[COMISIONES] Buscando VENTAS (Victor) entre ${fechaInicioStr} y ${fechaFinStr}`);
+  const snapshotVentas = await adminDb.collection('movimientos_ventas')
     .where('fecha', '>=', fechaInicioStr)
     .where('fecha', '<=', fechaFinStr)
     .get();
   
-  console.log(`[COMISIONES] Movimientos encontrados en período: ${snapshot.size}`);
+  console.log(`[COMISIONES] Encontrados: ${snapshotCobros.size} cobros, ${snapshotVentas.size} ventas`);
   
-  // Agrupar por vendedor
   const comisionesPorVendedor = {};
-  
-  snapshot.forEach(doc => {
+
+  // PROCESAR COBROS (Guille, Santi)
+  snapshotCobros.forEach(doc => {
     const factura = doc.data();
-    
-    // Validar vendedor
     const vendedorNombre = factura.seller?.name;
-    if (!vendedorNombre || !VENDEDORES_VALIDOS.includes(vendedorNombre)) {
-      console.log(`[COMISIONES] Factura ${factura.invoiceId} ignorada - vendedor inválido: ${vendedorNombre}`);
+    
+    if (!vendedorNombre || (vendedorNombre !== 'Guille' && vendedorNombre !== 'Santi')) {
       return;
     }
     
-    // Inicializar acumulador del vendedor
     if (!comisionesPorVendedor[vendedorNombre]) {
       comisionesPorVendedor[vendedorNombre] = {
         vendedor: vendedorNombre,
@@ -114,57 +116,89 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
       };
     }
     
-    // Procesar items de la factura
     const items = factura.items || [];
     const amountPaid = parseFloat(factura.amountPaid) || 0;
     const totalInvoice = parseFloat(factura.totalInvoice) || 0;
-    
-    // Calcular proporción del cobro (si totalInvoice es 0, asumimos 1 para evitar error)
     const proporcionCobro = totalInvoice > 0 ? (amountPaid / totalInvoice) : 1;
     
     items.forEach(item => {
       const description = item.description || '';
       const subtotalOriginal = parseFloat(item.subtotal) || 0;
+      if (subtotalOriginal <= 0) return;
       
-      if (subtotalOriginal <= 0) {
-        return; // Ignorar items sin subtotal
-      }
-      
-      // Calcular subtotal proporcional al cobro recibido
       const subtotalProporcional = subtotalOriginal * proporcionCobro;
-      
-      // Detectar categoría
       const categoria = detectarCategoria(description, reglas);
+      if (!categoria) return;
       
-      if (!categoria) {
-        console.log(`[COMISIONES] Item sin categoría: "${description}" - comisión = 0`);
-        return; // Sin categoría = comisión 0
-      }
-      
-      // Obtener porcentaje de la regla
       const porcentaje = reglas[categoria];
-      
-      // Calcular comisión sobre el subtotal proporcional
       const comision = subtotalProporcional * (porcentaje / 100);
       
-      // Acumular
       comisionesPorVendedor[vendedorNombre].totalCobrado += subtotalProporcional;
       comisionesPorVendedor[vendedorNombre].totalComision += comision;
       
-      // Agregar al detalle (incluir cliente para reportes de top clientes)
-      const clientId = factura.client?.id || null;
-      const clientName = factura.client?.name || null;
       comisionesPorVendedor[vendedorNombre].detalle.push({
         facturaId: factura.invoiceId,
         paymentId: factura.paymentId,
         producto: description,
         categoria: categoria,
         subtotal: subtotalProporcional,
-        subtotalOriginal: subtotalOriginal, // Para referencia
         porcentaje: porcentaje,
         comision: comision,
-        clientId,
-        clientName
+        clientName: factura.client?.name || 'S/D'
+      });
+    });
+  });
+
+  // PROCESAR VENTAS (Victor)
+  snapshotVentas.forEach(doc => {
+    const factura = doc.data();
+    const vendedorNombre = factura.seller?.name;
+    
+    if (vendedorNombre !== 'Victor') return;
+
+    if (!comisionesPorVendedor[vendedorNombre]) {
+      comisionesPorVendedor[vendedorNombre] = {
+        vendedor: vendedorNombre,
+        periodo: periodo,
+        totalCobrado: 0, // En Victor es Total Vendido
+        totalComision: 0,
+        detalle: []
+      };
+    }
+
+    const items = factura.items || [];
+    items.forEach(item => {
+      const description = item.description || '';
+      const lowerDesc = description.toLowerCase();
+      const subtotal = parseFloat(item.subtotal) || 0;
+      if (subtotal <= 0) return;
+
+      // Lógica específica para Victor: 6% para Baires, 8% para el resto
+      const categorias6 = [
+        'fawna', 'equilibrium', 'noveles', 'premium', 
+        'company', 'origen perro', 'origen gato', 'manada', 'seguidor'
+      ];
+      
+      let porcentaje = 8; // Por defecto 8%
+      let categoria = 'RESTO (8%)';
+
+      if (categorias6.some(c => lowerDesc.includes(c))) {
+        porcentaje = 6;
+        categoria = 'BAIRES (6%)';
+      }
+
+      const comision = subtotal * (porcentaje / 100);
+
+      comisionesPorVendedor[vendedorNombre].totalCobrado += subtotal;
+      comisionesPorVendedor[vendedorNombre].totalComision += comision;
+      comisionesPorVendedor[vendedorNombre].detalle.push({
+        facturaId: factura.invoiceId,
+        producto: description,
+        categoria: categoria,
+        subtotal: subtotal,
+        porcentaje: porcentaje,
+        comision: comision,
+        clientName: factura.client?.name || 'S/D'
       });
     });
   });
@@ -229,6 +263,58 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
  * Sincronizar facturas desde payments de Alegra
  * Obtiene payments, extrae invoice.id, obtiene invoices y guarda en Firestore
  * @param {Object} adminDb - Instancia de Firestore Admin
+ * @param {boolean} forzarCompleta - Si es true, sincroniza todos los payments históricos. Si es false, solo los nuevos desd/**
+ * Sincronizar facturas de Victor (basado en venta/emisión)
+ * @param {Object} adminDb 
+ * @param {number} dias 
+ */
+export async function sincronizarFacturasVictor(adminDb, dias = 30) {
+  console.log(`[VICTOR SYNC] Iniciando sincronización por venta (últimos ${dias} días)...`);
+  
+  try {
+    const { getAlegraInvoices } = await import('./alegraService.js');
+    
+    // Traer facturas de los últimos días (usamos 5 como bloque, o adaptamos según necesitemos)
+    // Para Victor, pediremos un rango mayor si es forzada, pero por defecto los últimos N días
+    const facturas = await getAlegraInvoices(5, 30, 30); // Usamos el helper existente
+    
+    const facturasVictor = facturas.filter(f => f.seller?.name === 'Victor');
+    console.log(`[VICTOR SYNC] Encontradas ${facturasVictor.length} facturas emitidas por Victor`);
+    
+    if (facturasVictor.length === 0) return 0;
+
+    const batch = adminDb.batch();
+    for (const f of facturasVictor) {
+      const docRef = adminDb.collection('movimientos_ventas').doc(f.id.toString());
+      batch.set(docRef, {
+        invoiceId: f.id.toString(),
+        fecha: f.date, // Fecha de emisión
+        seller: { name: 'Victor' },
+        client: { 
+          id: (f.client?.id || f.client?.identifier)?.toString() || 'S/D',
+          name: f.client?.name || 'S/D' 
+        },
+        items: (f.items || []).map(item => ({
+          description: item.description || '',
+          subtotal: parseFloat(item.subtotal || item.total) || 0
+        })),
+        totalInvoice: parseFloat(f.total) || 0,
+        fechaSync: new Date()
+      }, { merge: true });
+    }
+    
+    await batch.commit();
+    return facturasVictor.length;
+  } catch (error) {
+    console.error('[VICTOR SYNC] Error:', error);
+    return 0;
+  }
+}
+
+/**
+ * Sincronizar facturas desde payments de Alegra
+ * Obtiene payments, extrae invoice.id, obtiene invoices y guarda en Firestore
+ * @param {Object} adminDb - Instancia de Firestore Admin
  * @param {boolean} forzarCompleta - Si es true, sincroniza todos los payments históricos. Si es false, solo los nuevos desde la última sync
  */
 export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta = false, startOffset = 0, maxPages = 20) {
@@ -239,6 +325,12 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
   console.log(`[COMISIONES SYNC] Iniciando sincronización de facturas desde ${startOffset} (máximo ${maxPages} páginas)... (${forzarCompleta ? 'COMPLETA' : 'INCREMENTAL'})`);
   
   try {
+    // 🆕 Sincronizar también facturas de Victor (por venta)
+    // Solo lo hacemos en la primera página para no repetir N veces en procesos chunked
+    if (startOffset === 0) {
+      await sincronizarFacturasVictor(adminDb, forzarCompleta ? 90 : 30);
+    }
+
     let dias = 30; // Por defecto últimos 30 días
     
     if (!forzarCompleta) {
@@ -338,6 +430,8 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
           if (!invoice) { errores++; continue; }
           
           if (!invoice.seller || !invoice.seller.name) { sinSeller++; continue; }
+          // Omitir Victor aquí, ya que se procesa arriba por venta
+          if (invoice.seller.name === 'Victor') continue;
           if (!VENDEDORES_VALIDOS.includes(invoice.seller.name)) { vendedorInvalido++; continue; }
           
           const docId = `pay_${mov.paymentId}_inv_${mov.invoiceId}`;

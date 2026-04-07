@@ -4,7 +4,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 
 // Vendedores válidos
-const VENDEDORES_VALIDOS = ['Guille', 'Santi'];
+const VENDEDORES_VALIDOS = ['Guille', 'Santi', 'Victor'];
 const PORCENTAJE_FLETE = 4; // 4% fijo
 
 /**
