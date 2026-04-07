@@ -9,6 +9,8 @@ import { Toast } from "primereact/toast";
 import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Dropdown } from "primereact/dropdown";
+import { MultiSelect } from "primereact/multiselect";
+import { Dialog } from "primereact/dialog";
 import { getEstadoCuenta } from "../../services/alegra";
 import { api } from "../../services/api";
 import html2canvas from 'html2canvas';
@@ -38,6 +40,11 @@ function EstadoCuenta({ user }) {
     totalPagado: 0,
     totalGeneral: 0
   });
+
+  // 🆕 Estados para Reporte Masivo
+  const [mostrarDialogMasivo, setMostrarDialogMasivo] = useState(false);
+  const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
+  const [generandoReporte, setGenerandoReporte] = useState(false);
 
   // Obtener el sellerId según el rol del usuario
   const getSellerId = () => {
@@ -572,6 +579,131 @@ function EstadoCuenta({ user }) {
     }
   };
 
+  const generarReporteMasivo = async () => {
+    if (clientesSeleccionados.length === 0) return;
+    
+    setGenerandoReporte(true);
+    try {
+      const { jsPDF } = window.jspdf ? window : { jsPDF: null };
+      const doc = jsPDF ? new jsPDF('p', 'mm', 'a4') : new (await import('jspdf')).jsPDF('p', 'mm', 'a4');
+      
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let currentY = 20;
+
+      // Encabezado Principal
+      doc.setFillColor(30, 41, 59); // Azul oscuro
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text('HOJA SÁBANA DE ESTADOS DE CUENTA', pageWidth / 2, 16, { align: 'center' });
+      
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Generado el: ${new Date().toLocaleString('es-AR')}`, pageWidth - 10, 22, { align: 'right' });
+      
+      currentY = 35;
+
+      for (const [index, clienteSel] of clientesSeleccionados.entries()) {
+        // Consultar caché para este cliente
+        setGenerandoReporte(true);
+        const cacheData = await api.getEstadoCuentaCache(clienteSel.id);
+        const facturasPendientes = (cacheData.facturas || []).filter(f => f.estado !== 'PAGADO');
+        const saldoAdeudado = cacheData.totalAdeudado || 0;
+
+        // Si el cliente no tiene deuda, opcionalmente podrías saltártelo o mostrarlo en cero.
+        // Aquí lo mostramos igualmente por claridad.
+
+        // Verificar si hay espacio para el siguiente cliente (aprox 30mm mínimo)
+        if (currentY > pageHeight - 35) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        // Título de Cliente y Saldo (Diseño Compacto)
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, currentY, pageWidth - (margin * 2), 10, 'F');
+        
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${clienteSel.name || clienteSel.nombre || 'Cliente'}`, margin + 2, currentY + 7);
+        
+        doc.setTextColor(197, 48, 48); // Rojo
+        doc.text(`SALDO: ${formatearMoneda(saldoAdeudado)}`, pageWidth - margin - 2, currentY + 7, { align: 'right' });
+        currentY += 12;
+
+        if (facturasPendientes.length > 0) {
+          doc.setFontSize(8);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(100, 100, 100);
+          
+          doc.text('Factura', margin + 2, currentY);
+          doc.text('Fecha', margin + 35, currentY);
+          doc.text('Vencimiento', margin + 65, currentY);
+          doc.text('Monto Total', pageWidth - margin - 40, currentY, { align: 'right' });
+          doc.text('Pendiente', pageWidth - margin - 2, currentY, { align: 'right' });
+          
+          currentY += 4;
+          doc.setDrawColor(220, 220, 220);
+          doc.line(margin, currentY, pageWidth - margin, currentY);
+          currentY += 4;
+          
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(50, 50, 50);
+          
+          facturasPendientes.forEach(fact => {
+            if (currentY > pageHeight - 15) {
+              doc.addPage();
+              currentY = 20;
+            }
+            doc.text(fact.numero || 'N/A', margin + 2, currentY);
+            doc.text(formatFecha(fact.fechaEmision), margin + 35, currentY);
+            doc.text(formatFecha(fact.fechaVencimiento), margin + 65, currentY);
+            doc.text(formatearMoneda(fact.montoTotal), pageWidth - margin - 40, currentY, { align: 'right' });
+            doc.text(formatearMoneda(fact.montoTotal - fact.montoPagado), pageWidth - margin - 2, currentY, { align: 'right' });
+            currentY += 4.5;
+          });
+        } else {
+          doc.setFontSize(8);
+          doc.setFont(undefined, 'italic');
+          doc.setTextColor(150, 150, 150);
+          doc.text('Sin facturas pendientes hoy.', margin + 2, currentY);
+          currentY += 4;
+        }
+
+        currentY += 8; // Espacio para el próximo cliente
+      }
+
+      // Pie de página final
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text('Distribuidora DCG - Reporte de Deuda Masivo', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+      doc.save(`Repo_Masivo_Deuda_${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.current.show({
+        severity: 'success',
+        summary: 'Reporte Generado',
+        detail: `Se procesaron ${clientesSeleccionados.length} clientes.`
+      });
+      
+      setMostrarDialogMasivo(false);
+      setClientesSeleccionados([]);
+    } catch (error) {
+      console.error('Error generando reporte masivo:', error);
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo generar el reporte masivo'
+      });
+    } finally {
+      setGenerandoReporte(false);
+    }
+  };
+
   if (loadingClientes) {
     return (
       <div style={{ padding: "2rem", textAlign: "center" }}>
@@ -635,6 +767,15 @@ function EstadoCuenta({ user }) {
                     className="p-button-outlined"
                     onClick={exportarPDF}
                   />
+                  {user?.role === 'admin' && (
+                    <Button
+                      label="Reporte Masivo"
+                      icon="pi pi-users"
+                      className="p-button-success"
+                      onClick={() => setMostrarDialogMasivo(true)}
+                      tooltip="Generar hoja sábana de múltiples clientes"
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -1100,8 +1241,70 @@ function EstadoCuenta({ user }) {
           </div>
         )}
       </Card>
+
+      {/* 🆕 Diálogo para Reporte Masivo */}
+      <Dialog
+        header="Generar Reporte Masivo (Hoja Sábana)"
+        visible={mostrarDialogMasivo}
+        style={{ width: '450px' }}
+        onHide={() => {
+          if (!generandoReporte) {
+            setMostrarDialogMasivo(false);
+            setClientesSeleccionados([]);
+          }
+        }}
+        footer={
+          <div>
+            <Button
+              label="Cancelar"
+              icon="pi pi-times"
+              onClick={() => {
+                setMostrarDialogMasivo(false);
+                setClientesSeleccionados([]);
+              }}
+              className="p-button-text"
+              disabled={generandoReporte}
+            />
+            <Button
+              label={generandoReporte ? "Generando..." : "Generar Reporte"}
+              icon={generandoReporte ? "pi pi-spin pi-spinner" : "pi pi-file-pdf"}
+              onClick={generarReporteMasivo}
+              className="p-button-success"
+              disabled={generandoReporte || clientesSeleccionados.length === 0}
+            />
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--dcg-text-secondary)' }}>
+            Selecciona los clientes para incluir en el reporte único. Se tomarán los saldos adeudados de cada uno.
+          </p>
+          <div className="p-field">
+            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>Buscar Clientes:</label>
+            <MultiSelect
+              value={clientesSeleccionados}
+              options={clientes}
+              onChange={(e) => setClientesSeleccionados(e.value)}
+              optionLabel="name"
+              placeholder="Elegir clientes..."
+              filter
+              filterPlaceholder="Nombre del cliente"
+              className="w-full"
+              style={{ width: '100%' }}
+              maxSelectedLabels={3}
+              selectedItemsLabel="{0} clientes seleccionados"
+            />
+          </div>
+          {generandoReporte && (
+            <div style={{ textAlign: 'center', marginTop: '20px' }}>
+              <ProgressSpinner style={{ width: '30px', height: '30px' }} />
+              <p style={{ fontSize: '0.8rem', marginTop: '8px' }}>Procesando estados de cuenta... esto puede tardar un momento.</p>
+            </div>
+          )}
+        </div>
+      </Dialog>
     </div>
   );
 }
 
-export default EstadoCuenta; 
+export default EstadoCuenta;
