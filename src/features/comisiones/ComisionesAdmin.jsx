@@ -800,7 +800,7 @@ function ComisionesAdmin({ user }) {
                     Total Transportado
                   </div>
                   <div style={{ color: 'var(--dcg-text-primary)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
-                    {formatMonto(comisionFlete.totalFlete || 0)}
+                    {formatearMoneda(comisionFlete.totalFlete || 0)}
                   </div>
                 </div>
                 <div>
@@ -808,7 +808,7 @@ function ComisionesAdmin({ user }) {
                     Comisión por Flete ({comisionFlete.porcentaje || 4}%)
                   </div>
                   <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
-                    {formatMonto(comisionFlete.comisionFlete || 0)}
+                    {formatearMoneda(comisionFlete.comisionFlete || 0)}
                   </div>
                 </div>
               </div>
@@ -826,7 +826,7 @@ function ComisionesAdmin({ user }) {
                 <p className="comisiones-top-subtitle">Clientes a los que más se les cobró este período</p>
                 <DataTable value={topClientes} size="small" className="comisiones-top-table">
                   <Column field="clientName" header="Cliente" />
-                  <Column field="subtotal" header="Monto cobrado" body={(row) => formatMonto(row.subtotal)} style={{ textAlign: 'right' }} />
+                  <Column field="subtotal" header="Monto cobrado" body={(row) => formatearMoneda(row.subtotal)} style={{ textAlign: 'right' }} />
                 </DataTable>
               </Card>
             )}
@@ -843,7 +843,7 @@ function ComisionesAdmin({ user }) {
                       {row.producto.length > 40 ? row.producto.slice(0, 40) + '…' : row.producto}
                     </span>
                   )} />
-                  <Column field="subtotal" header="Monto" body={(row) => formatMonto(row.subtotal)} style={{ textAlign: 'right' }} />
+                  <Column field="subtotal" header="Monto" body={(row) => formatearMoneda(row.subtotal)} style={{ textAlign: 'right' }} />
                   <Column field="pctTotal" header="% del total" body={(row) => `${row.pctTotal.toFixed(1)}%`} style={{ textAlign: 'right' }} />
                 </DataTable>
               </Card>
@@ -885,7 +885,7 @@ function ComisionesAdmin({ user }) {
                 <Column 
                   field="subtotal" 
                   header="Base"
-                  body={(rowData) => formatMonto(rowData.subtotal)}
+                  body={(rowData) => formatearMoneda(rowData.subtotal)}
                   align="right"
                 />
                 <Column 
@@ -893,7 +893,7 @@ function ComisionesAdmin({ user }) {
                   header="Comisión"
                   body={(rowData) => (
                     <strong className="comisiones-comision-value">
-                      {formatMonto(rowData.comision)}
+                      {formatearMoneda(rowData.comision)}
                     </strong>
                   )}
                   align="right"
@@ -939,7 +939,7 @@ function ComisionesAdmin({ user }) {
                 color: 'var(--dcg-success)',
                 marginTop: 'var(--spacing-4)'
               }}>
-                {formatMonto(
+                {formatearMoneda(
                   (comisiones?.totalFinal || comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
                 )}
               </div>
@@ -957,11 +957,11 @@ function ComisionesAdmin({ user }) {
                   marginTop: 'var(--spacing-1)',
                   fontStyle: 'italic'
                 }}>
-                  Comisión base: {formatMonto(comisiones.totalComision || 0)} | 
-                  Ajustes: {formatMonto(
+                  Comisión base: {formatearMoneda(comisiones.totalComision || 0)} | 
+                  Ajustes: {formatearMoneda(
                     comisiones.ajustes.reduce((sum, a) => sum + (a.tipo === 'positivo' ? a.monto : -a.monto), 0)
                   )} | 
-                  Total: {formatMonto(comisiones.totalFinal || comisiones.totalComision || 0)}
+                  Total: {formatearMoneda(comisiones.totalFinal || comisiones.totalComision || 0)}
                 </div>
               )}
             </div>
