@@ -338,13 +338,30 @@ function EstadoCuenta({ user }) {
     }
   };
 
-  /** Comparación solo por día local (vencida = vencimiento estrictamente anterior a hoy). */
+  /** Normaliza a medianoche local para comparar solo el día calendario. */
+  const soloDiaDesdeValor = (valor) => {
+    const d = new Date(valor);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+
+  /** Vencida = fecha de vencimiento estrictamente anterior a hoy (local). */
   const esFacturaVencida = (fechaVencimiento) => {
-    if (!fechaVencimiento) return false;
-    const d = new Date(fechaVencimiento);
-    if (Number.isNaN(d.getTime())) return false;
-    const solo = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
-    return solo(d) < solo(new Date());
+    const v = soloDiaDesdeValor(fechaVencimiento);
+    if (!v) return false;
+    const hoy = soloDiaDesdeValor(new Date());
+    return v < hoy;
+  };
+
+  /**
+   * Vence hoy o en los próximos `dias` días (0 = hoy, 5 = dentro de 5 días). Las ya vencidas (antes de hoy) no entran.
+   */
+  const esFacturaVenceEnProximosDias = (fechaVencimiento, dias = 5) => {
+    const v = soloDiaDesdeValor(fechaVencimiento);
+    if (!v) return false;
+    const hoy = soloDiaDesdeValor(new Date());
+    const diffDias = Math.round((v.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDias >= 0 && diffDias <= dias;
   };
 
   const estadoTemplate = (rowData) => {
@@ -698,6 +715,69 @@ function EstadoCuenta({ user }) {
           doc.setTextColor(0, 0, 0);
           currentY += 4;
         }
+
+        const montoPendienteFactura = (f) =>
+          (Number(f.montoTotal) || 0) - (Number(f.montoPagado) || 0);
+
+        const listaVencidas = facturasPendientes.filter((f) => esFacturaVencida(f.fechaVencimiento));
+        const totalPendienteVencido = listaVencidas.reduce((acc, f) => acc + montoPendienteFactura(f), 0);
+
+        const listaProximasVencer = facturasPendientes
+          .filter((f) => esFacturaVenceEnProximosDias(f.fechaVencimiento, 5))
+          .sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+
+        const asegurarEspacioVertical = (mmNecesarios) => {
+          if (currentY > pageHeight - mmNecesarios) {
+            doc.addPage();
+            currentY = 20;
+          }
+        };
+
+        asegurarEspacioVertical(28);
+        doc.setFontSize(8);
+        if (listaVencidas.length > 0) {
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(127, 29, 29);
+          doc.text(
+            `Total facturas vencidas (pendiente): ${formatMonto(totalPendienteVencido)}`,
+            margin + 2,
+            currentY
+          );
+          currentY += 4;
+        } else {
+          doc.setFont(undefined, 'italic');
+          doc.setTextColor(90, 90, 90);
+          doc.text('No tiene facturas vencidas.', margin + 2, currentY);
+          currentY += 4;
+        }
+        doc.setFont(undefined, 'normal');
+
+        if (listaProximasVencer.length > 0) {
+          asegurarEspacioVertical(8 + listaProximasVencer.length * 3.5);
+          doc.setFontSize(7);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(146, 64, 14);
+          doc.text('Próximos vencimientos (5 días):', margin + 2, currentY);
+          currentY += 3.5;
+          doc.setFont(undefined, 'normal');
+          listaProximasVencer.forEach((f) => {
+            asegurarEspacioVertical(12);
+            const num = f.numero ?? 'N/A';
+            const v = soloDiaDesdeValor(f.fechaVencimiento);
+            const hoy = soloDiaDesdeValor(new Date());
+            const diffDias =
+              v && hoy ? Math.round((v.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)) : -1;
+            let textoVence;
+            if (diffDias === 0) textoVence = 'hoy';
+            else if (diffDias === 1) textoVence = 'mañana';
+            else textoVence = `el ${formatFecha(f.fechaVencimiento)}`;
+            doc.text(`Factura ${num} vence ${textoVence}.`, margin + 4, currentY);
+            currentY += 3.5;
+          });
+        }
+
+        doc.setTextColor(0, 0, 0);
+        currentY += 2;
 
         if (facturasPendientes.length > 0) {
           const xFactura = margin + 2;
