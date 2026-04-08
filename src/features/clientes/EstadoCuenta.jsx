@@ -338,28 +338,45 @@ function EstadoCuenta({ user }) {
     }
   };
 
-  /** Normaliza a medianoche local para comparar solo el día calendario. */
-  const soloDiaDesdeValor = (valor) => {
-    const d = new Date(valor);
-    if (Number.isNaN(d.getTime())) return null;
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  /**
+   * Día calendario de HOY en el navegador (sin correr fechas de factura).
+   */
+  const soloDiaHoyCalendario = () => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   };
 
-  /** Vencida = fecha de vencimiento estrictamente anterior a hoy (local). */
+  /**
+   * Día de vencimiento alineado con lo que muestra `formatFecha` (mismo +3h).
+   * Evita que "2026-04-09" en UTC se lea como 08/04 local y desfase leyenda vs columna Venc.
+   */
+  const soloDiaVencimientoComoEnTabla = (fechaVencimiento) => {
+    if (!fechaVencimiento) return null;
+    const date = new Date(fechaVencimiento);
+    if (Number.isNaN(date.getTime())) return null;
+    const fechaArgentina = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+    return new Date(
+      fechaArgentina.getFullYear(),
+      fechaArgentina.getMonth(),
+      fechaArgentina.getDate()
+    );
+  };
+
+  /** Vencida = vencimiento (misma lógica que columna Venc.) estrictamente anterior a hoy. */
   const esFacturaVencida = (fechaVencimiento) => {
-    const v = soloDiaDesdeValor(fechaVencimiento);
+    const v = soloDiaVencimientoComoEnTabla(fechaVencimiento);
     if (!v) return false;
-    const hoy = soloDiaDesdeValor(new Date());
+    const hoy = soloDiaHoyCalendario();
     return v < hoy;
   };
 
   /**
-   * Vence hoy o en los próximos `dias` días (0 = hoy, 5 = dentro de 5 días). Las ya vencidas (antes de hoy) no entran.
+   * Vence hoy o en los próximos `dias` días (0 = hoy, 5 = dentro de 5 días). Las ya vencidas no entran.
    */
   const esFacturaVenceEnProximosDias = (fechaVencimiento, dias = 5) => {
-    const v = soloDiaDesdeValor(fechaVencimiento);
+    const v = soloDiaVencimientoComoEnTabla(fechaVencimiento);
     if (!v) return false;
-    const hoy = soloDiaDesdeValor(new Date());
+    const hoy = soloDiaHoyCalendario();
     const diffDias = Math.round((v.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
     return diffDias >= 0 && diffDias <= dias;
   };
@@ -763,8 +780,8 @@ function EstadoCuenta({ user }) {
           listaProximasVencer.forEach((f) => {
             asegurarEspacioVertical(12);
             const num = f.numero ?? 'N/A';
-            const v = soloDiaDesdeValor(f.fechaVencimiento);
-            const hoy = soloDiaDesdeValor(new Date());
+            const v = soloDiaVencimientoComoEnTabla(f.fechaVencimiento);
+            const hoy = soloDiaHoyCalendario();
             const diffDias =
               v && hoy ? Math.round((v.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)) : -1;
             let textoVence;
