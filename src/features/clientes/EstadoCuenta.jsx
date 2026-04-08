@@ -338,6 +338,15 @@ function EstadoCuenta({ user }) {
     }
   };
 
+  /** Comparación solo por día local (vencida = vencimiento estrictamente anterior a hoy). */
+  const esFacturaVencida = (fechaVencimiento) => {
+    if (!fechaVencimiento) return false;
+    const d = new Date(fechaVencimiento);
+    if (Number.isNaN(d.getTime())) return false;
+    const solo = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+    return solo(d) < solo(new Date());
+  };
+
   const estadoTemplate = (rowData) => {
     const getSeverity = (estado) => {
       switch (estado) {
@@ -603,8 +612,17 @@ function EstadoCuenta({ user }) {
       doc.setFontSize(9);
       doc.setFont(undefined, 'normal');
       doc.text(`Generado el: ${new Date().toLocaleString('es-AR')}`, pageWidth - 10, 22, { align: 'right' });
-      
-      currentY = 35;
+
+      doc.setFontSize(7);
+      doc.setTextColor(80, 80, 80);
+      doc.text(
+        'Leyenda: Vencida = vencimiento anterior a hoy (fondo rojo). Pendiente = aún no vencida (fondo azul).',
+        margin,
+        29
+      );
+      doc.setTextColor(0, 0, 0);
+
+      currentY = 36;
 
       for (const [index, clienteSel] of clientesSeleccionados.entries()) {
         // Consultar caché para este cliente
@@ -636,36 +654,68 @@ function EstadoCuenta({ user }) {
         currentY += 12;
 
         if (facturasPendientes.length > 0) {
+          const xFactura = margin + 2;
+          const xFecha = margin + 28;
+          const xVenc = margin + 52;
+          const xEstado = margin + 78;
+          const xMontoTot = pageWidth - margin - 52;
+          const xPend = pageWidth - margin - 2;
+
           doc.setFontSize(8);
           doc.setFont(undefined, 'bold');
           doc.setTextColor(100, 100, 100);
-          
-          doc.text('Factura', margin + 2, currentY);
-          doc.text('Fecha', margin + 35, currentY);
-          doc.text('Vencimiento', margin + 65, currentY);
-          doc.text('Monto Total', pageWidth - margin - 40, currentY, { align: 'right' });
-          doc.text('Pendiente', pageWidth - margin - 2, currentY, { align: 'right' });
-          
+
+          doc.text('Factura', xFactura, currentY);
+          doc.text('Fecha', xFecha, currentY);
+          doc.text('Venc.', xVenc, currentY);
+          doc.text('Estado', xEstado, currentY);
+          doc.text('Monto Total', xMontoTot, currentY, { align: 'right' });
+          doc.text('Pendiente', xPend, currentY, { align: 'right' });
+
           currentY += 4;
           doc.setDrawColor(220, 220, 220);
           doc.line(margin, currentY, pageWidth - margin, currentY);
           currentY += 4;
-          
-          doc.setFont(undefined, 'normal');
-          doc.setTextColor(50, 50, 50);
-          
-          facturasPendientes.forEach(fact => {
-            if (currentY > pageHeight - 15) {
+
+          const rowH = 5;
+
+          facturasPendientes.forEach((fact) => {
+            if (currentY > pageHeight - 18) {
               doc.addPage();
               currentY = 20;
             }
-            doc.text(fact.numero || 'N/A', margin + 2, currentY);
-            doc.text(formatFecha(fact.fechaEmision), margin + 35, currentY);
-            doc.text(formatFecha(fact.fechaVencimiento), margin + 65, currentY);
-            doc.text(formatMonto(fact.montoTotal), pageWidth - margin - 40, currentY, { align: 'right' });
-            doc.text(formatMonto(fact.montoTotal - fact.montoPagado), pageWidth - margin - 2, currentY, { align: 'right' });
-            currentY += 4.5;
+
+            const vencida = esFacturaVencida(fact.fechaVencimiento);
+            const rowY0 = currentY - 3.5;
+
+            if (vencida) {
+              doc.setFillColor(254, 226, 226);
+            } else {
+              doc.setFillColor(237, 247, 255);
+            }
+            doc.rect(margin, rowY0, pageWidth - margin * 2, rowH, 'F');
+
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'normal');
+            if (vencida) {
+              doc.setTextColor(127, 29, 29);
+            } else {
+              doc.setTextColor(30, 64, 175);
+            }
+
+            doc.text(String(fact.numero ?? 'N/A'), xFactura, currentY);
+            doc.text(formatFecha(fact.fechaEmision), xFecha, currentY);
+            doc.text(formatFecha(fact.fechaVencimiento), xVenc, currentY);
+            doc.setFont(undefined, 'bold');
+            doc.text(vencida ? 'Vencida' : 'Pendiente', xEstado, currentY);
+            doc.setFont(undefined, 'normal');
+            doc.text(formatMonto(fact.montoTotal), xMontoTot, currentY, { align: 'right' });
+            doc.text(formatMonto(fact.montoTotal - fact.montoPagado), xPend, currentY, { align: 'right' });
+
+            currentY += rowH + 0.5;
           });
+
+          doc.setTextColor(50, 50, 50);
         } else {
           doc.setFontSize(8);
           doc.setFont(undefined, 'italic');
