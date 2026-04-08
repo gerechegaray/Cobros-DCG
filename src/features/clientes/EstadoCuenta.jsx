@@ -632,7 +632,7 @@ function EstadoCuenta({ user }) {
         doc.text(`${clienteSel.name || clienteSel.nombre || 'Cliente'}`, margin + 2, currentY + 7);
         
         doc.setTextColor(197, 48, 48); // Rojo
-        doc.text(`SALDO: ${formatearMoneda(saldoAdeudado)}`, pageWidth - margin - 2, currentY + 7, { align: 'right' });
+        doc.text(`SALDO: ${formatMonto(saldoAdeudado)}`, pageWidth - margin - 2, currentY + 7, { align: 'right' });
         currentY += 12;
 
         if (facturasPendientes.length > 0) {
@@ -662,8 +662,8 @@ function EstadoCuenta({ user }) {
             doc.text(fact.numero || 'N/A', margin + 2, currentY);
             doc.text(formatFecha(fact.fechaEmision), margin + 35, currentY);
             doc.text(formatFecha(fact.fechaVencimiento), margin + 65, currentY);
-            doc.text(formatearMoneda(fact.montoTotal), pageWidth - margin - 40, currentY, { align: 'right' });
-            doc.text(formatearMoneda(fact.montoTotal - fact.montoPagado), pageWidth - margin - 2, currentY, { align: 'right' });
+            doc.text(formatMonto(fact.montoTotal), pageWidth - margin - 40, currentY, { align: 'right' });
+            doc.text(formatMonto(fact.montoTotal - fact.montoPagado), pageWidth - margin - 2, currentY, { align: 'right' });
             currentY += 4.5;
           });
         } else {
