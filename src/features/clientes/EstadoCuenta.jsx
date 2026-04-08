@@ -741,7 +741,14 @@ function EstadoCuenta({ user }) {
                 </div>
               ) : (
                 <p className="estado-cuenta-subtitle">
-                  Selecciona un cliente para ver su estado de cuenta
+                  {user?.role === 'admin' ? (
+                    <>
+                      Elegí un cliente abajo para ver su estado de cuenta individual, o usá{" "}
+                      <strong>Reporte masivo</strong> para generar una hoja sábana con varios clientes a la vez.
+                    </>
+                  ) : (
+                    "Selecciona un cliente para ver su estado de cuenta"
+                  )}
                 </p>
               )}
             </div>
@@ -752,6 +759,15 @@ function EstadoCuenta({ user }) {
                 className="p-button-outlined"
                 onClick={() => navigate('/dashboard')}
               />
+              {user?.role === 'admin' && (
+                <Button
+                  label="Reporte masivo"
+                  icon="pi pi-users"
+                  className="p-button-success"
+                  onClick={() => setMostrarDialogMasivo(true)}
+                  tooltip="Generar hoja sábana de múltiples clientes (sin elegir uno individual)"
+                />
+              )}
               {cliente && (
                 <>
                   <Button
@@ -767,15 +783,6 @@ function EstadoCuenta({ user }) {
                     className="p-button-outlined"
                     onClick={exportarPDF}
                   />
-                  {user?.role === 'admin' && (
-                    <Button
-                      label="Reporte Masivo"
-                      icon="pi pi-users"
-                      className="p-button-success"
-                      onClick={() => setMostrarDialogMasivo(true)}
-                      tooltip="Generar hoja sábana de múltiples clientes"
-                    />
-                  )}
                 </>
               )}
             </div>
