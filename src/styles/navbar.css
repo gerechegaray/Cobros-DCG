@@ -25,6 +25,38 @@
   min-height: 80px;
   display: flex;
   align-items: center;
+  transition: min-height 0.2s ease, padding 0.2s ease;
+}
+
+/* Barra plegada: menos alto, más lugar para el contenido principal */
+.navbar-dcg--collapsed {
+  min-height: 52px;
+  padding-top: var(--spacing-2);
+  padding-bottom: var(--spacing-2);
+}
+
+.navbar-dcg--collapsed .navbar-dcg-brand-sub {
+  display: none;
+}
+
+.navbar-dcg--collapsed > div > div:first-child > div:first-child {
+  padding: var(--spacing-2);
+}
+
+.navbar-dcg--collapsed > div > div:first-child > div:first-child > div {
+  font-size: var(--font-size-xl);
+}
+
+.navbar-dcg--collapsed > div > div:first-child > div:last-child h1 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+}
+
+.navbar-dcg-desktop-cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .navbar-dcg > div {
@@ -98,22 +130,26 @@
 }
 
 /* ============================================
-   MENÚ DESKTOP
+   MENÚ DESKTOP (píldora + modo colapsado)
    ============================================ */
-.navbar-dcg > div > div:nth-child(2) {
-  display: flex;
+.navbar-dcg-menu-pill {
   gap: var(--spacing-2);
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  padding: var(--spacing-2);
-  border-radius: var(--border-radius-full);
   backdrop-filter: blur(10px);
   border: var(--border-width-thin) solid rgba(255, 255, 255, 0.15);
   flex-wrap: wrap;
 }
 
+.navbar-dcg-collapsed-actions {
+  background: rgba(255, 255, 255, 0.1);
+  padding: var(--spacing-2);
+  border-radius: var(--border-radius-xl);
+  border: var(--border-width-thin) solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+}
+
 /* Botones del menú - Estilo Pill */
-.navbar-dcg > div > div:nth-child(2) button {
+.navbar-dcg-menu-pill button {
   color: white;
   background-color: transparent;
   border: var(--border-width-thin) solid transparent;
@@ -126,25 +162,22 @@
   position: relative;
 }
 
-/* Hover en botones del menú */
-.navbar-dcg > div > div:nth-child(2) button:hover {
+.navbar-dcg-menu-pill button:hover {
   background-color: rgba(255, 255, 255, 0.15) !important;
   border-color: rgba(255, 255, 255, 0.25) !important;
   transform: translateY(-1px);
 }
 
-/* Estado activo - Botones del menú */
-.navbar-dcg > div > div:nth-child(2) button.p-button-raised,
-.navbar-dcg > div > div:nth-child(2) button[style*="rgba(255, 255, 255, 0.25)"] {
+.navbar-dcg-menu-pill button.p-button-raised,
+.navbar-dcg-menu-pill button[style*="rgba(255, 255, 255, 0.25)"] {
   background-color: rgba(255, 255, 255, 0.25) !important;
   border-color: rgba(255, 255, 255, 0.4) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
   font-weight: var(--font-weight-semibold) !important;
 }
 
-/* Estado activo con underline alternativo */
-.navbar-dcg > div > div:nth-child(2) button.p-button-raised::after,
-.navbar-dcg > div > div:nth-child(2) button[style*="rgba(255, 255, 255, 0.25)"]::after {
+.navbar-dcg-menu-pill button.p-button-raised::after,
+.navbar-dcg-menu-pill button[style*="rgba(255, 255, 255, 0.25)"]::after {
   content: '';
   position: absolute;
   bottom: var(--spacing-1);
@@ -157,27 +190,27 @@
   opacity: 0.9;
 }
 
-/* Separador visual */
-.navbar-dcg > div > div:nth-child(2) > div {
-  width: var(--border-width-thin);
+.navbar-dcg-nav-separator {
+  width: 1px;
+  min-width: 1px;
   height: 32px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: var(--border-radius-full);
   margin: 0 var(--spacing-1);
+  flex-shrink: 0;
 }
 
-/* Botón de usuario */
-.navbar-dcg > div > div:nth-child(2) > button:last-of-type {
-  background-color: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.2);
-  padding: var(--spacing-3);
+.navbar-dcg-user-trigger {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  padding: var(--spacing-3) !important;
   width: auto;
   min-width: auto;
 }
 
-.navbar-dcg > div > div:nth-child(2) > button:last-of-type:hover {
-  background-color: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.35);
+.navbar-dcg-user-trigger:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
 }
 
 /* ============================================
@@ -206,8 +239,8 @@
     padding: var(--spacing-4) var(--spacing-4);
     min-height: 70px;
   }
-  
-  .navbar-dcg > div > div:nth-child(2) {
+
+  .navbar-dcg .navbar-dcg-desktop-cluster {
     display: none;
   }
   

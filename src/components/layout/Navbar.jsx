@@ -1,13 +1,34 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "primereact/button";
 import { Sidebar } from "primereact/sidebar";
 import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 
+const NAV_EXPANDED_KEY = "dcg_navbar_expanded";
+
+function readNavExpandedPreference() {
+  try {
+    const v = localStorage.getItem(NAV_EXPANDED_KEY);
+    if (v === "0" || v === "false") return false;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
 function Navbar({ user, onLogout, menuItems }) {
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [navExpanded, setNavExpanded] = useState(readNavExpandedPreference);
   const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_EXPANDED_KEY, navExpanded ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [navExpanded]);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,9 +68,9 @@ function Navbar({ user, onLogout, menuItems }) {
 
   return (
     <>
-      {/* Navbar */}
+      {/* Navbar: desplegable / plegable (preferencia en localStorage) */}
       <nav
-        className="navbar-dcg"
+        className={`navbar-dcg ${navExpanded ? "navbar-dcg--expanded" : "navbar-dcg--collapsed"}`}
         style={{
           background: "linear-gradient(135deg, var(--dcg-azul-oscuro) 0%, var(--dcg-azul-claro) 50%, var(--dcg-azul-oscuro) 100%)",
           padding: "1rem 2rem",
@@ -95,72 +116,127 @@ function Navbar({ user, onLogout, menuItems }) {
               <h1 style={{ color: "white", margin: 0, fontSize: "1.5rem", fontWeight: "700" }}>
                 Sistema de Gestión DCG
               </h1>
-              <div style={{ 
-                color: "rgba(255, 255, 255, 0.8)", 
-                fontSize: "0.875rem", 
-                fontWeight: "500",
-                marginTop: "-4px"
-              }}>
+              <div
+                className="navbar-dcg-brand-sub"
+                style={{
+                  color: "rgba(255, 255, 255, 0.8)",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  marginTop: "-4px"
+                }}
+              >
                 DISTRIBUCIONES
               </div>
             </div>
           </div>
 
-          {/* Desktop Menu */}
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              alignItems: "center",
-              background: "rgba(255, 255, 255, 0.1)",
-              padding: "0.5rem",
-              borderRadius: "16px"
-            }}
-          >
-            {getOrderedMenuItems().map((item) => (
-              <Button
-                key={item.path}
-                label={item.label === "Dashboard" ? "Resumen" : item.label}
-                icon={item.icon}
-                className={
-                  currentPath === item.path.replace("/", "") ? "p-button-raised" : "p-button-text"
-                }
+          {/* Desktop: menú completo o barra compacta (en móvil se oculta vía CSS; se usa el lateral) */}
+          <div className="navbar-dcg-desktop-cluster">
+            {navExpanded ? (
+              <div
+                className="navbar-dcg-menu-pill"
                 style={{
-                  color: "white",
-                  backgroundColor:
-                    currentPath === item.path.replace("/", "")
-                      ? "rgba(255, 255, 255, 0.25)"
-                      : "transparent",
-                  border:
-                    currentPath === item.path.replace("/", "")
-                      ? "1px solid rgba(255, 255, 255, 0.3)"
-                      : "1px solid transparent",
-                  borderRadius: "12px",
-                  padding: "0.75rem 1.25rem",
-                  transition: "all 0.2s ease"
+                  display: "flex",
+                  gap: "0.5rem",
+                  alignItems: "center",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  padding: "0.5rem",
+                  borderRadius: "16px"
                 }}
-                onClick={() => navigate(item.path)}
-              />
-            ))}
+              >
+                {getOrderedMenuItems().map((item) => (
+                  <Button
+                    key={item.path}
+                    label={item.label === "Dashboard" ? "Resumen" : item.label}
+                    icon={item.icon}
+                    className={
+                      currentPath === item.path.replace("/", "") ? "p-button-raised" : "p-button-text"
+                    }
+                    style={{
+                      color: "white",
+                      backgroundColor:
+                        currentPath === item.path.replace("/", "")
+                          ? "rgba(255, 255, 255, 0.25)"
+                          : "transparent",
+                      border:
+                        currentPath === item.path.replace("/", "")
+                          ? "1px solid rgba(255, 255, 255, 0.3)"
+                          : "1px solid transparent",
+                      borderRadius: "12px",
+                      padding: "0.75rem 1.25rem",
+                      transition: "all 0.2s ease"
+                    }}
+                    onClick={() => navigate(item.path)}
+                  />
+                ))}
 
-            {/* Separador visual */}
-            <div
-              style={{ width: "1px", height: "32px", background: "rgba(255,255,255,0.2)" }}
-            ></div>
+                <Button
+                  icon="pi pi-angle-double-up"
+                  className="p-button-text"
+                  style={{
+                    color: "white",
+                    backgroundColor: "rgba(255, 255, 255, 0.12)",
+                    borderRadius: "12px",
+                    padding: "0.75rem",
+                    flexShrink: 0
+                  }}
+                  onClick={() => setNavExpanded(false)}
+                  tooltip="Plegar barra (más espacio para el contenido)"
+                  aria-label="Plegar navegación"
+                />
 
-            {/* Usuario */}
-            <Button
-              icon="pi pi-user"
-              className="p-button-text"
-              style={{
-                color: "white",
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                borderRadius: "12px",
-                padding: "0.75rem"
-              }}
-              onClick={(e) => userMenuRef.current.toggle(e)}
-              tooltip="Menú de usuario"
-            />
+                <div className="navbar-dcg-nav-separator" />
+
+                <Button
+                  icon="pi pi-user"
+                  className="p-button-text navbar-dcg-user-trigger"
+                  style={{
+                    color: "white",
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    borderRadius: "12px",
+                    padding: "0.75rem"
+                  }}
+                  onClick={(e) => userMenuRef.current.toggle(e)}
+                  tooltip="Menú de usuario"
+                />
+              </div>
+            ) : (
+              <div
+                className="navbar-dcg-collapsed-actions"
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  alignItems: "center"
+                }}
+              >
+                <Button
+                  icon="pi pi-angle-double-down"
+                  label="Menú"
+                  className="p-button-text"
+                  style={{
+                    color: "white",
+                    backgroundColor: "rgba(255, 255, 255, 0.12)",
+                    borderRadius: "12px",
+                    padding: "0.75rem 1rem"
+                  }}
+                  onClick={() => setNavExpanded(true)}
+                  tooltip="Desplegar menú de navegación"
+                  aria-label="Desplegar navegación"
+                />
+                <Button
+                  icon="pi pi-user"
+                  className="p-button-text navbar-dcg-user-trigger"
+                  style={{
+                    color: "white",
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    borderRadius: "12px",
+                    padding: "0.75rem"
+                  }}
+                  onClick={(e) => userMenuRef.current.toggle(e)}
+                  tooltip="Menú de usuario"
+                />
+              </div>
+            )}
             <Menu model={userMenuItems} popup ref={userMenuRef} />
           </div>
 
@@ -281,13 +357,13 @@ function Navbar({ user, onLogout, menuItems }) {
         </div>
       </Sidebar>
 
-      {/* Responsive */}
+      {/* Responsive: en móvil el cluster desktop se oculta y se usa la sidebar */}
       <style>{`
         @media (max-width: 768px) {
-          nav div div:nth-child(2) {
+          nav.navbar-dcg .navbar-dcg-desktop-cluster {
             display: none !important;
           }
-          nav div button {
+          nav.navbar-dcg > div > button {
             display: block !important;
           }
         }
