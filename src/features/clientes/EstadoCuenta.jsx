@@ -624,15 +624,43 @@ function EstadoCuenta({ user }) {
 
       currentY = 36;
 
+      const clientesSinRefreshOk = [];
+
       for (const [index, clienteSel] of clientesSeleccionados.entries()) {
-        // Consultar caché para este cliente
         setGenerandoReporte(true);
-        const cacheData = await api.getEstadoCuentaCache(clienteSel.id);
+
+        // Forzar actualización desde Alegra (mismo flujo que "Actualizar ahora"); el PDF usa datos frescos.
+        let cacheData;
+        let datosSoloCache = false;
+        try {
+          const resultado = await api.refreshEstadoCuentaCache(clienteSel.id, true);
+          cacheData = resultado?.data ?? resultado;
+          if (!cacheData || !Array.isArray(cacheData.facturas)) {
+            cacheData = await api.getEstadoCuentaCache(clienteSel.id);
+            datosSoloCache = true;
+          }
+        } catch (err) {
+          console.error('[Reporte masivo] Error refrescando estado de cuenta:', clienteSel.id, err);
+          try {
+            cacheData = await api.getEstadoCuentaCache(clienteSel.id);
+            datosSoloCache = true;
+          } catch (e2) {
+            cacheData = { facturas: [], totalAdeudado: 0, exists: false };
+            datosSoloCache = true;
+          }
+        }
+
+        if (datosSoloCache) {
+          clientesSinRefreshOk.push(clienteSel.name || clienteSel.nombre || String(clienteSel.id));
+        }
+
+        // Pausa entre clientes para no saturar la API de Alegra
+        if (index < clientesSeleccionados.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 450));
+        }
+
         const facturasPendientes = (cacheData.facturas || []).filter(f => f.estado !== 'PAGADO');
         const saldoAdeudado = cacheData.totalAdeudado || 0;
-
-        // Si el cliente no tiene deuda, opcionalmente podrías saltártelo o mostrarlo en cero.
-        // Aquí lo mostramos igualmente por claridad.
 
         // Verificar si hay espacio para el siguiente cliente (aprox 30mm mínimo)
         if (currentY > pageHeight - 35) {
@@ -643,15 +671,33 @@ function EstadoCuenta({ user }) {
         // Título de Cliente y Saldo (Diseño Compacto)
         doc.setFillColor(248, 250, 252);
         doc.rect(margin, currentY, pageWidth - (margin * 2), 10, 'F');
-        
+
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(30, 41, 59);
         doc.text(`${clienteSel.name || clienteSel.nombre || 'Cliente'}`, margin + 2, currentY + 7);
-        
+
         doc.setTextColor(197, 48, 48); // Rojo
         doc.text(`SALDO: ${formatMonto(saldoAdeudado)}`, pageWidth - margin - 2, currentY + 7, { align: 'right' });
         currentY += 12;
+
+        if (datosSoloCache) {
+          if (currentY > pageHeight - 20) {
+            doc.addPage();
+            currentY = 20;
+          }
+          doc.setFontSize(7);
+          doc.setFont(undefined, 'italic');
+          doc.setTextColor(180, 83, 9);
+          doc.text(
+            'Advertencia: no se pudo actualizar desde Alegra; se usó caché (puede estar desactualizado).',
+            margin + 2,
+            currentY
+          );
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(0, 0, 0);
+          currentY += 4;
+        }
 
         if (facturasPendientes.length > 0) {
           const xFactura = margin + 2;
@@ -734,10 +780,16 @@ function EstadoCuenta({ user }) {
 
       doc.save(`Repo_Masivo_Deuda_${new Date().toISOString().split('T')[0]}.pdf`);
       
+      const detalleBase = `Se actualizó desde Alegra y se incluyeron ${clientesSeleccionados.length} cliente(s).`;
+      const detalleAdvertencia =
+        clientesSinRefreshOk.length > 0
+          ? ` ${clientesSinRefreshOk.length} sin refrescar (caché previo o error).`
+          : '';
+
       toast.current.show({
-        severity: 'success',
-        summary: 'Reporte Generado',
-        detail: `Se procesaron ${clientesSeleccionados.length} clientes.`
+        severity: clientesSinRefreshOk.length > 0 ? 'warn' : 'success',
+        summary: 'Reporte generado',
+        detail: detalleBase + detalleAdvertencia
       });
       
       setMostrarDialogMasivo(false);
@@ -1323,7 +1375,7 @@ function EstadoCuenta({ user }) {
               disabled={generandoReporte}
             />
             <Button
-              label={generandoReporte ? "Generando..." : "Generar Reporte"}
+              label={generandoReporte ? "Actualizando y generando..." : "Actualizar y generar PDF"}
               icon={generandoReporte ? "pi pi-spin pi-spinner" : "pi pi-file-pdf"}
               onClick={generarReporteMasivo}
               className="p-button-success"
@@ -1334,7 +1386,9 @@ function EstadoCuenta({ user }) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--dcg-text-secondary)' }}>
-            Selecciona los clientes para incluir en el reporte único. Se tomarán los saldos adeudados de cada uno.
+            Seleccioná los clientes. Al generar, se <strong>actualiza el estado de cuenta desde Alegra</strong> para cada
+            uno (como &quot;Actualizar ahora&quot;) y luego se arma el PDF con datos al día. Con muchos clientes puede
+            tardar varios minutos.
           </p>
           <div className="p-field">
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>Buscar Clientes:</label>
@@ -1355,7 +1409,9 @@ function EstadoCuenta({ user }) {
           {generandoReporte && (
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <ProgressSpinner style={{ width: '30px', height: '30px' }} />
-              <p style={{ fontSize: '0.8rem', marginTop: '8px' }}>Procesando estados de cuenta... esto puede tardar un momento.</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '8px' }}>
+                Actualizando cada cliente en Alegra y generando el PDF. Puede tardar si la lista es larga.
+              </p>
             </div>
           )}
         </div>
