@@ -187,11 +187,75 @@ export const validarProducto = (producto, cantidad) => {
   };
 };
 
-/** Email usado en pedidos para Santi (mismo valor que PedidosReportes). */
+/** Email principal en pedidos (PedidosReportes). */
 export const VENDEDOR_SANTI_EMAIL_PEDIDOS = 'santi@dcg.com';
 
+/** Emails conocidos para Santi; opcional: VITE_SANTI_PEDIDOS_EMAILS (separados por coma). */
+export function getVendedorSantiEmailsPedidos() {
+  const envExtra =
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_SANTI_PEDIDOS_EMAILS
+      ? String(import.meta.env.VITE_SANTI_PEDIDOS_EMAILS)
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+  return [
+    ...new Set([
+      'santi@dcg.com',
+      'santi@empresa.com',
+      'santiagomillandcg@gmail.com',
+      ...envExtra
+    ])
+  ];
+}
+
 /**
- * Pedidos facturados cuya fechaPedido cae en el período YYYY-MM.
+ * Pedido de Santi: coincide email configurado o nombre guardado al crear el pedido.
+ */
+export function esPedidoDelVendedorSanti(pedido) {
+  if (!pedido) return false;
+  const emails = getVendedorSantiEmailsPedidos();
+  const v = String(pedido.vendedor || '').trim().toLowerCase();
+  const createdBy = String(pedido.createdBy || '').trim().toLowerCase();
+  if (emails.includes(v) || emails.includes(createdBy)) return true;
+  const nom = String(pedido.vendedorNombre || '').trim().toLowerCase();
+  return nom === 'santi';
+}
+
+/** Valor interno del desplegable "Santi" en reportes (todos los mails de Santi). */
+export const FILTRO_REPORTE_PEDIDOS_SANTI = '__filtro_vendedor_santi__';
+
+/**
+ * Filtro admin en reportes de pedidos: email exacto o bloque Santi multi-mail.
+ */
+export function pedidoCoincideConFiltroVendedorReporte(pedido, filtro) {
+  if (filtro == null || filtro === '') return true;
+  if (filtro === FILTRO_REPORTE_PEDIDOS_SANTI) return esPedidoDelVendedorSanti(pedido);
+  const sel = String(filtro).trim().toLowerCase();
+  const v = String(pedido.vendedor || '').trim().toLowerCase();
+  const c = String(pedido.createdBy || '').trim().toLowerCase();
+  return v === sel || c === sel;
+}
+
+/**
+ * Fecha que define el período para un pedido facturado: fechaFacturacion (al marcar en la app),
+ * o fechaPedido si es histórico sin ese campo.
+ */
+export function getFechaReferenciaPedidoFacturado(pedido) {
+  if (!pedido || pedido.estado !== 'facturado') return null;
+  if (pedido.fechaFacturacion != null) {
+    const f = pedido.fechaFacturacion?.toDate?.() ?? new Date(pedido.fechaFacturacion);
+    if (f && !Number.isNaN(f.getTime())) return f;
+  }
+  if (pedido.fechaPedido != null) {
+    const f = pedido.fechaPedido?.toDate?.() ?? new Date(pedido.fechaPedido);
+    if (f && !Number.isNaN(f.getTime())) return f;
+  }
+  return null;
+}
+
+/**
+ * Pedidos facturados cuya fecha de referencia (facturación en app o fecha del pedido) cae en YYYY-MM.
  */
 export function filterPedidosFacturadosPorPeriodo(pedidos, periodo) {
   if (!Array.isArray(pedidos) || !pedidos.length || !/^\d{4}-\d{2}$/.test(periodo)) {
@@ -202,8 +266,9 @@ export function filterPedidosFacturadosPorPeriodo(pedidos, periodo) {
   const mesFin = new Date(anio, mes, 0, 23, 59, 59, 999);
   return pedidos.filter((pedido) => {
     if (pedido.estado !== 'facturado') return false;
-    const fechaPedido = pedido.fechaPedido?.toDate?.() || new Date(pedido.fechaPedido);
-    return fechaPedido >= mesInicio && fechaPedido <= mesFin;
+    const fechaRef = getFechaReferenciaPedidoFacturado(pedido);
+    if (!fechaRef) return false;
+    return fechaRef >= mesInicio && fechaRef <= mesFin;
   });
 }
 

@@ -15,11 +15,11 @@ import { InputNumber } from 'primereact/inputnumber';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import {
   formatearMoneda,
-  VENDEDOR_SANTI_EMAIL_PEDIDOS,
+  esPedidoDelVendedorSanti,
   filterPedidosFacturadosPorPeriodo,
   topProductosDesdePedidosFacturados
 } from '../pedidos/utils';
-import { getPedidosByVendedor } from '../pedidos/pedidosService';
+import { getPedidos } from '../pedidos/pedidosService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 function ComisionesAdmin({ user }) {
@@ -71,8 +71,9 @@ function ComisionesAdmin({ user }) {
     }
     (async () => {
       try {
-        const pedidos = await getPedidosByVendedor(VENDEDOR_SANTI_EMAIL_PEDIDOS);
+        const todos = await getPedidos();
         if (cancelled) return;
+        const pedidos = todos.filter(esPedidoDelVendedorSanti);
         const filtrados = filterPedidosFacturadosPorPeriodo(pedidos, periodo);
         const todosProductos = topProductosDesdePedidosFacturados(filtrados, 9999);
         const totalPeriodo = todosProductos.reduce((s, p) => s + (p.montoTotal || 0), 0);
@@ -593,13 +594,13 @@ function ComisionesAdmin({ user }) {
       doc.setFont(undefined, 'normal');
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text('Basado en pedidos en estado facturado y fecha de pedido del período. No equivale a cobranza Alegra.', 15, currentY);
+      doc.text('Datos de la colección pedidos (Firestore). Período por fecha de facturación en la app o, si no hay, fecha del pedido. No es cobranza Alegra.', 15, currentY);
       currentY += 10;
 
       if (!topProductosPedidosSanti.length) {
         doc.setFontSize(9);
         doc.setTextColor(120, 120, 120);
-        doc.text('Sin pedidos facturados con productos en este período.', 15, currentY);
+        doc.text('Sin pedidos facturados en app con ítems en este período (revisá facturación y mes).', 15, currentY);
         currentY += 8;
       } else {
         doc.setFillColor(230, 230, 230);
@@ -997,7 +998,7 @@ function ComisionesAdmin({ user }) {
                 Top productos por pedidos facturados (app)
               </h2>
               <p className="comisiones-top-subtitle">
-                Pedidos en estado <strong>facturado</strong> con fecha de pedido en este período. Es independiente del detalle de cobranza / Alegra.
+                Datos del módulo <strong>pedidos</strong> (Firebase). Se usa la <strong>fecha en que se marcó facturado</strong> en la app; si el pedido es viejo sin esa fecha, la fecha del pedido. No viene de Alegra.
               </p>
               {topProductosPedidosSanti.length > 0 ? (
                 <DataTable value={topProductosPedidosSanti} size="small" className="comisiones-top-table">
@@ -1036,7 +1037,7 @@ function ComisionesAdmin({ user }) {
                 </DataTable>
               ) : (
                 <p className="comisiones-top-subtitle" style={{ marginBottom: 0 }}>
-                  No hay pedidos facturados con ítems en este período para este vendedor.
+                  No hay pedidos facturados en la app con ítems en este período para Santi (revisá el mes del período y que el admin haya marcado facturado).
                 </p>
               )}
             </Card>

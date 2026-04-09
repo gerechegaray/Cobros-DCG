@@ -8,7 +8,13 @@ import { Chart } from 'primereact/chart';
 import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { getPedidosRealtime, getPedidosByVendedorRealtime } from './pedidosService';
-import { formatearMoneda, formatearFecha } from './utils';
+import {
+  formatearMoneda,
+  formatearFecha,
+  getFechaReferenciaPedidoFacturado,
+  FILTRO_REPORTE_PEDIDOS_SANTI,
+  pedidoCoincideConFiltroVendedorReporte
+} from './utils';
 
 const PedidosReportes = ({ user }) => {
   const [pedidos, setPedidos] = useState([]);
@@ -43,19 +49,15 @@ const PedidosReportes = ({ user }) => {
 
   // Filtrar pedidos por mes y vendedor
   const pedidosFiltrados = pedidos.filter(pedido => {
-    // Solo pedidos facturados
     if (pedido.estado !== 'facturado') return false;
+    const fechaRef = getFechaReferenciaPedidoFacturado(pedido);
+    if (!fechaRef) return false;
+    const mesInicio = new Date(mesSeleccionado.getFullYear(), mesSeleccionado.getMonth(), 1, 0, 0, 0, 0);
+    const mesFin = new Date(mesSeleccionado.getFullYear(), mesSeleccionado.getMonth() + 1, 0, 23, 59, 59, 999);
+    if (fechaRef < mesInicio || fechaRef > mesFin) return false;
     
-    // Filtrar por mes
-    const fechaPedido = pedido.fechaPedido?.toDate ? pedido.fechaPedido.toDate() : new Date(pedido.fechaPedido);
-    const mesInicio = new Date(mesSeleccionado.getFullYear(), mesSeleccionado.getMonth(), 1);
-    const mesFin = new Date(mesSeleccionado.getFullYear(), mesSeleccionado.getMonth() + 1, 0);
-    
-    if (fechaPedido < mesInicio || fechaPedido > mesFin) return false;
-    
-    // Filtrar por vendedor (solo si es admin y seleccionó un vendedor)
-    if (esAdmin && vendedorSeleccionado) {
-      return pedido.vendedor === vendedorSeleccionado;
+    if (esAdmin && vendedorSeleccionado != null && vendedorSeleccionado !== '') {
+      return pedidoCoincideConFiltroVendedorReporte(pedido, vendedorSeleccionado);
     }
     
     return true;
@@ -131,11 +133,13 @@ const PedidosReportes = ({ user }) => {
   const hayDatos = pedidosFiltrados.length > 0 && (topProductos.length > 0 || topClientes.length > 0);
 
   // Opciones de vendedores (solo para admin)
-  const vendedoresOptions = esAdmin ? [
-    { label: 'Todos los vendedores', value: null },
-    { label: 'Guille', value: 'guille@dcg.com' },
-    { label: 'Santi', value: 'santi@dcg.com' }
-  ] : [];
+  const vendedoresOptions = esAdmin
+    ? [
+        { label: 'Todos los vendedores', value: null },
+        { label: 'Guille', value: 'guille@dcg.com' },
+        { label: 'Santi', value: FILTRO_REPORTE_PEDIDOS_SANTI }
+      ]
+    : [];
 
   // Datos para gráfico de productos
   const chartProductosData = {
