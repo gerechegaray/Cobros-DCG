@@ -187,3 +187,64 @@ export const validarProducto = (producto, cantidad) => {
   };
 };
 
+/** Email usado en pedidos para Santi (mismo valor que PedidosReportes). */
+export const VENDEDOR_SANTI_EMAIL_PEDIDOS = 'santi@dcg.com';
+
+/**
+ * Pedidos facturados cuya fechaPedido cae en el período YYYY-MM.
+ */
+export function filterPedidosFacturadosPorPeriodo(pedidos, periodo) {
+  if (!Array.isArray(pedidos) || !pedidos.length || !/^\d{4}-\d{2}$/.test(periodo)) {
+    return [];
+  }
+  const [anio, mes] = periodo.split('-').map(Number);
+  const mesInicio = new Date(anio, mes - 1, 1, 0, 0, 0, 0);
+  const mesFin = new Date(anio, mes, 0, 23, 59, 59, 999);
+  return pedidos.filter((pedido) => {
+    if (pedido.estado !== 'facturado') return false;
+    const fechaPedido = pedido.fechaPedido?.toDate?.() || new Date(pedido.fechaPedido);
+    return fechaPedido >= mesInicio && fechaPedido <= mesFin;
+  });
+}
+
+/**
+ * Top productos desde pedidos ya filtrados (misma lógica que PedidosReportes).
+ */
+export function topProductosDesdePedidosFacturados(pedidosFiltrados, limit = 10) {
+  const productosVendidos = {};
+  pedidosFiltrados.forEach((pedido) => {
+    if (pedido.productos && Array.isArray(pedido.productos) && pedido.productos.length > 0) {
+      pedido.productos.forEach((producto) => {
+        const key = producto.id || producto.codigo || producto.nombre;
+        if (!productosVendidos[key]) {
+          productosVendidos[key] = {
+            id: key,
+            nombre: producto.nombre || 'Sin nombre',
+            codigo: producto.codigo || '-',
+            cantidadTotal: 0,
+            montoTotal: 0
+          };
+        }
+        productosVendidos[key].cantidadTotal += producto.cantidad || 0;
+        productosVendidos[key].montoTotal +=
+          producto.total || (producto.cantidad || 0) * (producto.precioUnitario || 0) || 0;
+      });
+    } else if (pedido.total > 0) {
+      const key = `pedido_${pedido.id || 'sin_id'}`;
+      if (!productosVendidos[key]) {
+        productosVendidos[key] = {
+          id: key,
+          nombre: `Pedido ${pedido.cliente || ''}`,
+          codigo: String(pedido.id || '-'),
+          cantidadTotal: 1,
+          montoTotal: 0
+        };
+      }
+      productosVendidos[key].montoTotal += pedido.total || 0;
+    }
+  });
+  return Object.values(productosVendidos)
+    .sort((a, b) => b.cantidadTotal - a.cantidadTotal)
+    .slice(0, limit);
+}
+

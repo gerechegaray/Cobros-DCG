@@ -13,7 +13,13 @@ import { Dialog } from 'primereact/dialog';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { InputNumber } from 'primereact/inputnumber';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
-import { formatearMoneda } from '../pedidos/utils';
+import {
+  formatearMoneda,
+  VENDEDOR_SANTI_EMAIL_PEDIDOS,
+  filterPedidosFacturadosPorPeriodo,
+  topProductosDesdePedidosFacturados
+} from '../pedidos/utils';
+import { getPedidosByVendedor } from '../pedidos/pedidosService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 function ComisionesAdmin({ user }) {
@@ -31,6 +37,9 @@ function ComisionesAdmin({ user }) {
   const [pagando, setPagando] = useState(false);
   const [mostrarDialogAjuste, setMostrarDialogAjuste] = useState(false);
   const [ajusteForm, setAjusteForm] = useState({ tipo: 'positivo', monto: 0, motivo: '' });
+  const [topProductosPedidosSanti, setTopProductosPedidosSanti] = useState([]);
+  /** Suma de montos de todos los productos en pedidos facturados del período (para % en top 10). */
+  const [totalMontoProductosPedidosSantiPeriodo, setTotalMontoProductosPedidosSantiPeriodo] = useState(0);
   
   const vendedores = [
     { label: 'Guille', value: 'Guille' },
@@ -51,6 +60,35 @@ function ComisionesAdmin({ user }) {
     if (vendedorSeleccionado && periodo) {
       cargarComisiones();
     }
+  }, [vendedorSeleccionado, periodo]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (vendedorSeleccionado !== 'Santi' || !periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
+      setTopProductosPedidosSanti([]);
+      setTotalMontoProductosPedidosSantiPeriodo(0);
+      return undefined;
+    }
+    (async () => {
+      try {
+        const pedidos = await getPedidosByVendedor(VENDEDOR_SANTI_EMAIL_PEDIDOS);
+        if (cancelled) return;
+        const filtrados = filterPedidosFacturadosPorPeriodo(pedidos, periodo);
+        const todosProductos = topProductosDesdePedidosFacturados(filtrados, 9999);
+        const totalPeriodo = todosProductos.reduce((s, p) => s + (p.montoTotal || 0), 0);
+        setTopProductosPedidosSanti(todosProductos.slice(0, 10));
+        setTotalMontoProductosPedidosSantiPeriodo(totalPeriodo);
+      } catch (e) {
+        console.error('Error cargando pedidos para comisiones:', e);
+        if (!cancelled) {
+          setTopProductosPedidosSanti([]);
+          setTotalMontoProductosPedidosSantiPeriodo(0);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [vendedorSeleccionado, periodo]);
   
   const cargarComisiones = async () => {
@@ -390,6 +428,10 @@ function ComisionesAdmin({ user }) {
 
   const generarPDFContent = (doc) => {
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pdfTrunc = (str, max) => {
+      const t = String(str ?? '');
+      return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+    };
     
     // Colores corporativos (basados en el logo)
     const AZUL_OSCURO = [30, 41, 75]; // #1e294b
@@ -491,6 +533,104 @@ function ComisionesAdmin({ user }) {
         currentY = 20;
       }
     });
+
+    currentY += 12;
+    if (currentY > 240) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFontSize(12);
+    doc.setTextColor(...AZUL_OSCURO);
+    doc.setFont(undefined, 'bold');
+    doc.text('TOP CLIENTES POR COBRANZA (PERÍODO)', 15, currentY);
+    currentY += 8;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Según líneas incluidas en el detalle de comisiones del mes.', 15, currentY);
+    currentY += 10;
+
+    if (topClientes.length === 0) {
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.text('Sin datos de clientes en el detalle del período.', 15, currentY);
+      currentY += 8;
+    } else {
+      doc.setFillColor(230, 230, 230);
+      doc.rect(15, currentY, pageWidth - 30, 8, 'F');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Cliente', 20, currentY + 5);
+      doc.text('Monto cobrado', pageWidth - 25, currentY + 5, { align: 'right' });
+      currentY += 8;
+      topClientes.slice(0, 10).forEach((row, index) => {
+        if (currentY > 270) {
+          doc.addPage();
+          currentY = 20;
+        }
+        if (index % 2 === 0) {
+          doc.setFillColor(250, 250, 250);
+          doc.rect(15, currentY, pageWidth - 30, 7, 'F');
+        }
+        doc.text(pdfTrunc(row.clientName, 70), 20, currentY + 5);
+        doc.text(formatearMoneda(row.subtotal), pageWidth - 25, currentY + 5, { align: 'right' });
+        currentY += 7;
+      });
+    }
+
+    if (vendedorSeleccionado === 'Santi') {
+      currentY += 10;
+      if (currentY > 230) {
+        doc.addPage();
+        currentY = 20;
+      }
+      doc.setFontSize(12);
+      doc.setTextColor(...AZUL_OSCURO);
+      doc.setFont(undefined, 'bold');
+      doc.text('TOP PRODUCTOS (PEDIDOS FACTURADOS EN APP)', 15, currentY);
+      currentY += 8;
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Basado en pedidos en estado facturado y fecha de pedido del período. No equivale a cobranza Alegra.', 15, currentY);
+      currentY += 10;
+
+      if (!topProductosPedidosSanti.length) {
+        doc.setFontSize(9);
+        doc.setTextColor(120, 120, 120);
+        doc.text('Sin pedidos facturados con productos en este período.', 15, currentY);
+        currentY += 8;
+      } else {
+        doc.setFillColor(230, 230, 230);
+        doc.rect(15, currentY, pageWidth - 30, 8, 'F');
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        doc.text('Producto', 20, currentY + 5);
+        doc.text('Cant.', 115, currentY + 5);
+        doc.text('Monto', pageWidth - 80, currentY + 5);
+        doc.text('%', pageWidth - 25, currentY + 5, { align: 'right' });
+        currentY += 8;
+        topProductosPedidosSanti.forEach((row, index) => {
+          if (currentY > 270) {
+            doc.addPage();
+            currentY = 20;
+          }
+          if (index % 2 === 0) {
+            doc.setFillColor(250, 250, 250);
+            doc.rect(15, currentY, pageWidth - 30, 7, 'F');
+          }
+          doc.text(pdfTrunc(row.nombre, 52), 20, currentY + 5);
+          doc.text(String(row.cantidadTotal ?? 0), 115, currentY + 5);
+          doc.text(formatearMoneda(row.montoTotal), pageWidth - 80, currentY + 5);
+          const pct = totalMontoProductosPedidosSantiPeriodo > 0
+            ? ((row.montoTotal || 0) / totalMontoProductosPedidosSantiPeriodo) * 100
+            : 0;
+          doc.text(`${pct.toFixed(1)}%`, pageWidth - 25, currentY + 5, { align: 'right' });
+          currentY += 7;
+        });
+      }
+    }
 
     // Pie de página
     doc.setFontSize(8);
@@ -849,6 +989,58 @@ function ComisionesAdmin({ user }) {
               </Card>
             )}
           </div>
+
+          {vendedorSeleccionado === 'Santi' && comisiones && (
+            <Card className="comisiones-detail-card comisiones-top-card" style={{ marginTop: 'var(--spacing-4)' }}>
+              <h2 className="comisiones-top-title">
+                <i className="pi pi-shopping-cart" style={{ marginRight: 'var(--spacing-2)' }}></i>
+                Top productos por pedidos facturados (app)
+              </h2>
+              <p className="comisiones-top-subtitle">
+                Pedidos en estado <strong>facturado</strong> con fecha de pedido en este período. Es independiente del detalle de cobranza / Alegra.
+              </p>
+              {topProductosPedidosSanti.length > 0 ? (
+                <DataTable value={topProductosPedidosSanti} size="small" className="comisiones-top-table">
+                  <Column
+                    field="nombre"
+                    header="Producto"
+                    body={(row) => (
+                      <span title={row.nombre} className="comisiones-top-producto">
+                        {row.nombre && row.nombre.length > 45 ? `${row.nombre.slice(0, 45)}…` : row.nombre}
+                      </span>
+                    )}
+                  />
+                  <Column
+                    field="cantidadTotal"
+                    header="Cantidad"
+                    body={(row) => String(row.cantidadTotal ?? 0)}
+                    style={{ textAlign: 'right', width: '5rem' }}
+                  />
+                  <Column
+                    field="montoTotal"
+                    header="Monto"
+                    body={(row) => formatearMoneda(row.montoTotal)}
+                    style={{ textAlign: 'right' }}
+                  />
+                  <Column
+                    field="pct"
+                    header="% del total"
+                    body={(row) => {
+                      const pct = totalMontoProductosPedidosSantiPeriodo > 0
+                        ? ((row.montoTotal || 0) / totalMontoProductosPedidosSantiPeriodo) * 100
+                        : 0;
+                      return `${pct.toFixed(1)}%`;
+                    }}
+                    style={{ textAlign: 'right', width: '6rem' }}
+                  />
+                </DataTable>
+              ) : (
+                <p className="comisiones-top-subtitle" style={{ marginBottom: 0 }}>
+                  No hay pedidos facturados con ítems en este período para este vendedor.
+                </p>
+              )}
+            </Card>
+          )}
           
           <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
             {comisiones?.estado === 'calculado' && (
