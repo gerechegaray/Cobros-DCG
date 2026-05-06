@@ -5,15 +5,7 @@ import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import { db } from '../../services/firebase';
 import { collection, addDoc, Timestamp, updateDoc, doc } from 'firebase/firestore';
-
-const RESPONSABLES = [
-  { label: 'Mariano', value: 'Mariano' },
-  { label: 'Ruben', value: 'Ruben' },
-  { label: 'Diego', value: 'Diego' },
-  { label: 'Guille', value: 'Guille' },
-  { label: 'Santi', value: 'Santi' },
-  { label: 'German', value: 'German' }
-];
+import { RESPONSABLES_ENVIOS as RESPONSABLES } from '../facturas/FacturasAlegra';
 
 export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, onSave, edicion = false, hojaId, hojaData, facturasDisponibles = [], user }) {
   // Si es edición, inicializar con los datos de la hoja
@@ -86,7 +78,7 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
 
   const handleGuardar = async () => {
     if (!fecha || (!responsable && !ordenPedidos[0]?.cobrador) || ordenPedidos.length === 0) {
-      alert('Completa todos los campos obligatorios.');
+      // Validación básica — el padre controla el botón disabled para casos normales
       return;
     }
     setGuardando(true);
@@ -114,7 +106,7 @@ export default function HojaDeRutaForm({ visible, onHide, pedidosSeleccionados, 
       onSave && onSave();
       onHide();
     } catch (e) {
-      alert('Error al guardar la hoja de ruta: ' + e.message);
+      console.error('Error al guardar hoja de ruta:', e.message);
     } finally {
       setGuardando(false);
     }

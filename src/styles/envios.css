@@ -1,0 +1,655 @@
+/* ============================================
+   ENVÍOS — Estilos modernos
+   ============================================ */
+
+/* ─── HEADER ─── */
+.envios-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.envios-titulo {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--dcg-text-primary);
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 1;
+}
+
+.envios-subtitulo {
+  font-size: 0.8rem;
+  color: var(--dcg-text-muted);
+  margin-top: 4px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ─── PESTAÑAS PRINCIPALES (pill style) ─── */
+.envios-main-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  background: var(--dcg-bg-elevated);
+  border: 1px solid var(--dcg-border);
+  border-radius: 14px;
+  padding: 5px;
+  width: fit-content;
+}
+
+.envios-main-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--dcg-text-secondary);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.envios-main-tab:hover {
+  background: var(--dcg-bg-hover);
+  color: var(--dcg-text-primary);
+}
+
+.envios-main-tab.active {
+  background: var(--dcg-azul-claro);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(59,130,246,0.35);
+}
+
+.envios-main-tab .tab-icon {
+  font-size: 1rem;
+}
+
+.envios-tab-badge {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: center;
+}
+
+.envios-main-tab:not(.active) .envios-tab-badge {
+  background: var(--dcg-bg-hover);
+  color: var(--dcg-text-secondary);
+}
+
+.envios-main-tab.active-hojas {
+  background: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245,158,11,0.35);
+}
+
+/* ─── CHIPS DE RANGO ─── */
+.envios-range-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.envios-range-chip {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--dcg-border);
+  background: transparent;
+  color: var(--dcg-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.envios-range-chip:hover {
+  border-color: var(--dcg-azul-claro);
+  color: var(--dcg-azul-claro);
+  background: var(--dcg-azul-claro-alpha);
+}
+
+.envios-range-chip.active {
+  border-color: var(--dcg-azul-claro);
+  background: var(--dcg-azul-claro);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ─── BARRA DE FILTROS ─── */
+.envios-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.envios-search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.envios-search-wrapper .pi-search {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dcg-text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.envios-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border-radius: 10px;
+  border: 1.5px solid var(--dcg-border);
+  background: var(--dcg-bg-elevated);
+  color: var(--dcg-text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.envios-search-input:focus {
+  border-color: var(--dcg-azul-claro);
+}
+
+.envios-search-input::placeholder {
+  color: var(--dcg-text-muted);
+}
+
+/* ─── SUB-TABS DE ESTADO ─── */
+.envios-status-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.envios-status-tab {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--dcg-border);
+  background: transparent;
+  color: var(--dcg-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.envios-status-tab:hover {
+  border-color: var(--dcg-border-hover);
+  color: var(--dcg-text-primary);
+  background: var(--dcg-bg-hover);
+}
+
+.envios-status-tab.active-todos {
+  border-color: var(--dcg-azul-claro);
+  background: var(--dcg-azul-claro-alpha);
+  color: var(--dcg-azul-claro);
+  font-weight: 700;
+}
+
+.envios-status-tab.active-pendiente {
+  border-color: var(--dcg-warning);
+  background: rgba(245,158,11,0.1);
+  color: var(--dcg-warning);
+  font-weight: 700;
+}
+
+.envios-status-tab.active-en_reparto {
+  border-color: var(--dcg-azul-claro);
+  background: var(--dcg-azul-claro-alpha);
+  color: var(--dcg-azul-claro);
+  font-weight: 700;
+}
+
+.envios-status-tab.active-entregado {
+  border-color: var(--dcg-success);
+  background: rgba(16,185,129,0.1);
+  color: var(--dcg-success);
+  font-weight: 700;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-todos    { background: var(--dcg-azul-claro); }
+.dot-pendiente { background: var(--dcg-warning); }
+.dot-en_reparto { background: var(--dcg-azul-claro); }
+.dot-entregado { background: var(--dcg-success); }
+
+/* ─── BOTÓN CREAR HOJA ─── */
+.envios-crear-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--dcg-success), #059669);
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+  transition: all 0.18s ease;
+  animation: slideDown 0.2s ease;
+}
+
+.envios-crear-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16,185,129,0.4);
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── CARDS DE HOJAS DE RUTA (desktop grid) ─── */
+.hojas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.hoja-card {
+  background: var(--dcg-bg-elevated);
+  border: 1px solid var(--dcg-border);
+  border-radius: 16px;
+  padding: 18px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.hoja-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(90deg, var(--dcg-azul-claro), var(--dcg-azul-oscuro));
+}
+
+.hoja-card:hover {
+  border-color: var(--dcg-border-hover);
+  box-shadow: var(--dcg-shadow-md);
+  transform: translateY(-2px);
+}
+
+.hoja-card.completa::before {
+  background: linear-gradient(90deg, var(--dcg-success), #059669);
+}
+
+.hoja-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.hoja-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--dcg-azul-oscuro), var(--dcg-azul-claro));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.hoja-avatar.completa {
+  background: linear-gradient(135deg, #059669, var(--dcg-success));
+}
+
+.hoja-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.hoja-responsable {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--dcg-text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.hoja-fecha {
+  font-size: 0.75rem;
+  color: var(--dcg-text-muted);
+  margin-top: 2px;
+}
+
+.hoja-card-total {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--dcg-text-primary);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+/* ─── BARRA DE PROGRESO DINÁMICA ─── */
+.hoja-progress-wrapper {
+  margin-bottom: 12px;
+}
+
+.hoja-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.hoja-progress-text {
+  font-size: 0.78rem;
+  color: var(--dcg-text-secondary);
+  font-weight: 500;
+}
+
+.hoja-progress-pct {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.hoja-progress-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--dcg-bg-hover);
+  overflow: hidden;
+}
+
+.hoja-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.progress-low    { background: linear-gradient(90deg, #ef4444, #f97316); }
+.progress-mid    { background: linear-gradient(90deg, #f97316, #f59e0b); }
+.progress-high   { background: linear-gradient(90deg, #10b981, #059669); }
+
+/* ─── PEDIDOS DENTRO DE LA CARD ─── */
+.hoja-pedidos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dcg-border-light);
+}
+
+.hoja-pedido-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--dcg-bg-tertiary);
+  transition: background 0.12s;
+}
+
+.hoja-pedido-row:hover {
+  background: var(--dcg-bg-hover);
+}
+
+.hoja-pedido-nombre {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--dcg-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hoja-pedido-nombre.entregado {
+  color: var(--dcg-text-muted);
+  text-decoration: line-through;
+}
+
+/* ─── CHECKBOX CIRCULAR ANIMADO ─── */
+.check-circle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--dcg-border);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  color: transparent;
+  font-size: 0.7rem;
+}
+
+.check-circle-btn:hover {
+  border-color: var(--dcg-success);
+  background: rgba(16,185,129,0.08);
+  color: var(--dcg-success);
+}
+
+.check-circle-btn.checked {
+  background: var(--dcg-success);
+  border-color: var(--dcg-success);
+  color: #fff;
+  animation: popIn 0.2s ease;
+}
+
+@keyframes popIn {
+  0%   { transform: scale(0.8); }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ─── ACCIONES DE CARD ─── */
+.hoja-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dcg-border-light);
+}
+
+.hoja-action-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--dcg-border);
+  background: transparent;
+  color: var(--dcg-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.hoja-action-btn:hover {
+  background: var(--dcg-bg-hover);
+  border-color: var(--dcg-border-hover);
+  color: var(--dcg-text-primary);
+}
+
+.hoja-action-btn.danger:hover {
+  border-color: var(--dcg-error);
+  color: var(--dcg-error);
+  background: rgba(239,68,68,0.08);
+}
+
+.hoja-action-btn.info:hover {
+  border-color: var(--dcg-azul-claro);
+  color: var(--dcg-azul-claro);
+  background: var(--dcg-azul-claro-alpha);
+}
+
+/* ─── FACTURAS TABLE ─── */
+.envios-table-wrapper {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--dcg-border);
+}
+
+/* ─── EMPTY STATE ─── */
+.envios-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: var(--dcg-text-muted);
+  gap: 12px;
+}
+
+.envios-empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.4;
+}
+
+.envios-empty-text {
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ─── LOADING ─── */
+.envios-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  gap: 14px;
+  color: var(--dcg-text-muted);
+}
+
+.envios-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--dcg-border);
+  border-top-color: var(--dcg-azul-claro);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── MOBILE CARDS ─── */
+.m-factura-card {
+  background: var(--dcg-bg-elevated);
+  border: 1px solid var(--dcg-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+
+.m-factura-card.selected {
+  border-color: var(--dcg-azul-claro);
+  background: rgba(59,130,246,0.05);
+}
+
+.m-hoja-card {
+  background: var(--dcg-bg-elevated);
+  border: 1px solid var(--dcg-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+/* ─── ESTADO CHIPS EN TABLE ─── */
+.estado-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.estado-chip.pendiente  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.estado-chip.en_reparto { background: rgba(59,130,246,0.12);  color: #3b82f6; }
+.estado-chip.entregado  { background: rgba(16,185,129,0.12);  color: #10b981; }
+
+/* ─── FILTROS AVANZADOS PANEL ─── */
+.envios-filters-panel {
+  background: var(--dcg-bg-elevated);
+  border: 1px solid var(--dcg-border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  animation: slideDown 0.18s ease;
+}
+
+.envios-filters-panel label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dcg-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .hojas-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .envios-main-tabs {
+    width: 100%;
+  }
+
+  .envios-main-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 0.82rem;
+  }
+}
