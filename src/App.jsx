@@ -63,10 +63,10 @@ function App() {
       { label: "Estado de Cuenta", icon: "pi pi-credit-card", path: "/estado-cuenta" },
       { label: "Envíos", icon: "pi pi-file-o", path: "/facturas" },
       { label: "Pedidos", icon: "pi pi-shopping-cart", path: "/pedidos" },
-      { label: "Productos", icon: "pi pi-box", path: "/productos" },
+      // { label: "Productos", icon: "pi pi-box", path: "/productos" },
       { label: "Cobros", icon: "pi pi-dollar", path: "/cobros" },
       { label: "Comisiones", icon: "pi pi-percentage", path: "/comisiones" },
-      { label: "Visitas", icon: "pi pi-calendar", path: "/visitas" },
+      // { label: "Visitas", icon: "pi pi-calendar", path: "/visitas" },
       { label: "Mi Perfil", icon: "pi pi-user", path: "/profile" }
     ];
 
