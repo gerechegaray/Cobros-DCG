@@ -2073,6 +2073,156 @@ app.get("/api/hojas-de-ruta", async (req, res) => {
   }
 });
 
+// Exportación de hojas de ruta en Markdown (solo admin vía query param)
+app.get("/api/hojas-de-ruta/export-md", async (req, res) => {
+  try {
+    const { desde, hasta, responsable = 'todos', entrega = 'todos', role } = req.query;
+
+    if (role !== 'admin') {
+      return res.status(403).json({ error: 'Solo administradores pueden exportar hojas de ruta' });
+    }
+
+    const toDateSafe = (value) => {
+      if (!value) return null;
+      if (typeof value?.toDate === 'function') return value.toDate();
+      if (value?._seconds !== undefined) return new Date(value._seconds * 1000);
+      if (value?.seconds !== undefined) return new Date(value.seconds * 1000);
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const toYMD = (date) => {
+      if (!date) return '-';
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const startDate = desde ? new Date(`${desde}T00:00:00`) : null;
+    const endDate = hasta ? new Date(`${hasta}T23:59:59`) : null;
+
+    if ((startDate && Number.isNaN(startDate.getTime())) || (endDate && Number.isNaN(endDate.getTime()))) {
+      return res.status(400).json({ error: 'Formato de fecha inválido. Usar YYYY-MM-DD' });
+    }
+
+    const normalizeText = (value) => String(value ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ').trim();
+    const toNumber = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const formatCurrency = (value) => new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 2
+    }).format(toNumber(value));
+
+    const snapshot = await adminDb.collection('hojasDeRuta').get();
+    const hojas = [];
+    snapshot.forEach((docRef) => {
+      hojas.push({ id: docRef.id, ...docRef.data() });
+    });
+
+    const hojasFiltradas = hojas
+      .map((hoja) => {
+        const fechaHoja = toDateSafe(hoja.fecha || hoja.fechaCreacion || hoja.creadoEn);
+
+        if (responsable !== 'todos' && hoja.responsable !== responsable) return null;
+        if (startDate && (!fechaHoja || fechaHoja < startDate)) return null;
+        if (endDate && (!fechaHoja || fechaHoja > endDate)) return null;
+
+        const pedidos = Array.isArray(hoja.pedidos) ? hoja.pedidos : [];
+        const pedidosFiltrados = pedidos.filter((pedido) => {
+          if (entrega === 'entregados') return pedido.entregado === true;
+          if (entrega === 'pendientes') return pedido.entregado !== true;
+          return true;
+        });
+
+        if (pedidosFiltrados.length === 0) return null;
+        return { ...hoja, _fechaExport: fechaHoja, _pedidosExport: pedidosFiltrados };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b._fechaExport?.getTime?.() || 0) - (a._fechaExport?.getTime?.() || 0));
+
+    const generatedAt = new Date();
+    let totalPedidos = 0;
+    let totalMonto = 0;
+    let totalCantidadProductos = 0;
+
+    const lines = [
+      '# Exportación de Hojas de Ruta',
+      `Generado: ${generatedAt.toLocaleString('es-AR')}`,
+      `Filtros:`,
+      `- Desde: ${desde || 'Sin límite'}`,
+      `- Hasta: ${hasta || 'Sin límite'}`,
+      `- Responsable: ${responsable}`,
+      `- Entrega: ${entrega}`,
+      ''
+    ];
+
+    if (hojasFiltradas.length === 0) {
+      lines.push('No hay datos para los filtros seleccionados.');
+    } else {
+      for (const hoja of hojasFiltradas) {
+        const pedidosHoja = hoja._pedidosExport || [];
+        const montoHoja = pedidosHoja.reduce((acc, pedido) => acc + toNumber(pedido.total), 0);
+        let cantidadProductosHoja = 0;
+
+        totalPedidos += pedidosHoja.length;
+        totalMonto += montoHoja;
+
+        lines.push('---');
+        lines.push('');
+        lines.push(`## Hoja de Ruta: ${hoja.id}`);
+        lines.push(`- Fecha: ${toYMD(hoja._fechaExport)}`);
+        lines.push(`- Responsable: ${hoja.responsable || '-'}`);
+        lines.push(`- Estado: ${hoja.estado || '-'}`);
+        lines.push(`- Pedidos: ${pedidosHoja.length}`);
+        lines.push(`- Monto hoja: ${formatCurrency(montoHoja)}`);
+        lines.push('');
+        lines.push('| Cliente | Factura | Fecha | Producto (nombre completo) | Cantidad | Monto total |');
+        lines.push('|---|---|---|---|---:|---:|');
+
+        for (const pedido of pedidosHoja) {
+          const detalle = Array.isArray(pedido.detalle) ? pedido.detalle : [];
+          const items = detalle.length > 0 ? detalle : [{ name: 'Sin detalle', quantity: 0 }];
+          const fechaPedido = toYMD(hoja._fechaExport);
+          const cliente = normalizeText(pedido.cliente || '-');
+          const factura = normalizeText(pedido.id || '-');
+          const montoPedido = toNumber(pedido.total);
+
+          for (const item of items) {
+            const producto = normalizeText(item?.name || item?.producto || 'Producto sin nombre');
+            const cantidad = toNumber(item?.quantity ?? item?.cantidad ?? 0);
+            cantidadProductosHoja += cantidad;
+            totalCantidadProductos += cantidad;
+            lines.push(`| ${cliente} | ${factura} | ${fechaPedido} | ${producto} | ${cantidad} | ${montoPedido.toFixed(2)} |`);
+          }
+        }
+
+        lines.push('');
+        lines.push(`Subtotal hoja:`);
+        lines.push(`- Monto: ${formatCurrency(montoHoja)}`);
+        lines.push(`- Cantidad productos: ${cantidadProductosHoja}`);
+        lines.push('');
+      }
+    }
+
+    lines.splice(8, 0, `Resumen:`, `- Hojas incluidas: ${hojasFiltradas.length}`, `- Pedidos incluidos: ${totalPedidos}`, `- Monto total: ${formatCurrency(totalMonto)}`, `- Cantidad total de productos: ${totalCantidadProductos}`, '');
+
+    const md = lines.join('\n');
+    const fileNameTimestamp = `${generatedAt.getFullYear()}${String(generatedAt.getMonth() + 1).padStart(2, '0')}${String(generatedAt.getDate()).padStart(2, '0')}-${String(generatedAt.getHours()).padStart(2, '0')}${String(generatedAt.getMinutes()).padStart(2, '0')}`;
+    const fileName = `hojas-de-ruta-${fileNameTimestamp}.md`;
+
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(md);
+  } catch (error) {
+    console.error('Error en /api/hojas-de-ruta/export-md:', error);
+    res.status(500).json({ error: error.message || 'Error exportando hojas de ruta' });
+  }
+});
+
 // 🆕 Endpoint para obtener cobros con paginación
 app.get("/api/cobros", async (req, res) => {
   console.log('Entrando a /api/cobros');

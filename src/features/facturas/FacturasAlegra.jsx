@@ -62,6 +62,21 @@ const FacturasAlegra = ({ user }) => {
   const [hojaEnEdicion, setHojaEnEdicion] = useState(null);
   const [facturasDisponiblesParaEdicion, setFacturasDisponiblesParaEdicion] = useState([]);
   const [facturasSeleccionadasParaEdicion, setFacturasSeleccionadasParaEdicion] = useState([]);
+  const [modalExportVisible, setModalExportVisible] = useState(false);
+  const [exportandoMarkdown, setExportandoMarkdown] = useState(false);
+  const [exportFechaDesde, setExportFechaDesde] = useState(() => {
+    const date = new Date();
+    date.setDate(1);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+  const [exportFechaHasta, setExportFechaHasta] = useState(() => {
+    const date = new Date();
+    date.setHours(23, 59, 59, 999);
+    return date;
+  });
+  const [exportResponsable, setExportResponsable] = useState('todos');
+  const [exportEntrega, setExportEntrega] = useState('todos');
   const toast = useRef(null);
 
   // Filtros
@@ -296,6 +311,54 @@ const FacturasAlegra = ({ user }) => {
   // ─── HELPERS ─────────────────────────────────────────────────────────────────
   const showToast = (severity, summary, detail) =>
     toast.current?.show({ severity, summary, detail, life: 3500 });
+
+  const toYMD = (date) => {
+    if (!date || Number.isNaN(date.getTime())) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const descargarExportacionMarkdown = async () => {
+    if (!esAdmin) return;
+    if (!exportFechaDesde || !exportFechaHasta) {
+      showToast('warn', 'Filtros incompletos', 'Seleccioná fecha desde y hasta');
+      return;
+    }
+    if (exportFechaDesde > exportFechaHasta) {
+      showToast('warn', 'Rango inválido', 'La fecha desde no puede ser mayor a la fecha hasta');
+      return;
+    }
+
+    try {
+      setExportandoMarkdown(true);
+      const { blob, filename } = await api.exportHojasDeRutaMarkdown({
+        desde: toYMD(exportFechaDesde),
+        hasta: toYMD(exportFechaHasta),
+        responsable: exportResponsable,
+        entrega: exportEntrega,
+        role: user?.role || ''
+      });
+
+      const fileUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(fileUrl);
+
+      setModalExportVisible(false);
+      showToast('success', 'Exportación lista', 'Se descargó el archivo .md');
+    } catch (error) {
+      console.error('Error exportando hojas de ruta en markdown:', error);
+      showToast('error', 'Error', 'No se pudo exportar el archivo .md');
+    } finally {
+      setExportandoMarkdown(false);
+    }
+  };
 
   const formatearMoneda = (v) => {
     if (!v || isNaN(v)) return '$0';
@@ -711,6 +774,14 @@ const FacturasAlegra = ({ user }) => {
             {hojasDeRuta.length} hoja{hojasDeRuta.length !== 1 ? 's' : ''} en curso
           </div>
         </div>
+        {esAdmin && (
+          <Button
+            label="Exportar Hojas (.md)"
+            icon="pi pi-download"
+            className="p-button-outlined p-button-sm"
+            onClick={() => setModalExportVisible(true)}
+          />
+        )}
       </div>
 
       {/* ─── PESTAÑAS PRINCIPALES ─── */}
@@ -924,6 +995,74 @@ const FacturasAlegra = ({ user }) => {
             </div>
           </div>
         )}
+      </Dialog>
+
+      <Dialog
+        visible={modalExportVisible}
+        onHide={() => !exportandoMarkdown && setModalExportVisible(false)}
+        header="Exportar hojas de ruta (.md)"
+        style={{ width: '32rem', maxWidth: '95vw' }}
+        modal
+      >
+        <div className="p-fluid" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label className="block text-900 font-medium mb-2">Fecha desde</label>
+            <Calendar
+              value={exportFechaDesde}
+              onChange={(e) => setExportFechaDesde(e.value)}
+              dateFormat="dd/mm/yy"
+              showIcon
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-900 font-medium mb-2">Fecha hasta</label>
+            <Calendar
+              value={exportFechaHasta}
+              onChange={(e) => setExportFechaHasta(e.value)}
+              dateFormat="dd/mm/yy"
+              showIcon
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-900 font-medium mb-2">Responsable</label>
+            <Dropdown
+              value={exportResponsable}
+              options={[{ label: 'Todos', value: 'todos' }, ...RESPONSABLES_ENVIOS]}
+              onChange={(e) => setExportResponsable(e.value)}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-900 font-medium mb-2">Entrega</label>
+            <Dropdown
+              value={exportEntrega}
+              options={[
+                { label: 'Todos', value: 'todos' },
+                { label: 'Solo entregados', value: 'entregados' },
+                { label: 'Solo pendientes', value: 'pendientes' }
+              ]}
+              onChange={(e) => setExportEntrega(e.value)}
+              className="w-full"
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <Button
+              label="Cancelar"
+              className="p-button-secondary p-button-outlined"
+              onClick={() => setModalExportVisible(false)}
+              disabled={exportandoMarkdown}
+            />
+            <Button
+              label="Descargar .md"
+              icon="pi pi-download"
+              onClick={descargarExportacionMarkdown}
+              loading={exportandoMarkdown}
+            />
+          </div>
+        </div>
       </Dialog>
     </div>
   );

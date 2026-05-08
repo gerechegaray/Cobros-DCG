@@ -181,6 +181,32 @@ export const api = {
 
   // Hojas de ruta
   getHojasDeRuta: () => apiRequest('/api/hojas-de-ruta'),
+  exportHojasDeRutaMarkdown: async (params = {}) => {
+    const cleanParams = Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== '') acc[key] = value;
+      return acc;
+    }, {});
+    const queryParams = new URLSearchParams(cleanParams).toString();
+    const version = Date.now();
+    const separator = queryParams ? '&' : '';
+    const url = `${API_BASE_URL}/api/hojas-de-ruta/export-md?${queryParams}${separator}v=${version}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'text/markdown' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error exportando markdown (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const match = contentDisposition.match(/filename="([^"]+)"/i);
+    const filename = match?.[1] || `hojas-de-ruta-${version}.md`;
+
+    return { blob, filename };
+  },
 
   // Cache
   getCacheStatus: () => apiRequest('/api/cache/status'),
