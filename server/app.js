@@ -2180,8 +2180,8 @@ app.get("/api/hojas-de-ruta/export-md", async (req, res) => {
         lines.push(`- Pedidos: ${pedidosHoja.length}`);
         lines.push(`- Monto hoja: ${formatCurrency(montoHoja)}`);
         lines.push('');
-        lines.push('| Cliente | Factura | Fecha | Producto (nombre completo) | Cantidad | Monto total |');
-        lines.push('|---|---|---|---|---:|---:|');
+        lines.push('| Cliente | Factura | Fecha | Producto (nombre completo) | Cantidad | Valor total línea | Monto total pedido |');
+        lines.push('|---|---|---|---|---:|---:|---:|');
 
         for (const pedido of pedidosHoja) {
           const detalle = Array.isArray(pedido.detalle) ? pedido.detalle : [];
@@ -2194,9 +2194,20 @@ app.get("/api/hojas-de-ruta/export-md", async (req, res) => {
           for (const item of items) {
             const producto = normalizeText(item?.name || item?.producto || 'Producto sin nombre');
             const cantidad = toNumber(item?.quantity ?? item?.cantidad ?? 0);
+            const precioUnitario = toNumber(
+              item?.price ??
+              item?.unitPrice ??
+              item?.precio ??
+              item?.precioUnitario ??
+              item?.priceValue ??
+              item?.valorUnitario ??
+              0
+            );
+            // Si no hay precio o es bonificado, la línea se exporta con valor 0 manteniendo la cantidad.
+            const valorLinea = Number((cantidad * precioUnitario).toFixed(2));
             cantidadProductosHoja += cantidad;
             totalCantidadProductos += cantidad;
-            lines.push(`| ${cliente} | ${factura} | ${fechaPedido} | ${producto} | ${cantidad} | ${montoPedido.toFixed(2)} |`);
+            lines.push(`| ${cliente} | ${factura} | ${fechaPedido} | ${producto} | ${cantidad} | ${valorLinea.toFixed(2)} | ${montoPedido.toFixed(2)} |`);
           }
         }
 
