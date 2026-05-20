@@ -1,3 +1,5 @@
+/* global process */
+
 function parseBool(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
   return ['1', 'true', 'yes', 'on', 'si'].includes(String(value).trim().toLowerCase());

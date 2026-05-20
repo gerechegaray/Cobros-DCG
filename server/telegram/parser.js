@@ -17,8 +17,26 @@ export function parseTelegramMessage(text) {
   return { intent: null, error: 'No pude detectar si es pedido o cobro' };
 }
 
+export function parsePedidoNatural(text) {
+  const blocks = splitPedidoBlocks(text);
+  const pedidos = blocks.map(parsePedidoBlock).filter(Boolean);
+
+  if (pedidos.length === 1) return pedidos[0];
+  return {
+    intent: 'pedido_batch',
+    pedidos
+  };
+}
+
 export function parsePedido(text) {
   const body = text.replace(/^\s*pedido\b/i, '').trim();
+  const naturalBlocks = splitPedidoBlocks(body);
+  if (naturalBlocks.length > 0) {
+    const pedidos = naturalBlocks.map(parsePedidoBlock).filter(Boolean);
+    if (pedidos.length === 1) return pedidos[0];
+    return { intent: 'pedido_batch', pedidos };
+  }
+
   const { textWithoutNotes, notes } = extractNotes(body);
   const { cleanedText, condicionPago } = extractCondition(textWithoutNotes);
   const lines = cleanedText
@@ -110,11 +128,11 @@ export function parseAmount(value) {
 }
 
 function parsePedidoItem(line) {
-  const match = line.match(/^\s*(\d+(?:[.,]\d+)?)(?:\s*x)?\s+(.+)$/i);
+  const match = line.match(/^\s*((?:\d+(?:[.,]\d+)?)(?:\s*\+\s*\d+(?:[.,]\d+)?)*)\s*x?\s*(.+)$/i);
   if (!match) return { cantidad: null, productoQuery: line.trim(), descuento: 0 };
 
-  const cantidad = Number(match[1].replace(',', '.'));
-  let productoQuery = match[2].trim();
+  const cantidad = parseQuantityExpression(match[1]);
+  let productoQuery = cleanProductQuery(match[2]);
   let descuento = 0;
   const discountMatch = productoQuery.match(/\b(?:desc|descuento|bonif|bonificacion)\s*(\d+(?:[.,]\d+)?)\s*%?\b/i);
   if (discountMatch) {
@@ -126,13 +144,13 @@ function parsePedidoItem(line) {
 }
 
 function findFirstQuantityIndex(text) {
-  const match = text.match(/(^|\s)\d+(?:[.,]\d+)?(?:\s*x)?\s+\S/i);
+  const match = text.match(/(^|\s)\d+(?:[.,]\d+)?(?:\s*\+\s*\d+(?:[.,]\d+)?)*(?:\s*x)?\s*\S/i);
   if (!match) return -1;
   return match.index + match[0].search(/\d/);
 }
 
 function splitInlineItems(text) {
-  const matches = [...text.matchAll(/(^|\s)(\d+(?:[.,]\d+)?)(?:\s*x)?\s+/gi)];
+  const matches = [...text.matchAll(/(^|\s)(\d+(?:[.,]\d+)?(?:\s*\+\s*\d+(?:[.,]\d+)?)*)\s*x?\s*/gi)];
   if (matches.length === 0) return text ? [text] : [];
 
   return matches.map((match, index) => {
@@ -213,6 +231,70 @@ function cleanRemainder(text) {
   return String(text || '')
     .replace(/^[\s,.;:-]+/, '')
     .replace(/[\s,.;:-]+$/, '')
+    .trim();
+}
+
+function splitPedidoBlocks(text) {
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const blocks = [];
+  let current = null;
+
+  for (const line of lines) {
+    if (isPedidoHeaderLine(line)) {
+      if (current) blocks.push(current);
+      current = { header: line, itemLines: [] };
+      continue;
+    }
+
+    if (current && isPedidoItemLine(line)) {
+      current.itemLines.push(line);
+    }
+  }
+
+  if (current) blocks.push(current);
+  return blocks.filter((block) => block.header && block.itemLines.length > 0);
+}
+
+function parsePedidoBlock(block) {
+  const { cleanedText, condicionPago } = extractCondition(block.header);
+  if (!cleanedText || !condicionPago) return null;
+
+  return {
+    intent: 'pedido',
+    clienteQuery: cleanedText.trim(),
+    condicionPago,
+    observaciones: '',
+    items: block.itemLines.map(parsePedidoItem).filter((item) => item.productoQuery)
+  };
+}
+
+function isPedidoHeaderLine(line) {
+  if (isPedidoItemLine(line)) return false;
+  const { cleanedText, condicionPago } = extractCondition(line);
+  return Boolean(condicionPago && cleanedText && cleanedText.length >= 2);
+}
+
+function isPedidoItemLine(line) {
+  return /^\s*\d+(?:[.,]\d+)?(?:\s*\+\s*\d+(?:[.,]\d+)?)*\s*x?\s*\S/i.test(line);
+}
+
+function parseQuantityExpression(value) {
+  const parts = String(value || '')
+    .split('+')
+    .map((part) => Number(part.trim().replace(',', '.')))
+    .filter((part) => Number.isFinite(part));
+  if (parts.length === 0) return null;
+  return parts.reduce((sum, part) => sum + part, 0);
+}
+
+function cleanProductQuery(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+y\s*$/i, '')
     .trim();
 }
 

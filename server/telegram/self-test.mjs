@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { FORMA_PAGO_ALIASES, findAliasValue } from './aliases.js';
+import { getProductQueryVariants } from './productRules.js';
 import { parseTelegramMessage } from './parser.js';
 import { __telegramServiceTest } from './service.js';
 
@@ -23,6 +24,26 @@ assert.equal(pedido.intent, 'pedido');
 assert.equal(pedido.condicionPago, 'cuenta_corriente');
 assert.equal(pedido.items.length, 2);
 assert.equal(pedido.items[0].cantidad, 2);
+
+const pedidoBatch = parseTelegramMessage(`pedido
+Magdalena CONTADO
+2 op premium gato ad x7
+Videla contado
+2 op premium cachorro 15kg
+1 op premium perro ad x20`);
+assert.equal(pedidoBatch.intent, 'pedido_batch');
+assert.equal(pedidoBatch.pedidos.length, 2);
+assert.equal(pedidoBatch.pedidos[0].clienteQuery, 'Magdalena');
+assert.equal(pedidoBatch.pedidos[0].items[0].cantidad, 2);
+assert.equal(pedidoBatch.pedidos[1].items.length, 2);
+
+assert.ok(getProductQueryVariants('op premium gato ad x7').includes('old prince premium gato adulto x 7.5 kg'));
+assert.ok(getProductQueryVariants('op c.a cachorro 3kg').includes('old prince novel cordero arroz cachorro 3 kg'));
+assert.ok(getProductQueryVariants('op c.a ad rp x15kg').includes('old prince novel cordero arroz adulto raza pequena x 15 kg'));
+assert.ok(getProductQueryVariants('seguidor ad rp x15kg').includes('seguidor adulto mordida pequena x 15 kg'));
+assert.ok(getProductQueryVariants('def 2-5').includes('defender top 90 2 a 4.4 kg'));
+assert.ok(getProductQueryVariants('curabigen').includes('curabigen plata'));
+assert.ok(getProductQueryVariants('aca no').includes('aca no'));
 
 assert.equal(findAliasValue('tr', FORMA_PAGO_ALIASES), 'transferencia');
 assert.equal(findAliasValue('tranferencia', FORMA_PAGO_ALIASES), 'transferencia');

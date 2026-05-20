@@ -1,5 +1,6 @@
 import { parseEnvAliases } from './aliases.js';
 import { getClienteNombre, getProductoCodigo, getProductoNombre, normalizeText } from './normalization.js';
+import { getExactProductAlias, getProductQueryVariants, normalizeProductQuery } from './productRules.js';
 
 export async function getTelegramUser(adminDb, telegramId) {
   const doc = await adminDb.collection('telegramUsers').doc(String(telegramId)).get();
@@ -65,13 +66,21 @@ export function resolveCliente(query, clientes) {
 
 export function resolveProducto(query, productos, aliases = new Map()) {
   const aliasValue = aliases.get(normalizeText(query));
-  const resolvedQuery = aliasValue || query;
-  return resolveEntity(resolvedQuery, productos, (producto) => [
+  const builtInAliasValue = getExactProductAlias(query);
+  const queryVariants = aliasValue ? [aliasValue, ...getProductQueryVariants(query)] : getProductQueryVariants(query);
+  const result = resolveEntity(queryVariants, productos, (producto) => [
     producto.id,
     producto.nombre,
+    normalizeProductQuery(producto.nombre),
     producto.codigo,
     producto.categoria
   ]);
+
+  if ((aliasValue || builtInAliasValue) && result.matches?.[0]?.score >= 40) {
+    return { status: 'matched', entity: result.matches[0].entity, matches: result.matches };
+  }
+
+  return result;
 }
 
 export function transformarProducto(producto) {
@@ -117,11 +126,15 @@ function getSellerIdForRole(role) {
 }
 
 function resolveEntity(query, entities, getFields) {
-  const normalizedQuery = normalizeText(query);
-  if (!normalizedQuery) return { status: 'missing', matches: [] };
+  const queries = Array.isArray(query) ? query : [query];
+  const normalizedQueries = queries.map((item) => normalizeText(item)).filter(Boolean);
+  if (normalizedQueries.length === 0) return { status: 'missing', matches: [] };
 
   const scored = entities
-    .map((entity) => ({ entity, score: scoreEntity(normalizedQuery, getFields(entity)) }))
+    .map((entity) => ({
+      entity,
+      score: Math.max(...normalizedQueries.map((normalizedQuery) => scoreEntity(normalizedQuery, getFields(entity))))
+    }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);

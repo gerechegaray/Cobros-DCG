@@ -54,12 +54,30 @@ Si se configura `TELEGRAM_WEBHOOK_SECRET`, Telegram debe enviar el header
 
 ## Ejemplos
 
+El vendedor debe empezar el mensaje con la accion: `pedido`, `cobro` u otra
+funcion futura.
+
 ```txt
 pedido lopez
 2 old prince adulto 20kg
 1 pipeta chica
 cc
 obs entregar manana
+```
+
+Tambien se pueden mandar varios pedidos en un solo mensaje. Cada pedido empieza
+con una linea de cliente + condicion de pago, y debajo van sus productos:
+
+```txt
+pedido
+Magdalena contado
+2 op premium gato ad x7
+Videla contado
+2 op premium cachorro 15kg
+1 op premium perro ad x20
+Muro cuenta corriente
+1 op eq cachorro rp x7kg
+1 op eq rp ad x15kg
 ```
 
 ```txt
@@ -81,6 +99,10 @@ Abreviaturas de pedidos:
 
 - `cc`, `c/c`, `cta cte`, `ctacte`, `cuenta corriente` -> `cuenta_corriente`
 - `cont`, `contado`, `de contado` -> `contado`
+- En productos se normalizan variantes como `op`, `eq`, `rp`, `rg`, `c.a`,
+  `ad`, `cach`, `x7`, `x7kg`, `x 7,5kg`, `caja`, `cajas`.
+- Hay aliases internos para los productos frecuentes de Old Prince, Equilibrium,
+  Seguidor, Simparica, Defender Top, Curabigen Plata y Acá No.
 
 Antes de confirmar se puede corregir el borrador:
 

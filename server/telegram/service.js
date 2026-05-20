@@ -4,7 +4,7 @@ import { formatCurrency, getClienteNombre, normalizeText } from './normalization
 import { parseAmount, parseTelegramMessage } from './parser.js';
 import { clearSession, getSession, saveSession } from './sessions.js';
 import { sendTelegramMessage } from './telegramApi.js';
-import { crearCobroDesdeTelegram, crearPedidoDesdeTelegram } from './writer.js';
+import { crearCobroDesdeTelegram, crearPedidoDesdeTelegram, crearPedidosBatchDesdeTelegram } from './writer.js';
 
 export async function processTelegramUpdate({ adminDb, config, update }) {
   const message = update?.message || update?.edited_message;
@@ -99,7 +99,7 @@ export async function processTelegramUpdate({ adminDb, config, update }) {
   if (parsed.intent === 'command') return handleCommand({ adminDb, config, chatId, telegramId, user, command: parsed.command });
   if (!parsed.intent) return sendAndReturn(config, chatId, renderHelp(), 'unknown_intent');
 
-  if (parsed.intent === 'pedido' || parsed.intent === 'cobro') {
+  if (parsed.intent === 'pedido' || parsed.intent === 'pedido_batch' || parsed.intent === 'cobro') {
     if (currentSession) await clearSession(adminDb, telegramId);
     const result = await buildDraft({ adminDb, config, user, parsed });
     await persistBuildResult({ adminDb, config, telegramId, result });
@@ -150,9 +150,14 @@ async function confirmSession({ adminDb, config, chatId, telegramId, user, sessi
   const saved =
     session.intent === 'pedido'
       ? await crearPedidoDesdeTelegram(adminDb, session.draft, user)
-      : await crearCobroDesdeTelegram(adminDb, session.draft, user);
+      : session.intent === 'pedido_batch'
+        ? await crearPedidosBatchDesdeTelegram(adminDb, session.draft, user)
+        : await crearCobroDesdeTelegram(adminDb, session.draft, user);
 
   await clearSession(adminDb, telegramId);
+  if (Array.isArray(saved)) {
+    return sendAndReturn(config, chatId, `Guardado correctamente.\nPedidos creados: ${saved.length}`, 'saved');
+  }
   return sendAndReturn(config, chatId, `Guardado correctamente.\nID: ${saved.id}`, 'saved');
 }
 
@@ -245,7 +250,12 @@ async function applyDraftTextUpdate({ adminDb, config, chatId, telegramId, sessi
 }
 
 async function buildDraft({ adminDb, config, user, parsed, context = {} }) {
-  const clientes = await getClientesAsignados(adminDb, user);
+  const clientes = context.clientes || await getClientesAsignados(adminDb, user);
+
+  if (parsed.intent === 'pedido_batch') {
+    return buildPedidoBatchDraft({ adminDb, config, user, parsed, clientes, context });
+  }
+
   const clientResolution = context.selectedClient
     ? { status: 'matched', entity: context.selectedClient }
     : resolveCliente(parsed.clienteQuery, clientes);
@@ -312,8 +322,8 @@ async function buildDraft({ adminDb, config, user, parsed, context = {} }) {
     return { message: 'Falta agregar al menos un producto con cantidad.', reason: 'missing_products' };
   }
 
-  const productosCatalogo = await getProductosCatalogo(adminDb);
-  const aliases = await getProductAliases(adminDb, config);
+  const productosCatalogo = context.productosCatalogo || await getProductosCatalogo(adminDb);
+  const aliases = context.productAliases || await getProductAliases(adminDb, config);
   const selectedProducts = context.selectedProducts || {};
   const productos = [];
 
@@ -381,6 +391,57 @@ async function buildDraft({ adminDb, config, user, parsed, context = {} }) {
   };
 }
 
+async function buildPedidoBatchDraft({ adminDb, config, user, parsed, clientes }) {
+  const drafts = [];
+  const issues = [];
+  const [productosCatalogo, productAliases] = await Promise.all([
+    getProductosCatalogo(adminDb),
+    getProductAliases(adminDb, config)
+  ]);
+
+  for (let index = 0; index < parsed.pedidos.length; index++) {
+    const pedido = parsed.pedidos[index];
+    const result = await buildDraft({
+      adminDb,
+      config,
+      user,
+      parsed: pedido,
+      context: { clientes, productosCatalogo, productAliases }
+    });
+    if (result.step === 'confirming' && result.draft) {
+      drafts.push(result.draft);
+    } else {
+      issues.push({
+        index: index + 1,
+        cliente: pedido.clienteQuery,
+        message: result.message
+      });
+    }
+  }
+
+  if (issues.length > 0) {
+    return {
+      message: [
+        `No pude cerrar ${issues.length} de ${parsed.pedidos.length} pedidos del mensaje.`,
+        ...issues.map((issue) => `Pedido ${issue.index} (${issue.cliente}): ${issue.message}`),
+        '',
+        'Para pedidos con dudas, mandalos individualmente asi puedo pedirte opciones numeradas.'
+      ].join('\n'),
+      reason: 'pedido_batch_incomplete'
+    };
+  }
+
+  const draft = { pedidos: drafts };
+  return {
+    intent: 'pedido_batch',
+    step: 'confirming',
+    parsed,
+    draft,
+    message: `${renderFinalSummary('pedido_batch', draft)}\n\nResponde CONFIRMAR o CANCELAR.`,
+    reason: 'pedido_batch_ready'
+  };
+}
+
 async function persistBuildResult({ adminDb, config, telegramId, result }) {
   if (!result.step) return;
   await saveSession(
@@ -436,6 +497,17 @@ function renderSessionSummary(session) {
 }
 
 function renderFinalSummary(intent, draft) {
+  if (intent === 'pedido_batch') {
+    const totalGeneral = draft.pedidos.reduce((sum, pedido) => sum + (pedido.total || 0), 0);
+    return [
+      `Resumen de pedidos (${draft.pedidos.length}):`,
+      ...draft.pedidos.map((pedido, index) => (
+        `${index + 1}. ${pedido.cliente.nombre} - ${pedido.condicionPago} - ${pedido.productos.length} productos - ${formatCurrency(pedido.total)}`
+      )),
+      `Total general: ${formatCurrency(totalGeneral)}`
+    ].join('\n');
+  }
+
   if (intent === 'cobro') {
     return [
       'Resumen de cobro:',

@@ -35,6 +35,14 @@ export async function crearPedidoDesdeTelegram(adminDb, draft, user) {
   return { id: docRef.id, ...pedido };
 }
 
+export async function crearPedidosBatchDesdeTelegram(adminDb, draft, user) {
+  const results = [];
+  for (const pedidoDraft of draft.pedidos) {
+    results.push(await crearPedidoDesdeTelegram(adminDb, pedidoDraft, user));
+  }
+  return results;
+}
+
 export async function crearCobroDesdeTelegram(adminDb, draft, user) {
   const now = Timestamp.now();
   const cobro = {
