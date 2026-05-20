@@ -67,3 +67,27 @@ cobro lopez 85000 tr obs pago parcial
 ```
 
 El bot siempre pide `CONFIRMAR` antes de guardar.
+
+## Reglas v1
+
+Abreviaturas de cobros:
+
+- `ef`, `efe`, `efec`, `efectivo`, `cash` -> `efectivo`
+- `tr`, `trans`, `transf`, `transfe`, `transfer`, `transferencia`, `tranferencia`, `banco`, `bco`, `mp`, `mercado pago` -> `transferencia`
+- `ch`, `che`, `cheq`, `cheque` -> `cheque`
+- `otro`, `otros` -> `otro`
+
+Abreviaturas de pedidos:
+
+- `cc`, `c/c`, `cta cte`, `ctacte`, `cuenta corriente` -> `cuenta_corriente`
+- `cont`, `contado`, `de contado` -> `contado`
+
+Antes de confirmar se puede corregir el borrador:
+
+- `agregar nota cancela factura 1585`
+- `nota recibo 123`
+- `sin nota`
+- `monto 150000`
+- `forma tr`
+- `pago ef`
+- `cc` o `contado` en pedidos

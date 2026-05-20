@@ -1,4 +1,4 @@
-import { CONDICION_ALIASES, FORMA_PAGO_ALIASES, OBS_MARKERS } from './aliases.js';
+import { CONDICION_ALIASES, extractKnownAlias, FORMA_PAGO_ALIASES, OBS_MARKERS } from './aliases.js';
 import { normalizeText } from './normalization.js';
 
 export function parseTelegramMessage(text) {
@@ -7,8 +7,8 @@ export function parseTelegramMessage(text) {
 
   if (!raw) return { intent: null, error: 'Mensaje vacio' };
   if (raw.startsWith('/')) return { intent: 'command', command: raw.split(/\s+/)[0].toLowerCase() };
-  if (['confirmar', 'confirma', 'ok', 'si'].includes(normalized)) return { intent: 'confirmar' };
-  if (['cancelar', 'cancela', '/cancelar'].includes(normalized)) return { intent: 'cancelar' };
+  if (['confirmar', 'confirma', 'confirmo', 'confirmado', 'guardar', 'ok', 'si', 'dale'].includes(normalized)) return { intent: 'confirmar' };
+  if (['cancelar', 'cancela', 'descartar', 'anular', 'no', '/cancelar'].includes(normalized)) return { intent: 'cancelar' };
   if (['resumen', 'ver resumen'].includes(normalized)) return { intent: 'resumen' };
 
   if (normalized.startsWith('pedido')) return parsePedido(raw);
@@ -54,13 +54,31 @@ export function parsePedido(text) {
 export function parseCobro(text) {
   const body = text.replace(/^\s*cobro\b/i, '').trim();
   const { textWithoutNotes, notes } = extractNotes(body);
-  const { cleanedText, formaPago } = extractFormaPago(textWithoutNotes);
-  const amountMatch = cleanedText.match(/\$?\s*\d+(?:[.,]\d{3})*(?:[.,]\d+)?\s*k?\b/i);
+  const amountMatch = textWithoutNotes.match(/\$?\s*\d+(?:[.,]\d{3})*(?:[.,]\d+)?\s*k?\b/i);
   const monto = amountMatch ? parseAmount(amountMatch[0]) : null;
 
-  let clienteQuery = cleanedText;
+  let clienteQuery = textWithoutNotes;
+  let formaPago = null;
+  let inferredNotes = '';
+
   if (amountMatch) {
-    clienteQuery = `${cleanedText.slice(0, amountMatch.index)} ${cleanedText.slice(amountMatch.index + amountMatch[0].length)}`;
+    const beforeAmount = textWithoutNotes.slice(0, amountMatch.index).trim();
+    const afterAmount = textWithoutNotes.slice(amountMatch.index + amountMatch[0].length).trim();
+    const afterPayment = extractFormaPagoWithRemainder(afterAmount);
+    formaPago = afterPayment.formaPago;
+    inferredNotes = afterPayment.remainder;
+
+    if (!formaPago) {
+      const beforePayment = extractFormaPagoWithRemainder(beforeAmount);
+      formaPago = beforePayment.formaPago;
+      clienteQuery = beforePayment.remainder;
+    } else {
+      clienteQuery = beforeAmount;
+    }
+  } else {
+    const { cleanedText, formaPago: extractedFormaPago } = extractFormaPago(textWithoutNotes);
+    clienteQuery = cleanedText;
+    formaPago = extractedFormaPago;
   }
 
   return {
@@ -68,7 +86,7 @@ export function parseCobro(text) {
     clienteQuery: clienteQuery.trim(),
     monto,
     formaPago,
-    notas: notes
+    notas: notes || inferredNotes
   };
 }
 
@@ -133,6 +151,15 @@ function extractFormaPago(text) {
   return { cleanedText: result.cleanedText, formaPago: result.formaPago };
 }
 
+function extractFormaPagoWithRemainder(text) {
+  const known = extractKnownAlias(text, FORMA_PAGO_ALIASES);
+  if (!known) return { formaPago: null, remainder: cleanRemainder(text) };
+  return {
+    formaPago: known.value,
+    remainder: cleanRemainder(removeAliasFromOriginal(text, known.alias))
+  };
+}
+
 function extractAlias(text, aliases, key) {
   let cleanedText = text;
   let value = null;
@@ -173,13 +200,20 @@ function removeAliasFromOriginal(text, alias) {
 
   for (let i = 0; i <= tokens.length - aliasTokens.length; i++) {
     const slice = tokens.slice(i, i + aliasTokens.length).join(' ');
-    if (normalizeText(slice) === alias) {
+    if (normalizeText(slice).replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim() === alias) {
       tokens.splice(i, aliasTokens.length);
       return tokens.join(' ');
     }
   }
 
   return text;
+}
+
+function cleanRemainder(text) {
+  return String(text || '')
+    .replace(/^[\s,.;:-]+/, '')
+    .replace(/[\s,.;:-]+$/, '')
+    .trim();
 }
 
 function escapeRegExp(value) {

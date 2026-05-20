@@ -1,7 +1,7 @@
-import { findAliasValue, FORMA_PAGO_ALIASES } from './aliases.js';
+import { CONDICION_ALIASES, extractKnownAlias, findAliasValue, FORMA_PAGO_ALIASES, OBS_MARKERS } from './aliases.js';
 import { getProductAliases, getProductosCatalogo, getClientesAsignados, getTelegramUser, resolveCliente, resolveProducto } from './catalog.js';
 import { formatCurrency, getClienteNombre, normalizeText } from './normalization.js';
-import { parseTelegramMessage } from './parser.js';
+import { parseAmount, parseTelegramMessage } from './parser.js';
 import { clearSession, getSession, saveSession } from './sessions.js';
 import { sendTelegramMessage } from './telegramApi.js';
 import { crearCobroDesdeTelegram, crearPedidoDesdeTelegram } from './writer.js';
@@ -34,7 +34,7 @@ export async function processTelegramUpdate({ adminDb, config, update }) {
   const currentSession = await getSession(adminDb, telegramId);
   const normalized = normalizeText(text);
 
-  if (['cancelar', 'cancela', '/cancelar'].includes(normalized)) {
+  if (['cancelar', 'cancela', 'descartar', 'anular', 'no', '/cancelar'].includes(normalized)) {
     await clearSession(adminDb, telegramId);
     return sendAndReturn(config, chatId, 'Operacion cancelada.', 'cancelled');
   }
@@ -44,7 +44,7 @@ export async function processTelegramUpdate({ adminDb, config, update }) {
     return sendAndReturn(config, chatId, renderSessionSummary(currentSession), 'summary');
   }
 
-  if (['confirmar', 'confirma', 'ok', 'si'].includes(normalized)) {
+  if (['confirmar', 'confirma', 'confirmo', 'confirmado', 'guardar', 'ok', 'si', 'dale'].includes(normalized)) {
     return confirmSession({ adminDb, config, chatId, telegramId, user, session: currentSession });
   }
 
@@ -52,8 +52,34 @@ export async function processTelegramUpdate({ adminDb, config, update }) {
     return applySelection({ adminDb, config, chatId, telegramId, user, session: currentSession, selectedNumber: Number(normalized) });
   }
 
+  if (currentSession?.step === 'confirming') {
+    return applyDraftTextUpdate({ adminDb, config, chatId, telegramId, session: currentSession, text });
+  }
+
+  if (currentSession?.step === 'awaiting_monto') {
+    const monto = parseFirstAmount(text);
+    if (!monto || monto <= 0) {
+      return sendAndReturn(config, chatId, 'Falta un monto valido. Ej: 85000, $85.000 o 85k.', 'missing_amount');
+    }
+
+    const payment = extractKnownAlias(text, FORMA_PAGO_ALIASES);
+    const result = await buildDraft({
+      adminDb,
+      config,
+      user,
+      parsed: {
+        ...currentSession.parsed,
+        monto,
+        formaPago: currentSession.parsed.formaPago || payment?.value || null
+      },
+      context: { selectedClient: currentSession.selectedClient }
+    });
+    await persistBuildResult({ adminDb, config, telegramId, result });
+    return sendAndReturn(config, chatId, result.message, result.reason || 'amount_applied');
+  }
+
   if (currentSession?.step === 'awaiting_forma_pago') {
-    const formaPago = findAliasValue(text, FORMA_PAGO_ALIASES);
+    const formaPago = findAliasValue(text, FORMA_PAGO_ALIASES) || extractKnownAlias(text, FORMA_PAGO_ALIASES)?.value;
     if (!formaPago) {
       return sendAndReturn(config, chatId, 'Falta forma de pago: ef, tr, ch u otro.', 'missing_payment_method');
     }
@@ -158,6 +184,66 @@ async function applySelection({ adminDb, config, chatId, telegramId, user, sessi
   return sendAndReturn(config, chatId, result.message, result.reason || 'selection_applied');
 }
 
+async function applyDraftTextUpdate({ adminDb, config, chatId, telegramId, session, text }) {
+  const update = parseDraftUpdate(text, session.intent);
+  if (!update) {
+    return sendAndReturn(
+      config,
+      chatId,
+      `${renderSessionSummary(session)}\n\nPara ajustar antes de confirmar podes escribir: nota ..., agregar nota ..., monto 150000, forma tr, pago ef, resumen o cancelar.`,
+      'active_draft_help'
+    );
+  }
+
+  const draft = { ...session.draft };
+
+  if (update.type === 'note') {
+    if (session.intent === 'cobro') {
+      draft.notas = update.mode === 'append' && draft.notas ? `${draft.notas} | ${update.value}` : update.value;
+    } else {
+      draft.observaciones =
+        update.mode === 'append' && draft.observaciones ? `${draft.observaciones} | ${update.value}` : update.value;
+    }
+  }
+
+  if (update.type === 'clear_note') {
+    if (session.intent === 'cobro') draft.notas = '';
+    else draft.observaciones = '';
+  }
+
+  if (update.type === 'payment_method' && session.intent === 'cobro') {
+    draft.formaPago = update.value;
+  }
+
+  if (update.type === 'condition' && session.intent === 'pedido') {
+    draft.condicionPago = update.value;
+  }
+
+  if (update.type === 'amount' && session.intent === 'cobro') {
+    draft.monto = update.value;
+  }
+
+  await saveSession(
+    adminDb,
+    telegramId,
+    {
+      ...session,
+      step: 'confirming',
+      draft,
+      options: null,
+      pendingProductIndex: null
+    },
+    config.sessionTtlMs
+  );
+
+  return sendAndReturn(
+    config,
+    chatId,
+    `${renderFinalSummary(session.intent, draft)}\n\nResponde CONFIRMAR o CANCELAR.`,
+    `draft_updated_${update.type}`
+  );
+}
+
 async function buildDraft({ adminDb, config, user, parsed, context = {} }) {
   const clientes = await getClientesAsignados(adminDb, user);
   const clientResolution = context.selectedClient
@@ -183,7 +269,16 @@ async function buildDraft({ adminDb, config, user, parsed, context = {} }) {
   const selectedClient = compactCliente(clientResolution.entity);
 
   if (parsed.intent === 'cobro') {
-    if (!parsed.monto || parsed.monto <= 0) return { message: 'Falta un monto valido para el cobro.', reason: 'missing_amount' };
+    if (!parsed.monto || parsed.monto <= 0) {
+      return {
+        intent: 'cobro',
+        step: 'awaiting_monto',
+        parsed,
+        selectedClient,
+        message: 'Falta un monto valido. Ej: 85000, $85.000 o 85k.',
+        reason: 'missing_amount'
+      };
+    }
     if (!parsed.formaPago) {
       return {
         intent: 'cobro',
@@ -384,6 +479,105 @@ function renderHelp() {
   ].join('\n');
 }
 
+function parseDraftUpdate(text, intent) {
+  const raw = String(text || '').trim();
+  const normalized = normalizeText(raw);
+
+  if (!raw) return null;
+
+  if (['sin nota', 'sin notas', 'borrar nota', 'borrar notas', 'quitar nota', 'quitar notas'].includes(normalized)) {
+    return { type: 'clear_note' };
+  }
+
+  const note = extractNoteUpdate(raw);
+  if (note) return note;
+
+  if (intent === 'cobro') {
+    const amount = extractAmountUpdate(raw);
+    if (amount) return amount;
+
+    const payment = extractPaymentUpdate(raw);
+    if (payment) return payment;
+  }
+
+  if (intent === 'pedido') {
+    const condition = extractConditionUpdate(raw);
+    if (condition) return condition;
+  }
+
+  return null;
+}
+
+function extractNoteUpdate(text) {
+  const normalized = normalizeText(text);
+  const appendPatterns = ['agregar nota', 'agrega nota', 'sumar nota', 'suma nota', 'agregar obs', 'agrega obs', 'sumar obs'];
+
+  for (const pattern of appendPatterns) {
+    if (normalized.startsWith(pattern)) {
+      const value = removeLeadingWords(text, pattern);
+      if (value) return { type: 'note', mode: 'append', value };
+    }
+  }
+
+  for (const marker of OBS_MARKERS) {
+    if (normalized.startsWith(`${marker} `)) {
+      const value = removeLeadingWords(text, marker);
+      if (value) return { type: 'note', mode: 'replace', value };
+    }
+  }
+
+  return null;
+}
+
+function extractAmountUpdate(text) {
+  const normalized = normalizeText(text);
+  if (!/^(monto|importe|total|cambiar monto|modificar monto)\b/.test(normalized)) return null;
+  const amount = parseFirstAmount(text);
+  return amount && amount > 0 ? { type: 'amount', value: amount } : null;
+}
+
+function extractPaymentUpdate(text) {
+  const normalized = normalizeText(text);
+  const explicit = /^(forma|forma pago|medio|medio pago|pago|cambiar forma|cambiar pago)\b/.test(normalized);
+  const alias = findAliasValue(text, FORMA_PAGO_ALIASES) || extractKnownAlias(text, FORMA_PAGO_ALIASES)?.value;
+  if (!alias) return null;
+  return explicit || normalizeText(text).split(' ').length <= 3 ? { type: 'payment_method', value: alias } : null;
+}
+
+function extractConditionUpdate(text) {
+  const normalized = normalizeText(text);
+  const explicit = /^(condicion|condicion pago|pago|cambiar condicion|cambiar pago)\b/.test(normalized);
+  const alias = findAliasValue(text, CONDICION_ALIASES) || extractKnownAlias(text, CONDICION_ALIASES)?.value;
+  if (!alias) return null;
+  return explicit || normalizeText(text).split(' ').length <= 3 ? { type: 'condition', value: alias } : null;
+}
+
+function removeLeadingWords(text, words) {
+  const sourceTokens = String(text || '').trim().split(/\s+/);
+  const wordsTokens = normalizeText(words).split(/\s+/);
+  let index = 0;
+
+  while (index < sourceTokens.length && index < wordsTokens.length) {
+    if (normalizeToken(sourceTokens[index]) !== wordsTokens[index]) break;
+    index++;
+  }
+
+  return sourceTokens
+    .slice(index)
+    .join(' ')
+    .replace(/^[\s,.;:-]+/, '')
+    .trim();
+}
+
+function normalizeToken(value) {
+  return normalizeText(value).replace(/^[,.;:-]+|[,.;:-]+$/g, '');
+}
+
+function parseFirstAmount(text) {
+  const match = String(text || '').match(/\$?\s*\d+(?:[.,]\d{3})*(?:[.,]\d+)?\s*k?\b/i);
+  return match ? parseAmount(match[0]) : null;
+}
+
 function isNumericSelection(text) {
   return /^\d+$/.test(text);
 }
@@ -398,3 +592,7 @@ async function sendAndReturn(config, chatId, message, reason) {
   await sendTelegramMessage(config, chatId, message);
   return { processed: true, reason, message };
 }
+
+export const __telegramServiceTest = {
+  parseDraftUpdate
+};
