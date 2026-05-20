@@ -6,7 +6,7 @@ export function parseTelegramMessage(text) {
   const normalized = normalizeText(raw);
 
   if (!raw) return { intent: null, error: 'Mensaje vacio' };
-  if (normalized.startsWith('/')) return { intent: 'command', command: normalized.split(/\s+/)[0] };
+  if (raw.startsWith('/')) return { intent: 'command', command: raw.split(/\s+/)[0].toLowerCase() };
   if (['confirmar', 'confirma', 'ok', 'si'].includes(normalized)) return { intent: 'confirmar' };
   if (['cancelar', 'cancela', '/cancelar'].includes(normalized)) return { intent: 'cancelar' };
   if (['resumen', 'ver resumen'].includes(normalized)) return { intent: 'resumen' };
