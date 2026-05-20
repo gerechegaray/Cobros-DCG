@@ -25,6 +25,14 @@ assert.equal(pedido.condicionPago, 'cuenta_corriente');
 assert.equal(pedido.items.length, 2);
 assert.equal(pedido.items[0].cantidad, 2);
 
+const pedidoInlineConComas = parseTelegramMessage('pedido martin costa, dos op equi rg x20, 2 company gatito x3kg, 5 op cya ad rg x 15');
+assert.equal(pedidoInlineConComas.intent, 'pedido');
+assert.equal(pedidoInlineConComas.clienteQuery, 'martin costa');
+assert.equal(pedidoInlineConComas.items.length, 3);
+assert.equal(pedidoInlineConComas.items[0].cantidad, 2);
+assert.equal(pedidoInlineConComas.items[0].productoQuery, 'op equi rg x20');
+assert.equal(pedidoInlineConComas.items[2].productoQuery, 'op cya ad rg x 15');
+
 const pedidoBatch = parseTelegramMessage(`pedido
 Magdalena CONTADO
 2 op premium gato ad x7
@@ -40,6 +48,9 @@ assert.equal(pedidoBatch.pedidos[1].items.length, 2);
 assert.ok(getProductQueryVariants('op premium gato ad x7').includes('old prince premium gato adulto x 7.5 kg'));
 assert.ok(getProductQueryVariants('op c.a cachorro 3kg').includes('old prince novel cordero arroz cachorro 3 kg'));
 assert.ok(getProductQueryVariants('op c.a ad rp x15kg').includes('old prince novel cordero arroz adulto raza pequena x 15 kg'));
+assert.ok(getProductQueryVariants('op equi rg x20').includes('old prince equilibrium adultos medianos y grandes x 20 kg'));
+assert.ok(getProductQueryVariants('company gatito x3kg').includes('company gato cachorro x 3 kg'));
+assert.ok(getProductQueryVariants('op cya ad rg x 15').includes('old prince novel cordero arroz adulto medianos grandes x 15 kg'));
 assert.ok(getProductQueryVariants('seguidor ad rp x15kg').includes('seguidor adulto mordida pequena x 15 kg'));
 assert.ok(getProductQueryVariants('def 2-5').includes('defender top 90 2 a 4.4 kg'));
 assert.ok(getProductQueryVariants('curabigen').includes('curabigen plata'));

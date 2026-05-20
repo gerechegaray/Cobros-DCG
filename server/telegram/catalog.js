@@ -67,6 +67,12 @@ export function resolveCliente(query, clientes) {
 export function resolveProducto(query, productos, aliases = new Map()) {
   const aliasValue = aliases.get(normalizeText(query));
   const builtInAliasValue = getExactProductAlias(query);
+  const exactAliasValue = aliasValue || builtInAliasValue;
+  const exactAliasMatch = exactAliasValue ? findExactProductAliasMatch(exactAliasValue, productos) : null;
+  if (exactAliasMatch) {
+    return { status: 'matched', entity: exactAliasMatch, matches: [{ entity: exactAliasMatch, score: 100 }] };
+  }
+
   const queryVariants = aliasValue ? [aliasValue, ...getProductQueryVariants(query)] : getProductQueryVariants(query);
   const result = resolveEntity(queryVariants, productos, (producto) => [
     producto.id,
@@ -81,6 +87,16 @@ export function resolveProducto(query, productos, aliases = new Map()) {
   }
 
   return result;
+}
+
+function findExactProductAliasMatch(aliasValue, productos) {
+  const normalizedAlias = normalizeProductQuery(aliasValue);
+  if (!normalizedAlias) return null;
+
+  return productos.find((producto) => (
+    normalizeProductQuery(producto.nombre) === normalizedAlias ||
+    normalizeProductQuery(producto.codigo) === normalizedAlias
+  )) || null;
 }
 
 export function transformarProducto(producto) {

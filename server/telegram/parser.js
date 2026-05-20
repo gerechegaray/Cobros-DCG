@@ -39,6 +39,17 @@ export function parsePedido(text) {
 
   const { textWithoutNotes, notes } = extractNotes(body);
   const { cleanedText, condicionPago } = extractCondition(textWithoutNotes);
+  const inlineByComma = parseInlinePedidoByComma(cleanedText);
+  if (inlineByComma) {
+    return {
+      intent: 'pedido',
+      clienteQuery: inlineByComma.clienteQuery,
+      condicionPago: condicionPago || 'contado',
+      observaciones: notes,
+      items: inlineByComma.itemLines.map(parsePedidoItem).filter((item) => item.productoQuery)
+    };
+  }
+
   const lines = cleanedText
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -128,7 +139,7 @@ export function parseAmount(value) {
 }
 
 function parsePedidoItem(line) {
-  const match = line.match(/^\s*((?:\d+(?:[.,]\d+)?)(?:\s*\+\s*\d+(?:[.,]\d+)?)*)\s*x?\s*(.+)$/i);
+  const match = line.match(new RegExp(`^\\s*(${QUANTITY_EXPRESSION_SOURCE})\\s*x?\\s*(.+)$`, 'i'));
   if (!match) return { cantidad: null, productoQuery: line.trim(), descuento: 0 };
 
   const cantidad = parseQuantityExpression(match[1]);
@@ -144,13 +155,14 @@ function parsePedidoItem(line) {
 }
 
 function findFirstQuantityIndex(text) {
-  const match = text.match(/(^|\s)\d+(?:[.,]\d+)?(?:\s*\+\s*\d+(?:[.,]\d+)?)*(?:\s*x)?\s*\S/i);
+  const match = text.match(new RegExp(`(^|\\s)${NUMERIC_QUANTITY_EXPRESSION_SOURCE}(?:\\s*x)?\\s*\\S`, 'i'));
   if (!match) return -1;
-  return match.index + match[0].search(/\d/);
+  const quantityMatch = match[0].match(new RegExp(NUMERIC_QUANTITY_EXPRESSION_SOURCE, 'i'));
+  return match.index + (quantityMatch?.index || 0);
 }
 
 function splitInlineItems(text) {
-  const matches = [...text.matchAll(/(^|\s)(\d+(?:[.,]\d+)?(?:\s*\+\s*\d+(?:[.,]\d+)?)*)\s*x?\s*/gi)];
+  const matches = [...text.matchAll(new RegExp(`(^|\\s)(${NUMERIC_QUANTITY_EXPRESSION_SOURCE})\\s*x?\\s*`, 'gi'))];
   if (matches.length === 0) return text ? [text] : [];
 
   return matches.map((match, index) => {
@@ -159,6 +171,28 @@ function splitInlineItems(text) {
     return text.slice(start, end).trim();
   });
 }
+
+const NUMBER_WORDS = new Map([
+  ['un', 1],
+  ['uno', 1],
+  ['una', 1],
+  ['dos', 2],
+  ['tres', 3],
+  ['cuatro', 4],
+  ['cinco', 5],
+  ['seis', 6],
+  ['siete', 7],
+  ['ocho', 8],
+  ['nueve', 9],
+  ['diez', 10],
+  ['once', 11],
+  ['doce', 12]
+]);
+
+const NUMBER_WORD_SOURCE = [...NUMBER_WORDS.keys()].join('|');
+const NUMBER_TOKEN_SOURCE = `(?:\\d+(?:[.,]\\d+)?|${NUMBER_WORD_SOURCE})`;
+const NUMERIC_QUANTITY_EXPRESSION_SOURCE = `(?:\\d+(?:[.,]\\d+)?)(?:\\s*\\+\\s*(?:\\d+(?:[.,]\\d+)?))*`;
+const QUANTITY_EXPRESSION_SOURCE = `(?:${NUMBER_TOKEN_SOURCE})(?:\\s*\\+\\s*(?:${NUMBER_TOKEN_SOURCE}))*`;
 
 function extractCondition(text) {
   return extractAlias(text, CONDICION_ALIASES, 'condicionPago');
@@ -234,6 +268,23 @@ function cleanRemainder(text) {
     .trim();
 }
 
+function parseInlinePedidoByComma(text) {
+  if (!String(text || '').includes(',')) return null;
+  const parts = String(text)
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 2) return null;
+  const itemLines = parts.slice(1).filter(isPedidoItemLine);
+  if (itemLines.length !== parts.length - 1) return null;
+
+  return {
+    clienteQuery: parts[0],
+    itemLines
+  };
+}
+
 function splitPedidoBlocks(text) {
   const lines = String(text || '')
     .split(/\r?\n/)
@@ -279,16 +330,22 @@ function isPedidoHeaderLine(line) {
 }
 
 function isPedidoItemLine(line) {
-  return /^\s*\d+(?:[.,]\d+)?(?:\s*\+\s*\d+(?:[.,]\d+)?)*\s*x?\s*\S/i.test(line);
+  return new RegExp(`^\\s*${QUANTITY_EXPRESSION_SOURCE}\\s*x?\\s*\\S`, 'i').test(line);
 }
 
 function parseQuantityExpression(value) {
   const parts = String(value || '')
     .split('+')
-    .map((part) => Number(part.trim().replace(',', '.')))
+    .map((part) => parseQuantityToken(part.trim()))
     .filter((part) => Number.isFinite(part));
   if (parts.length === 0) return null;
   return parts.reduce((sum, part) => sum + part, 0);
+}
+
+function parseQuantityToken(value) {
+  const normalized = normalizeText(value);
+  if (NUMBER_WORDS.has(normalized)) return NUMBER_WORDS.get(normalized);
+  return Number(String(value || '').replace(',', '.'));
 }
 
 function cleanProductQuery(value) {
