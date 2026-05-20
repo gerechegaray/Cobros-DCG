@@ -16,6 +16,7 @@ export const FORMA_PAGO_ALIASES = new Map([
   ['tr', 'transferencia'],
   ['trans', 'transferencia'],
   ['transf', 'transferencia'],
+  ['tranferencia', 'transferencia'],
   ['transferencia', 'transferencia'],
   ['ch', 'cheque'],
   ['cheq', 'cheque'],

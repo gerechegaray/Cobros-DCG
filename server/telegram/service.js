@@ -1,3 +1,4 @@
+import { findAliasValue, FORMA_PAGO_ALIASES } from './aliases.js';
 import { getProductAliases, getProductosCatalogo, getClientesAsignados, getTelegramUser, resolveCliente, resolveProducto } from './catalog.js';
 import { formatCurrency, getClienteNombre, normalizeText } from './normalization.js';
 import { parseTelegramMessage } from './parser.js';
@@ -49,6 +50,23 @@ export async function processTelegramUpdate({ adminDb, config, update }) {
 
   if (currentSession && isNumericSelection(normalized)) {
     return applySelection({ adminDb, config, chatId, telegramId, user, session: currentSession, selectedNumber: Number(normalized) });
+  }
+
+  if (currentSession?.step === 'awaiting_forma_pago') {
+    const formaPago = findAliasValue(text, FORMA_PAGO_ALIASES);
+    if (!formaPago) {
+      return sendAndReturn(config, chatId, 'Falta forma de pago: ef, tr, ch u otro.', 'missing_payment_method');
+    }
+
+    const result = await buildDraft({
+      adminDb,
+      config,
+      user,
+      parsed: { ...currentSession.parsed, formaPago },
+      context: { selectedClient: currentSession.selectedClient }
+    });
+    await persistBuildResult({ adminDb, config, telegramId, result });
+    return sendAndReturn(config, chatId, result.message, result.reason || 'payment_method_applied');
   }
 
   const parsed = parseTelegramMessage(text);
@@ -166,7 +184,16 @@ async function buildDraft({ adminDb, config, user, parsed, context = {} }) {
 
   if (parsed.intent === 'cobro') {
     if (!parsed.monto || parsed.monto <= 0) return { message: 'Falta un monto valido para el cobro.', reason: 'missing_amount' };
-    if (!parsed.formaPago) return { message: 'Falta forma de pago: ef, tr, ch u otro.', reason: 'missing_payment_method' };
+    if (!parsed.formaPago) {
+      return {
+        intent: 'cobro',
+        step: 'awaiting_forma_pago',
+        parsed,
+        selectedClient,
+        message: 'Falta forma de pago: ef, tr, ch u otro.',
+        reason: 'missing_payment_method'
+      };
+    }
 
     const draft = {
       cliente: selectedClient,
