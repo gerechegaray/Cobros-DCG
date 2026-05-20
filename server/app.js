@@ -21,6 +21,7 @@ import {
   calcularComisionFleteMensual,
   getComisionFlete
 } from "./comisionesFleteService.js";
+import { registerTelegramRoutes } from "./telegram/routes.js";
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
@@ -201,6 +202,8 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+registerTelegramRoutes(app, adminDb);
 
 // Endpoint para obtener facturas de venta de Alegra
 app.get("/api/alegra/invoices", async (req, res) => {
@@ -3543,4 +3546,3 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     });
   }
 });
-
