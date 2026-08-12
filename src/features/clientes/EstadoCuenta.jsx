@@ -635,10 +635,8 @@ function EstadoCuenta({ user }) {
       const margin = 15;
       let currentY = 20;
 
-      // Encabezado Principal
-      doc.setFillColor(30, 41, 59); // Azul oscuro
-      doc.rect(0, 0, pageWidth, 25, 'F');
-      doc.setTextColor(255, 255, 255);
+      // Encabezado Principal (sin relleno para ahorrar tinta al imprimir)
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(18);
       doc.setFont(undefined, 'bold');
       doc.text('HOJA SÁBANA DE ESTADOS DE CUENTA', pageWidth / 2, 16, { align: 'center' });
@@ -650,7 +648,7 @@ function EstadoCuenta({ user }) {
       doc.setFontSize(7);
       doc.setTextColor(80, 80, 80);
       doc.text(
-        'Leyenda: Vencida = vencimiento anterior a hoy (fondo rojo). Pendiente = aún no vencida (fondo azul).',
+        'Leyenda: Vencida = vencimiento anterior a hoy (texto rojo). Pendiente = aún no vencida (texto azul).',
         margin,
         29
       );
@@ -702,10 +700,7 @@ function EstadoCuenta({ user }) {
           currentY = 20;
         }
 
-        // Título de Cliente y Saldo (Diseño Compacto)
-        doc.setFillColor(248, 250, 252);
-        doc.rect(margin, currentY, pageWidth - (margin * 2), 10, 'F');
-
+        // Título de Cliente y Saldo (sin sombreado para ahorrar tinta)
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(30, 41, 59);
@@ -829,14 +824,6 @@ function EstadoCuenta({ user }) {
             }
 
             const vencida = esFacturaVencida(fact.fechaVencimiento);
-            const rowY0 = currentY - 3.5;
-
-            if (vencida) {
-              doc.setFillColor(254, 226, 226);
-            } else {
-              doc.setFillColor(237, 247, 255);
-            }
-            doc.rect(margin, rowY0, pageWidth - margin * 2, rowH, 'F');
 
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
