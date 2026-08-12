@@ -92,6 +92,8 @@ export const api = {
     body: JSON.stringify(data),
   }),
   getAlegraQuoteStatus: (id) => apiRequest(`/api/alegra/quote-status/${id}`),
+  getAlegraEstimatesUnbilled: (maxEstimates = 150, role = '') =>
+    apiRequest(`/api/alegra/estimates?maxEstimates=${maxEstimates}&role=${encodeURIComponent(role)}`),
   getAlegraEstadoCuenta: (clienteId) => apiRequest(`/api/alegra/estado-cuenta/${clienteId}`),
   
   // 🆕 Estado de cuenta desde caché

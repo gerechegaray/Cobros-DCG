@@ -12,6 +12,7 @@ export const BACKEND_CONFIG = {
     ALEGRA_CONTACTS: '/api/alegra/contacts',
     ALEGRA_ITEMS: '/api/alegra/items',
     ALEGRA_QUOTES: '/api/alegra/quotes',
+    ALEGRA_ESTIMATES: '/api/alegra/estimates',
     ALEGRA_QUOTE_STATUS: '/api/alegra/quote-status',
     ALEGRA_ESTADO_CUENTA: '/api/alegra/estado-cuenta',
     

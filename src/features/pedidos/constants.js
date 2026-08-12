@@ -12,12 +12,14 @@ export const CONDICIONES_PAGO = [
 
 // Obtener color por estado
 export const getColorEstado = (estado) => {
+  if (estado === 'presupuesto') return 'info';
   const estadoObj = ESTADOS_PEDIDO.find(e => e.value === estado);
   return estadoObj ? estadoObj.color : 'secondary';
 };
 
 // Obtener label por estado
 export const getLabelEstado = (estado) => {
+  if (estado === 'presupuesto') return 'Sin facturar';
   const estadoObj = ESTADOS_PEDIDO.find(e => e.value === estado);
   return estadoObj ? estadoObj.label : estado;
 };

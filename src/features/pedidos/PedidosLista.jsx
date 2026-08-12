@@ -16,6 +16,7 @@ import { getPedidosRealtime, getPedidosByVendedorRealtime, eliminarPedido, cambi
 import { ESTADOS_PEDIDO, CONDICIONES_PAGO, getColorEstado, getLabelEstado, getLabelCondicionPago } from './constants';
 import { formatearMoneda, formatearFecha } from './utils';
 import { exportarListaPedidosPdf } from './exportarListaPedidosPdf';
+import { api } from '../../services/api';
 import './PedidosLista.css';
 
 const PedidosLista = ({ user }) => {
@@ -28,6 +29,9 @@ const PedidosLista = ({ user }) => {
   const [mostrarVerPedido, setMostrarVerPedido] = useState(false);
   const [loading, setLoading] = useState(true);
   const [esMovil, setEsMovil] = useState(false);
+  const [mostrarPresupuestos, setMostrarPresupuestos] = useState(false);
+  const [presupuestos, setPresupuestos] = useState([]);
+  const [cargandoPresupuestos, setCargandoPresupuestos] = useState(false);
   
   // Filtros
   const [filtroCliente, setFiltroCliente] = useState('');
@@ -100,43 +104,48 @@ const PedidosLista = ({ user }) => {
 
   // Aplicar filtros
   useEffect(() => {
-    let filtrados = [...pedidos];
+    const aplicarFiltrosComunes = (lista) => {
+      let filtrados = [...lista];
 
-    // Filtro por cliente
-    if (filtroCliente) {
-      filtrados = filtrados.filter(p => 
-        p.cliente?.toLowerCase().includes(filtroCliente.toLowerCase())
-      );
-    }
+      if (filtroCliente) {
+        filtrados = filtrados.filter(p =>
+          p.cliente?.toLowerCase().includes(filtroCliente.toLowerCase())
+        );
+      }
 
-    // Filtro por estado
+      if (filtroFechaDesde) {
+        filtrados = filtrados.filter(p => {
+          const fechaPedido = p.fechaPedido?.toDate ? p.fechaPedido.toDate() : new Date(p.fechaPedido);
+          return fechaPedido >= filtroFechaDesde;
+        });
+      }
+
+      if (filtroFechaHasta) {
+        filtrados = filtrados.filter(p => {
+          const fechaPedido = p.fechaPedido?.toDate ? p.fechaPedido.toDate() : new Date(p.fechaPedido);
+          return fechaPedido <= filtroFechaHasta;
+        });
+      }
+
+      return filtrados;
+    };
+
+    let filtrados = aplicarFiltrosComunes(pedidos);
+
     if (filtroEstado) {
       filtrados = filtrados.filter(p => p.estado === filtroEstado);
     }
 
-    // Filtro por condición de pago
     if (filtroCondicionPago) {
       filtrados = filtrados.filter(p => p.condicionPago === filtroCondicionPago);
     }
 
-    // Filtro por fecha desde
-    if (filtroFechaDesde) {
-      filtrados = filtrados.filter(p => {
-        const fechaPedido = p.fechaPedido?.toDate ? p.fechaPedido.toDate() : new Date(p.fechaPedido);
-        return fechaPedido >= filtroFechaDesde;
-      });
-    }
-
-    // Filtro por fecha hasta
-    if (filtroFechaHasta) {
-      filtrados = filtrados.filter(p => {
-        const fechaPedido = p.fechaPedido?.toDate ? p.fechaPedido.toDate() : new Date(p.fechaPedido);
-        return fechaPedido <= filtroFechaHasta;
-      });
+    if (esAdmin && mostrarPresupuestos && filtroEstado !== 'facturado') {
+      filtrados = [...filtrados, ...aplicarFiltrosComunes(presupuestos)];
     }
 
     setPedidosFiltrados(filtrados);
-  }, [pedidos, filtroCliente, filtroEstado, filtroCondicionPago, filtroFechaDesde, filtroFechaHasta]);
+  }, [pedidos, presupuestos, mostrarPresupuestos, esAdmin, filtroCliente, filtroEstado, filtroCondicionPago, filtroFechaDesde, filtroFechaHasta]);
 
   const limpiarFiltros = () => {
     setFiltroCliente('');
@@ -144,6 +153,41 @@ const PedidosLista = ({ user }) => {
     setFiltroCondicionPago(null);
     setFiltroFechaDesde(null);
     setFiltroFechaHasta(null);
+  };
+
+  const togglePresupuestos = async () => {
+    if (!esAdmin) return;
+
+    if (mostrarPresupuestos) {
+      setMostrarPresupuestos(false);
+      setPresupuestos([]);
+      setPedidosSeleccionados((sel) => (sel || []).filter((p) => p.origen !== 'presupuesto'));
+      return;
+    }
+
+    setCargandoPresupuestos(true);
+    try {
+      const data = await api.getAlegraEstimatesUnbilled(150, user?.role);
+      const lista = Array.isArray(data) ? data : [];
+      setPresupuestos(lista);
+      setMostrarPresupuestos(true);
+      toast.current?.show({
+        severity: lista.length ? 'success' : 'info',
+        summary: 'Presupuestos',
+        detail: lista.length
+          ? `Se cargaron ${lista.length} presupuesto(s) sin facturar`
+          : 'No hay presupuestos sin facturar en Alegra'
+      });
+    } catch (error) {
+      console.error('Error cargando presupuestos de Alegra:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudieron cargar los presupuestos de Alegra'
+      });
+    } finally {
+      setCargandoPresupuestos(false);
+    }
   };
 
   const exportarListaPdf = () => {
@@ -245,7 +289,14 @@ const PedidosLista = ({ user }) => {
 
   // Templates para columnas
   const clienteTemplate = (rowData) => {
-    return <span data-label="Cliente">{rowData.cliente}</span>;
+    return (
+      <span data-label="Cliente">
+        {rowData.cliente}
+        {rowData.origen === 'presupuesto' && (
+          <Tag value="Presupuesto" severity="info" className="ml-2" />
+        )}
+      </span>
+    );
   };
 
   const fechaTemplate = (rowData) => {
@@ -253,6 +304,9 @@ const PedidosLista = ({ user }) => {
   };
 
   const condicionPagoTemplate = (rowData) => {
+    if (rowData.origen === 'presupuesto') {
+      return <span data-label="Condición de Pago">-</span>;
+    }
     return <span data-label="Condición de Pago">{getLabelCondicionPago(rowData.condicionPago || 'contado')}</span>;
   };
 
@@ -269,8 +323,9 @@ const PedidosLista = ({ user }) => {
   };
 
   const accionesTemplate = (rowData) => {
-    const puedeEditar = esAdmin || (rowData.vendedor === user.email && rowData.estado !== 'facturado');
-    const puedeEliminar = esAdmin || (rowData.vendedor === user.email && rowData.estado !== 'facturado');
+    const esPresupuesto = rowData.origen === 'presupuesto';
+    const puedeEditar = !esPresupuesto && (esAdmin || (rowData.vendedor === user.email && rowData.estado !== 'facturado'));
+    const puedeEliminar = !esPresupuesto && (esAdmin || (rowData.vendedor === user.email && rowData.estado !== 'facturado'));
     
     return (
       <span data-label="Acciones">
@@ -297,7 +352,7 @@ const PedidosLista = ({ user }) => {
               tooltip="Eliminar"
             />
           )}
-          {esAdmin && rowData.estado === 'pendiente' && (
+          {esAdmin && !esPresupuesto && rowData.estado === 'pendiente' && (
             <Button
               icon="pi pi-check"
               className="p-button-rounded p-button-success p-button-text"
@@ -314,6 +369,15 @@ const PedidosLista = ({ user }) => {
     <div className="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center gap-2">
       <h3 className="m-0">Lista de Pedidos ({pedidosFiltrados.length})</h3>
       <div className="flex flex-wrap gap-2">
+        {esAdmin && (
+          <Button
+            label={mostrarPresupuestos ? 'Ocultar presupuestos' : 'Mostrar presupuestos'}
+            icon={mostrarPresupuestos ? 'pi pi-eye-slash' : 'pi pi-file'}
+            className="p-button-outlined"
+            loading={cargandoPresupuestos}
+            onClick={togglePresupuestos}
+          />
+        )}
         <Button
           label="Seleccionar filtrados"
           icon="pi pi-check-square"
@@ -444,7 +508,7 @@ const PedidosLista = ({ user }) => {
           breakpoint="960px"
           dataKey="id"
           selection={pedidosSeleccionados}
-          onSelectionChange={(e) => setPedidosSeleccionados(e.value)}
+          onSelectionChange={(e) => setPedidosSeleccionados(Array.isArray(e.value) ? e.value : [])}
           selectionMode="checkbox"
         >
         <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />

@@ -386,3 +386,103 @@ export async function getAlegraInvoiceById(invoiceId, retries = 3) {
   
   throw lastError;
 }
+
+const ESTADOS_ESTIMATE_FACTURADO = new Set(['billed', 'invoiced', 'closed', 'void', 'rejected', 'anulado']);
+const ESTADOS_ESTIMATE_SIN_FACTURAR = new Set(['unbilled', 'open', 'draft', 'accepted', '']);
+
+export function esEstimateSinFacturar(estimate) {
+  const status = String(estimate?.status || '').toLowerCase();
+  if (ESTADOS_ESTIMATE_FACTURADO.has(status)) return false;
+  if (Array.isArray(estimate?.invoices) && estimate.invoices.length > 0) return false;
+  return ESTADOS_ESTIMATE_SIN_FACTURAR.has(status);
+}
+
+export function mapEstimateToPedidoRow(estimate) {
+  return {
+    id: `est-${estimate.id}`,
+    origen: 'presupuesto',
+    alegraId: estimate.id,
+    cliente: estimate.client?.name || 'Cliente',
+    fechaPedido: estimate.date,
+    estado: 'presupuesto',
+    total: Number(estimate.total) || 0,
+    vendedorNombre: estimate.seller?.name || '',
+    observaciones: estimate.observations || '',
+    numeroAlegra: estimate.number,
+    productos: (estimate.items || []).map((item) => ({
+      id: item.id,
+      nombre: item.name || item.description || 'Sin nombre',
+      codigo: item.reference || String(item.id || '-'),
+      cantidad: Number(item.quantity) || 0
+    }))
+  };
+}
+
+export async function getAlegraEstimatesUnbilled(maxEstimates = 150) {
+  const email = process.env.ALEGRA_EMAIL?.trim();
+  const apiKey = process.env.ALEGRA_API_KEY?.trim();
+
+  if (!email || !apiKey) {
+    throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
+  }
+
+  const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+  const limit = 30;
+  const maxEstimatesInt = Math.max(1, parseInt(maxEstimates, 10) || 150);
+  const allEstimates = [];
+  let start = 0;
+  let hasMore = true;
+  let usarFiltroStatus = true;
+
+  while (allEstimates.length < maxEstimatesInt && hasMore) {
+    const currentLimit = Math.min(limit, maxEstimatesInt - allEstimates.length);
+    const params = new URLSearchParams({
+      start: String(start),
+      limit: String(currentLimit),
+      order_direction: 'DESC',
+      order_field: 'date'
+    });
+    if (usarFiltroStatus) {
+      params.set('status', 'unbilled');
+    }
+
+    const url = `https://api.alegra.com/api/v1/estimates?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json',
+        authorization
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (usarFiltroStatus && (response.status === 400 || response.status === 422)) {
+        console.warn('[ALEGRA] status=unbilled no soportado en estimates, reintentando sin filtro');
+        usarFiltroStatus = false;
+        start = 0;
+        allEstimates.length = 0;
+        continue;
+      }
+      console.error('Alegra estimates API error:', response.status, errorText);
+      throw new Error(`Error al obtener presupuestos de Alegra: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    allEstimates.push(...data);
+    start += data.length;
+    if (data.length < currentLimit) {
+      hasMore = false;
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  return allEstimates
+    .filter(esEstimateSinFacturar)
+    .map(mapEstimateToPedidoRow);
+}

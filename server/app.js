@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Importo el servicio de Alegra
-import { getAlegraInvoices, getAlegraContacts, getAlegraItems } from "./alegraService.js";
+import { getAlegraInvoices, getAlegraContacts, getAlegraItems, getAlegraEstimatesUnbilled } from "./alegraService.js";
 // Importo el servicio de comisiones
 import { 
   sincronizarFacturasDesdePayments, 
@@ -250,6 +250,24 @@ app.get("/api/alegra/invoices", async (req, res) => {
     res.status(500).json({ 
       error: 'Error interno del servidor',
       detalles: error.message 
+    });
+  }
+});
+
+// Presupuestos (Estimates) sin facturar desde Alegra
+app.get("/api/alegra/estimates", async (req, res) => {
+  try {
+    if (String(req.query.role || '') !== 'admin') {
+      return res.status(403).json({ error: 'Solo el administrador puede consultar presupuestos de Alegra' });
+    }
+    const maxEstimates = parseInt(req.query.maxEstimates, 10) || 150;
+    const presupuestos = await getAlegraEstimatesUnbilled(maxEstimates);
+    res.json(presupuestos);
+  } catch (error) {
+    console.error('❌ Error en /api/alegra/estimates:', error);
+    res.status(500).json({
+      error: 'Error al obtener presupuestos de Alegra',
+      detalles: error.message
     });
   }
 });

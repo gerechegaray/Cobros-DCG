@@ -82,7 +82,13 @@ export function exportarListaPedidosPdf(pedidos) {
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('LISTA DE PEDIDOS', PAGE_W / 2, y, { align: 'center' });
+  const hayPresupuestos = pedidos.some((p) => p.origen === 'presupuesto');
+  doc.text(
+    hayPresupuestos ? 'LISTA DE PEDIDOS Y PRESUPUESTOS' : 'LISTA DE PEDIDOS',
+    PAGE_W / 2,
+    y,
+    { align: 'center' }
+  );
   y += 6;
 
   doc.setFont('helvetica', 'normal');
@@ -99,11 +105,12 @@ export function exportarListaPedidosPdf(pedidos) {
     y = ensureSpace(doc, y, 22);
     const cliente = pedido.cliente || 'Cliente';
     const fecha = formatearFecha(pedido.fechaPedido);
+    const etiqueta = pedido.origen === 'presupuesto' ? ' (Presupuesto)' : '';
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text(cliente, MARGIN, y);
+    doc.text(`${cliente}${etiqueta}`, MARGIN, y);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text(`Fecha: ${fecha}`, PAGE_W - MARGIN, y, { align: 'right' });
