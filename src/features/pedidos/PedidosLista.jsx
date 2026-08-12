@@ -15,6 +15,7 @@ import VerPedido from './VerPedido';
 import { getPedidosRealtime, getPedidosByVendedorRealtime, eliminarPedido, cambiarEstadoPedido } from './pedidosService';
 import { ESTADOS_PEDIDO, CONDICIONES_PAGO, getColorEstado, getLabelEstado, getLabelCondicionPago } from './constants';
 import { formatearMoneda, formatearFecha } from './utils';
+import { exportarListaPedidosPdf } from './exportarListaPedidosPdf';
 import './PedidosLista.css';
 
 const PedidosLista = ({ user }) => {
@@ -22,6 +23,7 @@ const PedidosLista = ({ user }) => {
   const [pedidos, setPedidos] = useState([]);
   const [pedidosFiltrados, setPedidosFiltrados] = useState([]);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
+  const [pedidosSeleccionados, setPedidosSeleccionados] = useState([]);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [mostrarVerPedido, setMostrarVerPedido] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -142,6 +144,33 @@ const PedidosLista = ({ user }) => {
     setFiltroCondicionPago(null);
     setFiltroFechaDesde(null);
     setFiltroFechaHasta(null);
+  };
+
+  const exportarListaPdf = () => {
+    if (pedidosSeleccionados.length === 0) {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Sin selección',
+        detail: 'Seleccioná al menos un pedido para exportar'
+      });
+      return;
+    }
+
+    try {
+      exportarListaPedidosPdf(pedidosSeleccionados);
+      toast.current?.show({
+        severity: 'success',
+        summary: 'PDF generado',
+        detail: `Se exportaron ${pedidosSeleccionados.length} pedido(s)`
+      });
+    } catch (error) {
+      console.error('Error exportando lista de pedidos:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo generar el PDF'
+      });
+    }
   };
 
   const handleNuevoPedido = () => {
@@ -284,12 +313,27 @@ const PedidosLista = ({ user }) => {
   const header = (
     <div className="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center gap-2">
       <h3 className="m-0">Lista de Pedidos ({pedidosFiltrados.length})</h3>
-      <Button
-        label="Nuevo Pedido"
-        icon="pi pi-plus"
-        onClick={handleNuevoPedido}
-        className="p-button-success"
-      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          label="Seleccionar filtrados"
+          icon="pi pi-check-square"
+          className="p-button-outlined"
+          onClick={() => setPedidosSeleccionados([...pedidosFiltrados])}
+          disabled={!pedidosFiltrados.length}
+        />
+        <Button
+          label={pedidosSeleccionados.length ? `Exportar PDF (${pedidosSeleccionados.length})` : 'Exportar PDF'}
+          icon="pi pi-file-pdf"
+          onClick={exportarListaPdf}
+          disabled={pedidosSeleccionados.length === 0}
+        />
+        <Button
+          label="Nuevo Pedido"
+          icon="pi pi-plus"
+          onClick={handleNuevoPedido}
+          className="p-button-success"
+        />
+      </div>
     </div>
   );
 
@@ -398,7 +442,12 @@ const PedidosLista = ({ user }) => {
           emptyMessage="No hay pedidos registrados"
           responsiveLayout="stack"
           breakpoint="960px"
+          dataKey="id"
+          selection={pedidosSeleccionados}
+          onSelectionChange={(e) => setPedidosSeleccionados(e.value)}
+          selectionMode="checkbox"
         >
+        <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
         <Column field="cliente" header="Cliente" body={clienteTemplate} sortable />
         <Column 
           field="fechaPedido" 

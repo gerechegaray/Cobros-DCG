@@ -313,3 +313,38 @@ export function topProductosDesdePedidosFacturados(pedidosFiltrados, limit = 10)
     .slice(0, limit);
 }
 
+export function claveProductoPedido(producto) {
+  return String(producto?.id || producto?.codigo || producto?.nombre || '').trim() || 'sin-clave';
+}
+
+export function lineasProductosPedido(pedido) {
+  if (!pedido?.productos || !Array.isArray(pedido.productos)) return [];
+  return pedido.productos.map((producto) => ({
+    codigo: producto.codigo || '-',
+    producto: producto.nombre || 'Sin nombre',
+    cantidad: Number(producto.cantidad) || 0,
+    clave: claveProductoPedido(producto)
+  }));
+}
+
+export function sumarioProductosPedidos(pedidos) {
+  const agrupados = {};
+  (pedidos || []).forEach((pedido) => {
+    lineasProductosPedido(pedido).forEach((linea) => {
+      if (!agrupados[linea.clave]) {
+        agrupados[linea.clave] = {
+          codigo: linea.codigo,
+          producto: linea.producto,
+          cantidad: 0
+        };
+      }
+      agrupados[linea.clave].cantidad += linea.cantidad;
+    });
+  });
+  return Object.values(agrupados).sort((a, b) => {
+    const porCodigo = String(a.codigo).localeCompare(String(b.codigo), 'es');
+    if (porCodigo !== 0) return porCodigo;
+    return String(a.producto).localeCompare(String(b.producto), 'es');
+  });
+}
+

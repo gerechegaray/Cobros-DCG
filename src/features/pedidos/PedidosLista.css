@@ -52,6 +52,19 @@
   .p-datatable-tbody > tr > td[data-label="Acciones"]:before {
     content: "Acciones:";
   }
+
+  .pedidos-table .p-datatable-tbody > tr > td.p-selection-column {
+    padding-left: 0.5rem !important;
+    display: flex !important;
+    align-items: center;
+  }
+
+  .pedidos-table .p-datatable-tbody > tr > td.p-selection-column:before {
+    content: "Seleccionar:" !important;
+    position: static;
+    width: auto;
+    margin-right: 0.5rem;
+  }
   
   /* Ajustar botones de acciones en móvil */
   .p-datatable-tbody > tr > td[data-label="Acciones"] .flex {
