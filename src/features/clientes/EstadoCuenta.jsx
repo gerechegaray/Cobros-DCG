@@ -384,11 +384,11 @@ function EstadoCuenta({ user }) {
     setCompartiendo(true);
     try {
       const modo = await compartirEstadoCuentaWhatsApp(datosPdfCliente());
-      if (modo === 'whatsapp' || modo === 'texto') {
+      if (modo === 'sin-compartir') {
         toast.current.show({
           severity: 'info',
           summary: 'WhatsApp',
-          detail: 'Se abrió el mensaje. Si no adjuntó la imagen, el teléfono no permite compartir archivos desde acá.'
+          detail: 'Este dispositivo no permite compartir la imagen. Probá desde el teléfono.'
         });
       }
     } catch (error) {
@@ -460,7 +460,7 @@ function EstadoCuenta({ user }) {
 
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
-      doc.text('Distribuidora DCG - Reporte de Deuda Masivo', pageWidth / 2, pageHeight - 10, { align: 'center' });
+      doc.text('DCG Distribuciones - Reporte de Deuda Masivo', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
       doc.save(`Repo_Masivo_Deuda_${new Date().toISOString().split('T')[0]}.pdf`);
 

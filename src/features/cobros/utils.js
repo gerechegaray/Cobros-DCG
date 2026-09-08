@@ -2,6 +2,21 @@ import moment from 'moment';
 import * as XLSX from 'xlsx';
 import { FORMAS_PAGO, ESTADO_LABELS, ACCION_LABELS } from './constants';
 
+function pareceEmail(valor) {
+  return String(valor || '').includes('@');
+}
+
+export const nombreVendedorCobro = (cobro, nombresPorEmail = {}) => {
+  const nombre = String(cobro?.vendedorNombre || '').trim();
+  if (nombre && !pareceEmail(nombre)) return nombre;
+
+  const email = String(cobro?.vendedor || cobro?.vendedorNombre || '').trim();
+  const mapeado = nombresPorEmail[email.toLowerCase()];
+  if (mapeado) return mapeado;
+
+  return nombre || email || '-';
+};
+
 // Formatear monto con separador de miles
 export const formatearMonto = (monto) => {
   if (!monto && monto !== 0) return '$0';
@@ -121,6 +136,7 @@ export const calcularTotalesPorVendedor = (cobros) => {
     
     if (!totales[vendedor]) {
       totales[vendedor] = {
+        nombre: cobro.vendedorNombre || vendedor,
         pendiente: 0,
         cargado: 0,
         total: 0,
@@ -187,7 +203,7 @@ export const exportarCobrosCsv = (cobros) => {
     cobro.monto,
     getFormaPagoLabel(cobro.formaPago),
     getEstadoLabel(cobro.estado),
-    cobro.vendedor,
+    cobro.vendedorNombre || cobro.vendedor,
     cobro.notas || ''
   ]);
   
@@ -208,7 +224,7 @@ export const exportarCobrosExcel = (cobros) => {
     'Monto': cobro.monto,
     'Forma de Pago': getFormaPagoLabel(cobro.formaPago),
     'Estado': getEstadoLabel(cobro.estado),
-    'Vendedor': cobro.vendedor,
+    'Vendedor': cobro.vendedorNombre || cobro.vendedor,
     'Notas': cobro.notas || ''
   }));
 

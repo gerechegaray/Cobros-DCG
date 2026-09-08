@@ -264,7 +264,7 @@ const CobrosLista = ({ user }) => {
   };
 
   const vendedorTemplate = (rowData) => {
-    return <span data-label="Vendedor">{rowData.vendedor}</span>;
+    return <span data-label="Vendedor">{rowData.vendedorNombre || rowData.vendedor}</span>;
   };
 
   const notasTemplate = (rowData) => {
@@ -472,6 +472,7 @@ const CobrosLista = ({ user }) => {
                   <div className="lista-movil__meta">
                     <span>{formatearFecha(cobro.fechaCobro)}</span>
                     <span>{getFormaPagoLabel(cobro.formaPago)}</span>
+                    {isAdmin && <span>{cobro.vendedorNombre || cobro.vendedor}</span>}
                     <Tag
                       value={getEstadoLabel(cobro.estado)}
                       severity={ESTADO_COLORS[cobro.estado]}

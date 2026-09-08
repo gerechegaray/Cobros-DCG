@@ -14,19 +14,51 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { guardarOEncolar } from '../../offline/colaOperativa';
+import { nombreVendedorCobro } from './utils';
 
 const COLLECTION_NAME = 'cobros';
 const LOGS_COLLECTION = 'cobros_logs';
+const USUARIOS_COLLECTION = 'usuarios';
+
+let nombresPorEmailPromise;
+
+const obtenerNombresPorEmail = () => {
+  if (!nombresPorEmailPromise) {
+    nombresPorEmailPromise = getDocs(collection(db, USUARIOS_COLLECTION))
+      .then((snap) => {
+        const mapa = {};
+        snap.forEach((docu) => {
+          const data = docu.data() || {};
+          const email = String(data.email || docu.id || '').toLowerCase();
+          const nombre = String(data.name || data.nombre || '').trim();
+          if (email && nombre && !nombre.includes('@')) {
+            mapa[email] = nombre;
+          }
+        });
+        return mapa;
+      })
+      .catch(() => ({}));
+  }
+  return nombresPorEmailPromise;
+};
+
+const conNombreVendedor = async (cobros) => {
+  const mapa = await obtenerNombresPorEmail();
+  return cobros.map((cobro) => ({
+    ...cobro,
+    vendedorNombre: nombreVendedorCobro(cobro, mapa)
+  }));
+};
 
 // Obtener todos los cobros
 export const getCobros = async () => {
   try {
     const q = query(collection(db, COLLECTION_NAME), orderBy('fechaCobro', 'desc'));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    return conNombreVendedor(querySnapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    })));
   } catch (error) {
     console.error('Error obteniendo cobros:', error);
     throw error;
@@ -36,12 +68,12 @@ export const getCobros = async () => {
 // Obtener cobros en tiempo real
 export const getCobrosRealtime = (callback) => {
   const q = query(collection(db, COLLECTION_NAME), orderBy('fechaCobro', 'desc'));
-  return onSnapshot(q, (querySnapshot) => {
+  return onSnapshot(q, async (querySnapshot) => {
     const cobros = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    callback(cobros);
+    callback(await conNombreVendedor(cobros));
   });
 };
 
@@ -57,13 +89,12 @@ export const getCobrosByVendedor = async (vendedorEmail) => {
       id: doc.id,
       ...doc.data()
     }))
-    // Ordenar en el cliente en lugar de Firestore para evitar necesitar índice compuesto
     .sort((a, b) => {
       const fechaA = a.fechaCobro?.toDate?.() || new Date(a.fechaCobro);
       const fechaB = b.fechaCobro?.toDate?.() || new Date(b.fechaCobro);
-      return fechaB - fechaA; // Orden descendente
+      return fechaB - fechaA;
     });
-    return cobros;
+    return conNombreVendedor(cobros);
   } catch (error) {
     console.error('Error obteniendo cobros por vendedor:', error);
     throw error;
@@ -76,18 +107,17 @@ export const getCobrosByVendedorRealtime = (vendedorEmail, callback) => {
     collection(db, COLLECTION_NAME), 
     where('vendedor', '==', vendedorEmail)
   );
-  return onSnapshot(q, (querySnapshot) => {
+  return onSnapshot(q, async (querySnapshot) => {
     const cobros = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }))
-    // Ordenar en el cliente en lugar de Firestore para evitar necesitar índice compuesto
     .sort((a, b) => {
       const fechaA = a.fechaCobro?.toDate?.() || new Date(a.fechaCobro);
       const fechaB = b.fechaCobro?.toDate?.() || new Date(b.fechaCobro);
-      return fechaB - fechaA; // Orden descendente
+      return fechaB - fechaA;
     });
-    callback(cobros);
+    callback(await conNombreVendedor(cobros));
   });
 };
 
@@ -97,6 +127,7 @@ export const crearCobroDirecto = async (cobroData, usuario) => {
     ...cobroData,
     estado: 'pendiente',
     vendedor: usuario.email,
+    vendedorNombre: usuario.name || usuario.email,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: usuario.email,

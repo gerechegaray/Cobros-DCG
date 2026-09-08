@@ -244,7 +244,7 @@ const CobrosDashboard = ({ user }) => {
             <div className="cobros-vendedores-grid">
               {Object.entries(totalesPorVendedor).map(([vendedor, datos]) => (
                 <div key={vendedor} className="cobros-vendedor-card">
-                  <div className="cobros-vendedor-nombre">{vendedor}</div>
+                  <div className="cobros-vendedor-nombre">{datos.nombre || vendedor}</div>
                   <div className="cobros-vendedor-item">
                     <span className="cobros-vendedor-item-label">Cantidad:</span>
                     <span className="cobros-vendedor-item-value">{datos.cantidad}</span>

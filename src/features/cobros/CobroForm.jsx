@@ -431,7 +431,7 @@ const CobroForm = ({ visible, onHide, cobro, onSuccess, user }) => {
               <div className="flex justify-content-between">
                 <div>
                   <small className="text-gray-600">Vendedor:</small>
-                  <p className="mt-1 mb-0 font-semibold">{cobro.vendedor}</p>
+                  <p className="mt-1 mb-0 font-semibold">{cobro.vendedorNombre || cobro.vendedor}</p>
                 </div>
                 <div>
                   <small className="text-gray-600">Estado:</small>

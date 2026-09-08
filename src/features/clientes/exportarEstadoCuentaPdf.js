@@ -12,6 +12,7 @@ import {
 } from './estadoCuentaUtils';
 
 const MARGIN = 15;
+const MARCA = 'DCG Distribuciones';
 const LOGO_SRC = `${import.meta.env.BASE_URL}apple-touch-icon.png`;
 
 let logoDataUrlPromise;
@@ -155,7 +156,7 @@ async function armarImagenCliente({ nombreCliente, facturas, saldoAdeudado }) {
 
   ctx.font = '400 16px Helvetica, Arial, sans-serif';
   ctx.fillStyle = '#64748b';
-  ctx.fillText('Distribuidora DCG', textoX, 82);
+  ctx.fillText(MARCA, textoX, 82);
   ctx.textAlign = 'right';
   ctx.fillText(new Date().toLocaleString('es-AR'), ancho - margen, 40);
   ctx.textAlign = 'left';
@@ -235,7 +236,7 @@ async function armarImagenCliente({ nombreCliente, facturas, saldoAdeudado }) {
   ctx.fillStyle = '#94a3b8';
   ctx.font = '400 13px Helvetica, Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('Distribuidora DCG', ancho / 2, alto - 24);
+  ctx.fillText(MARCA, ancho / 2, alto - 24);
   ctx.textAlign = 'left';
 
   const blob = await canvasAJpeg(canvas, 0.82);
@@ -416,17 +417,6 @@ export function dibujarBloqueDeuda(doc, {
   return currentY;
 }
 
-export function textoEstadoCuentaWhatsApp({ nombreCliente, facturas, saldoAdeudado }) {
-  const pendientes = facturasPendientesDe(facturas);
-  const vencido = totalVencido(pendientes);
-  return [
-    'Distribuidora DCG',
-    `Estado de cuenta de ${nombreCliente || 'cliente'}`,
-    `Saldo: ${formatMonto(saldoAdeudado)}`,
-    `Vencido: ${formatMonto(vencido)}`
-  ].join('\n');
-}
-
 async function armarPdfCliente({ nombreCliente, facturas, saldoAdeudado }) {
   const doc = new jsPDF('p', 'mm', 'a4');
   const { pageHeight, pageWidth } = pageSize(doc);
@@ -445,7 +435,7 @@ async function armarPdfCliente({ nombreCliente, facturas, saldoAdeudado }) {
 
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text('Distribuidora DCG', pageWidth / 2, pageHeight - 10, { align: 'center' });
+  doc.text(MARCA, pageWidth / 2, pageHeight - 10, { align: 'center' });
 
   const fileName = nombreArchivoPdf(nombreCliente);
   return { doc, fileName, blob: doc.output('blob') };
@@ -458,28 +448,16 @@ export async function exportarEstadoCuentaClientePdf(opts) {
 
 export async function compartirEstadoCuentaWhatsApp(opts) {
   const { blob, fileName } = await armarImagenCliente(opts);
-  const texto = textoEstadoCuentaWhatsApp(opts);
   const file = new File([blob], fileName, { type: 'image/jpeg' });
-  const payload = {
-    title: 'Estado de cuenta DCG',
-    text: texto
-  };
 
   if (navigator.share) {
-    const puedeArchivos = !navigator.canShare || navigator.canShare({ files: [file] });
+    const payload = { files: [file] };
+    const puedeArchivos = !navigator.canShare || navigator.canShare(payload);
     if (puedeArchivos) {
-      try {
-        await navigator.share({ ...payload, files: [file] });
-        return 'imagen';
-      } catch (error) {
-        if (error?.name === 'AbortError') throw error;
-      }
+      await navigator.share(payload);
+      return 'imagen';
     }
-
-    await navigator.share(payload);
-    return 'texto';
   }
 
-  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
-  return 'whatsapp';
+  return 'sin-compartir';
 }
