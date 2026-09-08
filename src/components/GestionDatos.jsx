@@ -9,7 +9,7 @@ import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
 import { Calendar } from 'primereact/calendar';
 import { Dialog } from 'primereact/dialog';
-import { ConfirmDialog } from 'primereact/confirmdialog';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { Tag } from 'primereact/tag';
 import { api } from '../services/api';
@@ -52,6 +52,8 @@ function GestionDatos({ user }) {
   const [showCleanupDialog, setShowCleanupDialog] = useState(false);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [keepLatestPreview, setKeepLatestPreview] = useState(null);
+  const [keepLatestLoading, setKeepLatestLoading] = useState(false);
   
   // Estados para sincronización
   const [syncNotifications, setSyncNotifications] = useState({
@@ -182,6 +184,62 @@ function GestionDatos({ user }) {
     { label: 'Cobranzas', value: 'cobranzas', dias: 60 },
     { label: 'Presupuestos', value: 'presupuestos', dias: 60 }
   ];
+
+  const previewKeepLatest = async () => {
+    setKeepLatestLoading(true);
+    try {
+      const data = await api.previewKeepLatest(60, user?.role);
+      setKeepLatestPreview(data.preview || []);
+      toast.current?.show({
+        severity: 'info',
+        summary: 'Vista previa',
+        detail: 'Se muestran cuántos registros se conservarían y cuántos se borrarían'
+      });
+    } catch (error) {
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo armar la vista previa'
+      });
+    } finally {
+      setKeepLatestLoading(false);
+    }
+  };
+
+  const ejecutarKeepLatest = () => {
+    confirmDialog({
+      header: 'Dejar últimos 60',
+      message: 'Se van a borrar pedidos, cobros y hojas de ruta más viejos, y dejar solo los 60 más recientes de cada uno. No se puede deshacer.',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, borrar el resto',
+      rejectLabel: 'Cancelar',
+      acceptClassName: 'p-button-danger',
+      accept: async () => {
+        setKeepLatestLoading(true);
+        try {
+          const data = await api.executeKeepLatest(60, user?.role);
+          const detalle = (data.results || [])
+            .map((item) => `${item.collection}: quedan ${item.keep}, borrados ${item.deleted}`)
+            .join(' · ');
+          toast.current?.show({
+            severity: 'success',
+            summary: 'Limpieza hecha',
+            detail: detalle || data.mensaje
+          });
+          setKeepLatestPreview(null);
+          previewKeepLatest();
+        } catch (error) {
+          toast.current?.show({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'No se pudo ejecutar la limpieza'
+          });
+        } finally {
+          setKeepLatestLoading(false);
+        }
+      }
+    });
+  };
 
   const cargarEstado = async () => {
     setLoading(true);
@@ -859,6 +917,48 @@ function GestionDatos({ user }) {
 
   const renderLimpiezaDatos = () => (
     <div className="grid">
+      <div className="col-12">
+        <Card title="Dejar últimos 60 (pedidos, cobros y hojas de ruta)" className="mb-3">
+          <p className="mt-0 mb-3 text-sm">
+            Conserva los 60 registros más nuevos de cada colección y borra el resto.
+            También limpia los logs de pedidos y cobros que ya no tienen documento.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Button
+              label="Vista previa"
+              icon="pi pi-eye"
+              className="p-button-outlined"
+              loading={keepLatestLoading}
+              onClick={previewKeepLatest}
+            />
+            <Button
+              label="Dejar últimos 60"
+              icon="pi pi-trash"
+              className="p-button-danger"
+              loading={keepLatestLoading}
+              onClick={ejecutarKeepLatest}
+            />
+          </div>
+          {keepLatestPreview && (
+            <div className="grid">
+              {keepLatestPreview.map((item) => (
+                <div key={item.collection} className="col-12 md:col-4">
+                  <div className="p-3 border-1 border-200 border-round">
+                    <div className="font-bold mb-2">{item.collection}</div>
+                    <div className="text-sm">Total: {item.total}</div>
+                    <div className="text-sm">Se quedan: {item.keep}</div>
+                    <div className="text-sm">Se borran: {item.delete}</div>
+                    {item.logsDelete > 0 && (
+                      <div className="text-sm">Logs a borrar: {item.logsDelete}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
       {/* Información principal */}
       <div className="col-12">
         <Card className="mb-3 border-orange-200 bg-orange-50">

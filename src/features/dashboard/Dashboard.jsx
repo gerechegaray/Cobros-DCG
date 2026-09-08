@@ -11,17 +11,7 @@ import { formatearMoneda } from "../../features/pedidos/utils";
 function Dashboard({ user }) {
   const navigate = useNavigate();
   // Eliminamos las estadísticas de cobros y pedidos que ya no se usan
-  
-  // Nuevo estado para estadísticas de visitas
-  const [visitasStats, setVisitasStats] = useState({
-    total: 0,
-    pendientes: 0,
-    realizadas: 0,
-    noRealizadas: 0,
-    visitasHoy: 0
-  });
-  
-  // Nuevo estado para estadísticas de facturas/envíos
+
   const [facturasStats, setFacturasStats] = useState({
     total: 0,
     pendientes: 0,
@@ -54,49 +44,6 @@ function Dashboard({ user }) {
   // Eliminamos las funciones de cobros que ya no se usan
 
   // Eliminamos las funciones de cobros que ya no se usan
-
-  // Obtener el sellerId según el rol del usuario
-  const getSellerId = () => {
-    if (user?.role === 'Guille') return 1;
-    if (user?.role === 'Santi') return 2;
-    if (user?.role === 'admin') return null; // Admin ve todos
-    return null;
-  };
-
-  // Cargar estadísticas de visitas
-  useEffect(() => {
-    const fetchVisitas = async () => {
-      try {
-        const sellerId = getSellerId();
-        // 🆕 Usar endpoint con caché
-        const visitas = sellerId ? await api.getVisitasCache(sellerId) : await api.getVisitasCache();
-        
-        const hoy = new Date().toISOString().split('T')[0];
-        
-        // Filtrar solo visitas del día de hoy
-        const visitasHoy = visitas.filter(v => v.fecha === hoy);
-        
-        setVisitasStats({
-          total: visitasHoy.length, // Total de visitas del día
-          pendientes: visitasHoy.filter(v => v.estado === 'pendiente').length,
-          realizadas: visitasHoy.filter(v => v.estado === 'realizada').length,
-          noRealizadas: visitasHoy.filter(v => v.estado === 'no_realizada').length,
-          visitasHoy: visitasHoy.length // Visitas del día (mismo que total)
-        });
-      } catch (error) {
-        console.error('Error cargando visitas:', error);
-        setVisitasStats({
-          total: 0,
-          pendientes: 0,
-          realizadas: 0,
-          noRealizadas: 0,
-          visitasHoy: 0
-        });
-      }
-    };
-    
-    fetchVisitas();
-  }, [user]);
 
   // 🆕 Obtener facturas de Alegra para mostrar en el dashboard
   const cargarFacturasAlegra = async () => {
@@ -497,58 +444,10 @@ function Dashboard({ user }) {
             </Card>
           </>
         )}
-        {(user.role === "Santi" || user.role === "Guille") && (
-          <Card className="dashboard-kpi-card">
-            <div className="dashboard-kpi-content">
-              <i className="pi pi-calendar dashboard-kpi-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
-              <div className="dashboard-kpi-value">{visitasStats.total}</div>
-              <div className="dashboard-kpi-label">Visitas Hoy</div>
-            </div>
-          </Card>
-        )}
       </div>
 
       {/* Sección de Métricas Detalladas */}
       <div className="dashboard-metrics-grid">
-        {/* Grupo de Visitas (solo para vendedores) */}
-        {(user.role === "Santi" || user.role === "Guille") && (
-          <div className="dashboard-visitas-container dashboard-metric-card">
-            <h3 className="dashboard-card-title">Mis Visitas de Hoy</h3>
-            <Card className="dashboard-card">
-              <div className="dashboard-metric-row">
-                <div className="dashboard-metric-item">
-                  <i className="pi pi-calendar dashboard-metric-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
-                  <div className="dashboard-metric-content">
-                    <span className="dashboard-metric-label">Total Visitas Hoy</span>
-                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-azul-claro)' }}>{visitasStats.total}</span>
-                  </div>
-                </div>
-                <div className="dashboard-metric-item">
-                  <i className="pi pi-clock dashboard-metric-icon" style={{ color: 'var(--dcg-warning)' }}></i>
-                  <div className="dashboard-metric-content">
-                    <span className="dashboard-metric-label">Pendientes Hoy</span>
-                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-warning)' }}>{visitasStats.pendientes}</span>
-                  </div>
-                </div>
-                <div className="dashboard-metric-item">
-                  <i className="pi pi-check-circle dashboard-metric-icon" style={{ color: 'var(--dcg-success)' }}></i>
-                  <div className="dashboard-metric-content">
-                    <span className="dashboard-metric-label">Realizadas Hoy</span>
-                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-success)' }}>{visitasStats.realizadas}</span>
-                  </div>
-                </div>
-                <div className="dashboard-metric-item">
-                  <i className="pi pi-times-circle dashboard-metric-icon" style={{ color: 'var(--dcg-error)' }}></i>
-                  <div className="dashboard-metric-content">
-                    <span className="dashboard-metric-label">No Realizadas Hoy</span>
-                    <span className="dashboard-metric-value" style={{ color: 'var(--dcg-error)' }}>{visitasStats.noRealizadas}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-
         {/* Grupo de Cobros */}
         {(user.role === "Santi" || user.role === "Guille" || user.role === "admin") && (
           <div className="dashboard-cobros-container dashboard-metric-card">

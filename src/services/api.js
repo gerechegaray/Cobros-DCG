@@ -235,6 +235,12 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(params),
   }),
+  previewKeepLatest: (keep = 60, role = 'admin') =>
+    apiRequest(`/api/cleanup/keep-latest?keep=${keep}&role=${encodeURIComponent(role)}`),
+  executeKeepLatest: (keep = 60, role = 'admin') => apiRequest('/api/cleanup/keep-latest', {
+    method: 'POST',
+    body: JSON.stringify({ keep, role }),
+  }),
 
   // 🆕 Sincronizar presupuestos desde Alegra
   sincronizarPresupuestosDesdeAlegra: async () => {
