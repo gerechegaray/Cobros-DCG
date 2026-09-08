@@ -347,26 +347,15 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
           <InputText
             id="producto-movil"
             value={busquedaProducto}
-            onChange={(e) => setBusquedaProducto(e.target.value)}
+            onChange={(e) => {
+              setBusquedaProducto(e.target.value);
+              if (productoSeleccionado) setProductoSeleccionado(null);
+            }}
             placeholder={loadingProductos ? 'Cargando productos...' : 'Buscar producto o código'}
             className="w-full pedido-busqueda"
             disabled={loadingProductos}
           />
         </div>
-
-        {productosFiltrados.map((prod) => (
-          <button
-            key={prod.id}
-            type="button"
-            className={`producto-picker-movil__item ${productoSeleccionado?.id === prod.id ? 'is-active' : ''}`}
-            onClick={() => setProductoSeleccionado(prod)}
-          >
-            <span>{prod.nombre}</span>
-            <span className="cliente-picker-movil__id">
-              {formatearMoneda(prod.precio || 0)} · {(prod.stock || 0) > 0 ? 'hay stock' : 'sin stock'}
-            </span>
-          </button>
-        ))}
 
         {productoSeleccionado && (
           <div className="pedido-agregar">
@@ -399,8 +388,36 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
               className="w-full p-button-success"
               onClick={agregarProducto}
             />
+            <Button
+              type="button"
+              label="Elegir otro"
+              className="w-full p-button-text"
+              onClick={() => {
+                setProductoSeleccionado(null);
+                setBusquedaProducto('');
+                setCantidad(1);
+                setDescuentoProducto(0);
+              }}
+            />
           </div>
         )}
+
+        {!productoSeleccionado && productosFiltrados.map((prod) => (
+          <button
+            key={prod.id}
+            type="button"
+            className="producto-picker-movil__item"
+            onClick={() => {
+              setProductoSeleccionado(prod);
+              setBusquedaProducto('');
+            }}
+          >
+            <span>{prod.nombre}</span>
+            <span className="cliente-picker-movil__id">
+              {formatearMoneda(prod.precio || 0)} · {(prod.stock || 0) > 0 ? 'hay stock' : 'sin stock'}
+            </span>
+          </button>
+        ))}
 
         {productosAgregados.map((prod, index) => (
           <div key={`${prod.id}-${index}`} className="pedido-linea">

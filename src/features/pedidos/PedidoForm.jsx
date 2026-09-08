@@ -421,6 +421,10 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
                         onChange={(e) => {
                           setProductoSeleccionado(e.value);
                         }}
+                        onSelect={(e) => {
+                          setProductoSeleccionado(e.value);
+                          setProductosFiltrados([]);
+                        }}
                         placeholder="Buscar producto..."
                         dropdown
                         forceSelection
