@@ -2,89 +2,32 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 import { InputNumber } from 'primereact/inputnumber';
-import { AutoComplete } from 'primereact/autocomplete';
-import { Dropdown } from 'primereact/dropdown';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Toast } from 'primereact/toast';
-import { Card } from 'primereact/card';
 import { crearCobro } from './cobrosService';
 import { FORMAS_PAGO } from './constants';
-import { api } from '../../services/api';
+import { getClientesCatalogo } from '../../services/firebase';
+import ClientePickerMovil, { nombreCliente } from '../../components/ClientePickerMovil';
+import { borrarBorradorCobro, guardarBorradorCobro, leerBorradorCobro } from '../../offline/borradores';
+import { recordarCliente } from '../../offline/clientesRecientes';
+import { fueEncolado, mensajeGuardado } from '../../offline/fueEncolado';
 
 const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
   const toast = useRef(null);
   const [loading, setLoading] = useState(false);
   const [loadingClientes, setLoadingClientes] = useState(false);
-  
-  // Datos del formulario
   const [cliente, setCliente] = useState(null);
-  const [clientesFiltrados, setClientesFiltrados] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [monto, setMonto] = useState(0);
   const [formaPago, setFormaPago] = useState('efectivo');
   const [observaciones, setObservaciones] = useState('');
 
-  // Obtener el sellerId según el rol del usuario
   const getSellerId = () => {
     if (user?.role === 'Guille') return 1;
     if (user?.role === 'Santi') return 2;
-    if (user?.role === 'admin') return null; // Admin ve todos
+    if (user?.role === 'admin') return null;
     return null;
   };
-
-  // Cargar clientes asignados al vendedor
-  useEffect(() => {
-    const cargarClientes = async () => {
-      setLoadingClientes(true);
-      try {
-        const data = await api.getClientesFirebase();
-        
-        // Filtrar clientes según el rol del usuario
-        const sellerId = getSellerId();
-        let clientesFiltrados = data;
-        
-        if (sellerId !== null) {
-          // Filtrar por sellerId específico - el seller es un objeto con id
-          clientesFiltrados = data.filter(cliente => {
-            if (cliente.seller && cliente.seller.id) {
-              return cliente.seller.id === sellerId.toString();
-            }
-            return false;
-          });
-        } else if (user?.role === 'admin') {
-          // Admin ve todos los clientes
-          clientesFiltrados = data;
-        } else {
-          // Usuario sin rol válido - no mostrar clientes
-          clientesFiltrados = [];
-        }
-        
-        // Ordenar clientes alfabéticamente
-        const clientesOrdenados = clientesFiltrados.sort((a, b) => {
-          const nombreA = a.name || a.nombre || a['Razón Social'] || '';
-          const nombreB = b.name || b.nombre || b['Razón Social'] || '';
-          return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
-        });
-        
-        setClientes(clientesOrdenados);
-      } catch (error) {
-        console.error('Error cargando clientes:', error);
-        toast.current?.show({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Error al cargar clientes'
-        });
-      } finally {
-        setLoadingClientes(false);
-      }
-    };
-    
-    if (visible) {
-      cargarClientes();
-      // Resetear formulario al abrir
-      limpiarFormulario();
-    }
-  }, [visible, user]);
 
   const limpiarFormulario = () => {
     setCliente(null);
@@ -93,38 +36,61 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
     setObservaciones('');
   };
 
-  // Autocompletado de clientes
-  const buscarClientes = (event) => {
-    const query = event.query.toLowerCase();
-    const filtered = clientes.filter(c => {
-      const nombre = (c.name || c.nombre || c['Razón Social'] || '').toLowerCase();
-      const identificacion = (c.identification || c.id || '').toString().toLowerCase();
-      return nombre.includes(query) || identificacion.includes(query);
-    });
-    setClientesFiltrados(filtered);
-  };
+  useEffect(() => {
+    const cargarClientes = async () => {
+      setLoadingClientes(true);
+      try {
+        const data = await getClientesCatalogo();
+        const sellerId = getSellerId();
+        let lista = data;
 
-  // Validar formulario
+        if (sellerId !== null) {
+          lista = data.filter((item) => item.seller?.id === sellerId.toString());
+        } else if (user?.role !== 'admin') {
+          lista = [];
+        }
+
+        lista = [...lista].sort((a, b) => nombreCliente(a).localeCompare(nombreCliente(b), 'es', { sensitivity: 'base' }));
+        setClientes(lista);
+      } catch (error) {
+        console.error('Error cargando clientes:', error);
+        toast.current?.show({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar clientes'
+        });
+      } finally {
+        setLoadingClientes(false);
+      }
+    };
+
+    if (!visible) return;
+    cargarClientes();
+    const draft = leerBorradorCobro();
+    if (draft) {
+      setCliente(draft.cliente || null);
+      setMonto(draft.monto || 0);
+      setFormaPago(draft.formaPago || 'efectivo');
+      setObservaciones(draft.observaciones || '');
+    } else {
+      limpiarFormulario();
+    }
+  }, [visible, user]);
+
+  useEffect(() => {
+    if (!visible) return;
+    guardarBorradorCobro({ cliente, monto, formaPago, observaciones });
+  }, [visible, cliente, monto, formaPago, observaciones]);
+
   const validarFormulario = () => {
-    if (!cliente) {
+    if (!cliente?.id) {
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'Debe seleccionar un cliente'
+        detail: 'Elegí un cliente de la lista'
       });
       return false;
     }
-
-    // 🆕 Validar que el cliente seleccionado tenga id
-    if (!cliente.id) {
-      toast.current?.show({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Cliente inválido. Seleccioná un cliente de la lista.'
-      });
-      return false;
-    }
-
     if (!monto || monto <= 0) {
       toast.current?.show({
         severity: 'error',
@@ -133,55 +99,48 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
       });
       return false;
     }
-
     return true;
   };
 
-  // Guardar cobro
   const handleSubmit = async () => {
-    if (!validarFormulario()) {
-      return;
-    }
+    if (!validarFormulario()) return;
 
     setLoading(true);
     try {
-      // 🆕 clienteId ya está validado en validarFormulario(), no puede ser null aquí
-      const clienteId = cliente.id;
-      const clienteNombre = cliente?.name || cliente?.nombre || cliente?.['Razón Social'] || cliente || '';
-
       const cobroData = {
-        cliente: clienteNombre,
-        clienteId: clienteId, // 🆕 Siempre válido gracias a la validación previa
+        cliente: nombreCliente(cliente),
+        clienteId: cliente.id,
         monto: Number(monto),
-        fechaCobro: new Date(), // 🆕 Usar mismo nombre que desktop
+        fechaCobro: new Date(),
         formaPago,
         notas: observaciones,
-        estado: 'pendiente', // Default: pendiente
-        origen: 'mobile' // 🆕 Marcar origen móvil
+        estado: 'pendiente',
+        origen: 'mobile'
       };
 
-      await crearCobro(cobroData, user);
-      
+      const result = await crearCobro(cobroData, user);
       toast.current?.show({
-        severity: 'success',
-        summary: 'Éxito',
-        detail: 'Cobro registrado correctamente',
-        life: 2000
+        severity: fueEncolado(result) ? 'info' : 'success',
+        summary: fueEncolado(result) ? 'Sin conexión' : 'Listo',
+        detail: mensajeGuardado(
+          result,
+          'Cobro registrado',
+          'El cobro quedó en el teléfono y se envía cuando haya red'
+        ),
+        life: 2500
       });
 
+      recordarCliente(cliente);
+      borrarBorradorCobro();
       limpiarFormulario();
       onSuccess?.();
-      
-      // Cerrar después de un breve delay para que se vea el mensaje
-      setTimeout(() => {
-        onHide();
-      }, 500);
+      setTimeout(() => onHide(), 400);
     } catch (error) {
       console.error('Error guardando cobro:', error);
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'Error al registrar el cobro'
+        detail: 'No se pudo registrar el cobro'
       });
     } finally {
       setLoading(false);
@@ -215,57 +174,26 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
       <Dialog
         visible={visible}
         onHide={onHide}
-        header="Nuevo Cobro"
+        header="Nuevo cobro"
         footer={footer}
         style={{ width: '100vw', maxWidth: '100%', height: '100vh', maxHeight: '100%' }}
-        breakpoints={{ '960px': '95vw' }}
         modal
-        className="p-fluid"
+        className="p-fluid cobro-form-movil"
         contentStyle={{ padding: '0' }}
         dismissableMask={!loading}
       >
-        <div className="p-4" style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-          {/* Cliente */}
+        <div className="p-4" style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
           <div className="field mb-4">
-            <label htmlFor="cliente-cobro-movil" className="block mb-2 font-semibold">
-              Cliente <span className="text-red-500">*</span>
-            </label>
-            <AutoComplete
-              id="cliente-cobro-movil"
+            <label className="block mb-2 font-semibold">Cliente <span className="text-red-500">*</span></label>
+            <ClientePickerMovil
+              clientes={clientes}
               value={cliente}
-              suggestions={clientesFiltrados}
-              completeMethod={buscarClientes}
-              onChange={(e) => setCliente(e.value)}
-              placeholder="Buscar cliente..."
-              className="w-full"
-              inputStyle={{ fontSize: '16px', padding: '12px' }}
-              panelStyle={{ fontSize: '16px' }}
-              disabled={loading || loadingClientes}
-              itemTemplate={(cliente) => {
-                const nombre = cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id || 'Sin nombre';
-                return (
-                  <div className="p-2">
-                    <div className="font-semibold">{nombre}</div>
-                  </div>
-                );
-              }}
-              selectedItemTemplate={(cliente) => {
-                if (!cliente) return '';
-                return cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id || 'Sin nombre';
-              }}
+              onChange={setCliente}
+              loading={loadingClientes}
+              disabled={loading}
             />
-            {cliente && (
-              <Card className="mt-3">
-                <div className="p-2">
-                  <p className="font-semibold mb-1">
-                    {cliente.name || cliente.nombre || cliente['Razón Social'] || cliente}
-                  </p>
-                </div>
-              </Card>
-            )}
           </div>
 
-          {/* Monto */}
           <div className="field mb-4">
             <label htmlFor="monto-cobro-movil" className="block mb-2 font-semibold">
               Monto <span className="text-red-500">*</span>
@@ -277,44 +205,37 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
               mode="currency"
               currency="ARS"
               locale="es-AR"
-              placeholder="$0"
               className="w-full"
-              inputStyle={{ fontSize: '16px', padding: '12px' }}
-              disabled={loading}
-              min={0}
+              inputMode="decimal"
+              inputStyle={{ fontSize: '18px', padding: '14px' }}
             />
           </div>
 
-          {/* Forma de Pago */}
           <div className="field mb-4">
-            <label htmlFor="forma-pago-cobro-movil" className="block mb-2 font-semibold">
-              Forma de Pago
-            </label>
-            <Dropdown
-              id="forma-pago-cobro-movil"
-              value={formaPago}
-              options={FORMAS_PAGO}
-              onChange={(e) => setFormaPago(e.value)}
-              className="w-full"
-              style={{ fontSize: '16px', padding: '12px' }}
-              disabled={loading}
-            />
+            <label className="block mb-2 font-semibold">Forma de pago</label>
+            <div className="cobro-formas">
+              {FORMAS_PAGO.map((opcion) => (
+                <button
+                  key={opcion.value}
+                  type="button"
+                  className={`cobro-forma ${formaPago === opcion.value ? 'is-active' : ''}`}
+                  onClick={() => setFormaPago(opcion.value)}
+                >
+                  {opcion.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Observaciones */}
           <div className="field mb-4">
-            <label htmlFor="observaciones-cobro-movil" className="block mb-2 font-semibold">
-              Observaciones (opcional)
-            </label>
+            <label htmlFor="obs-cobro-movil" className="block mb-2 font-semibold">Observaciones</label>
             <InputTextarea
-              id="observaciones-cobro-movil"
+              id="obs-cobro-movil"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
-              rows={4}
+              rows={3}
               className="w-full"
-              placeholder="Agregar notas o comentarios..."
               style={{ fontSize: '16px', padding: '12px' }}
-              disabled={loading}
             />
           </div>
         </div>
@@ -324,4 +245,3 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
 };
 
 export default CobroFormMovil;
-

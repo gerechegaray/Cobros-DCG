@@ -4,6 +4,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "./services/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import Navbar from "./components/layout/Navbar";
+import BottomNav from "./components/layout/BottomNav";
+import OfflineBanner from "./components/OfflineBanner";
 import Login from "./features/auth/Login";
 import Dashboard from "./features/dashboard/Dashboard";
 import EstadoCuenta from "./features/clientes/EstadoCuenta";
@@ -13,10 +15,13 @@ import GestionDatos from "./components/GestionDatos";
 import MenuClientes from "./components/MenuClientes";
 import CobrosMain from "./features/cobros/CobrosMain";
 import PedidosMain from "./features/pedidos/PedidosMain";
+import { useEsMovil } from "./hooks/useEsMovil";
+import { procesarCola } from "./offline/colaSync";
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const esMovil = useEsMovil();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -48,6 +53,22 @@ function App() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const sync = () => {
+      procesarCola().catch((error) => {
+        console.error('Error procesando cola offline:', error);
+      });
+    };
+    sync();
+    window.addEventListener('online', sync);
+    const timer = window.setInterval(sync, 30000);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.clearInterval(timer);
+    };
+  }, [user]);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -81,8 +102,9 @@ function App() {
 
   return (
     <Router>
-      <div className="App">
+      <div className={`App ${esMovil ? 'has-bottom-nav' : ''}`}>
         <Navbar user={user} menuItems={getMenuItems()} />
+        <OfflineBanner />
         <div className="content">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -108,6 +130,7 @@ function App() {
             <Route path="/menu-clientes" element={<MenuClientes user={user} />} />
           </Routes>
         </div>
+        {esMovil && <BottomNav />}
       </div>
     </Router>
   );

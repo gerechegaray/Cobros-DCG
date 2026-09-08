@@ -4,8 +4,11 @@ import 'primeicons/primeicons.css';                             // Iconos de Pri
 import "./styles/index.css"                                        // Estilos custom DCG
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
 import App from './App.jsx';
 
 createRoot(document.getElementById('root')).render(
   <App />
 );
+
+registerSW({ immediate: true });

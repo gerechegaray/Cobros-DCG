@@ -11,9 +11,11 @@ import {
   onSnapshot,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { db, getClientesCatalogo } from '../../services/firebase';
 import { api } from '../../services/api';
 import { transformarProductosAlegra } from './utils';
+import { guardarOEncolar } from '../../offline/colaOperativa';
+import { guardarProductosLocales, leerProductosLocales } from '../../offline/catalogoLocal';
 
 const COLLECTION_NAME = 'pedidos';
 const LOGS_COLLECTION = 'pedidos_logs';
@@ -108,32 +110,35 @@ export const getPedidosByVendedorRealtime = (vendedorEmail, callback) => {
 };
 
 // Crear un nuevo pedido
+export const crearPedidoDirecto = async (pedidoData, usuario) => {
+  const pedido = {
+    ...pedidoData,
+    estado: 'pendiente',
+    vendedor: usuario.email,
+    vendedorNombre: usuario.name || usuario.email,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    createdBy: usuario.email,
+    updatedBy: usuario.email
+  };
+
+  const docRef = await addDoc(collection(db, COLLECTION_NAME), pedido);
+
+  await crearLog({
+    pedidoId: docRef.id,
+    usuario: usuario.email,
+    accion: 'crear',
+    cambios: { anterior: null, nuevo: pedido },
+    ip: 'localhost',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'offline-queue'
+  });
+
+  return docRef.id;
+};
+
 export const crearPedido = async (pedidoData, usuario) => {
   try {
-    const pedido = {
-      ...pedidoData,
-      estado: 'pendiente', // Siempre inicia como pendiente
-      vendedor: usuario.email,
-      vendedorNombre: usuario.name || usuario.email,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      createdBy: usuario.email,
-      updatedBy: usuario.email
-    };
-    
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), pedido);
-    
-    // Crear log de creación
-    await crearLog({
-      pedidoId: docRef.id,
-      usuario: usuario.email,
-      accion: 'crear',
-      cambios: { anterior: null, nuevo: pedido },
-      ip: 'localhost',
-      userAgent: navigator.userAgent
-    });
-    
-    return docRef.id;
+    return await guardarOEncolar('pedido', pedidoData, usuario, crearPedidoDirecto);
   } catch (error) {
     console.error('Error creando pedido:', error);
     throw error;
@@ -325,31 +330,30 @@ export const sincronizarProductosAlegra = async () => {
 export const getProductos = async (forzarActualizacion = false) => {
   try {
     if (forzarActualizacion) {
-      // Forzar actualización desde Alegra
-      const productos = await api.getAlegraItems();
-      return transformarProductosAlegra(productos);
+      const productos = transformarProductosAlegra(await api.getAlegraItems());
+      guardarProductosLocales(productos);
+      return productos;
     }
-    
-    // Intentar desde cache primero
+
     let productos = await getProductosCache();
-    
-    // Si no hay productos en cache, obtener de Alegra
+
     if (!productos || productos.length === 0) {
       const productosAlegra = await api.getAlegraItems();
       productos = transformarProductosAlegra(productosAlegra);
     }
-    
+
+    guardarProductosLocales(productos);
     return productos;
   } catch (error) {
+    const locales = leerProductosLocales();
+    if (locales.length) return locales;
     console.error('Error obteniendo productos:', error);
     throw error;
   }
 };
 
-// Obtener clientes asignados al vendedor
 export const getClientesAsignados = async (user) => {
   try {
-    const { getClientesCatalogo } = await import('../../services/firebase');
     const todosLosClientes = await getClientesCatalogo();
     
     // Si es admin, devolver todos los clientes

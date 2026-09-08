@@ -24,39 +24,37 @@ export async function getProductosCatalogo() {
 }
 
 export async function getClientesCatalogo() {
-  // Verificar caché con TTL de 7 días
   const cacheKey = "clientes_catalogo";
   const cache = localStorage.getItem(cacheKey);
-  
+  let stale = null;
+
   if (cache) {
     try {
       const cacheData = JSON.parse(cache);
+      stale = cacheData.data;
       const ahora = Date.now();
-      const ttl = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
-      
-      // Verificar si el caché no ha expirado
+      const ttl = 7 * 24 * 60 * 60 * 1000;
+
       if (cacheData.timestamp && (ahora - cacheData.timestamp) < ttl) {
         return cacheData.data;
-      } else {
-        localStorage.removeItem(cacheKey);
       }
     } catch (error) {
       localStorage.removeItem(cacheKey);
     }
   }
 
-  // Si no hay caché válido, cargar desde Firebase
-  const querySnapshot = await getDocs(collection(db, 'clientesAlegra'));
-  const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  
-  // Guardar en caché con timestamp
-  const cacheData = {
-    data: data,
-    timestamp: Date.now()
-  };
-  localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-  
-  return data;
+  try {
+    const querySnapshot = await getDocs(collection(db, 'clientesAlegra'));
+    const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    localStorage.setItem(cacheKey, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+    return data;
+  } catch (error) {
+    if (Array.isArray(stale) && stale.length) return stale;
+    throw error;
+  }
 }
 
 // Función para limpiar caché de clientes

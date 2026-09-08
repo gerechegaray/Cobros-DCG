@@ -12,6 +12,7 @@ import { crearCobro, actualizarCobro } from './cobrosService';
 import { FORMAS_PAGO } from './constants';
 import { validarMonto, validarFecha, validarFormaPago } from './utils';
 import { api } from '../../services/api';
+import { fueEncolado, mensajeGuardado } from '../../offline/fueEncolado';
 
 const CobroForm = ({ visible, onHide, cobro, onSuccess, user }) => {
   const [loading, setLoading] = useState(false);
@@ -238,12 +239,15 @@ const CobroForm = ({ visible, onHide, cobro, onSuccess, user }) => {
           life: 3000
         });
       } else {
-        // Crear nuevo cobro
-        await crearCobro(cobroData, user);
+        const result = await crearCobro(cobroData, user);
         toast.current?.show({
-          severity: 'success',
-          summary: 'Éxito',
-          detail: 'Cobro creado correctamente',
+          severity: fueEncolado(result) ? 'info' : 'success',
+          summary: fueEncolado(result) ? 'Sin conexión' : 'Éxito',
+          detail: mensajeGuardado(
+            result,
+            'Cobro creado correctamente',
+            'El cobro quedó pendiente y se envía cuando haya red'
+          ),
           life: 3000
         });
       }

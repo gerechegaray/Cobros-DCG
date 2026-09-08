@@ -14,6 +14,7 @@ import { AutoComplete } from 'primereact/autocomplete';
 import { crearPedido, actualizarPedido, getProductos, getClientesAsignados } from './pedidosService';
 import { CONDICIONES_PAGO } from './constants';
 import { formatearMoneda, calcularSubtotal, calcularTotal, calcularTotalProducto, validarProducto } from './utils';
+import { fueEncolado, mensajeGuardado } from '../../offline/fueEncolado';
 
 const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
   const toast = useRef(null);
@@ -278,11 +279,15 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
           detail: 'Pedido actualizado correctamente'
         });
       } else {
-        await crearPedido(pedidoData, user);
+        const result = await crearPedido(pedidoData, user);
         toast.current?.show({
-          severity: 'success',
-          summary: 'Éxito',
-          detail: 'Pedido creado correctamente'
+          severity: fueEncolado(result) ? 'info' : 'success',
+          summary: fueEncolado(result) ? 'Sin conexión' : 'Éxito',
+          detail: mensajeGuardado(
+            result,
+            'Pedido creado correctamente',
+            'El pedido quedó pendiente y se envía cuando haya red'
+          )
         });
       }
 

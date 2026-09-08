@@ -13,6 +13,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { guardarOEncolar } from '../../offline/colaOperativa';
 
 const COLLECTION_NAME = 'cobros';
 const LOGS_COLLECTION = 'cobros_logs';
@@ -91,31 +92,34 @@ export const getCobrosByVendedorRealtime = (vendedorEmail, callback) => {
 };
 
 // Crear un nuevo cobro
+export const crearCobroDirecto = async (cobroData, usuario) => {
+  const cobro = {
+    ...cobroData,
+    estado: 'pendiente',
+    vendedor: usuario.email,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    createdBy: usuario.email,
+    updatedBy: usuario.email
+  };
+
+  const docRef = await addDoc(collection(db, COLLECTION_NAME), cobro);
+
+  await crearLog({
+    cobroId: docRef.id,
+    usuario: usuario.email,
+    accion: 'crear',
+    cambios: { anterior: null, nuevo: cobro },
+    ip: 'localhost',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'offline-queue'
+  });
+
+  return docRef.id;
+};
+
 export const crearCobro = async (cobroData, usuario) => {
   try {
-    const cobro = {
-      ...cobroData,
-      estado: 'pendiente',
-      vendedor: usuario.email,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      createdBy: usuario.email,
-      updatedBy: usuario.email
-    };
-    
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), cobro);
-    
-    // Crear log de creación
-    await crearLog({
-      cobroId: docRef.id,
-      usuario: usuario.email,
-      accion: 'crear',
-      cambios: { anterior: null, nuevo: cobro },
-      ip: 'localhost',
-      userAgent: navigator.userAgent
-    });
-    
-    return docRef.id;
+    return await guardarOEncolar('cobro', cobroData, usuario, crearCobroDirecto);
   } catch (error) {
     console.error('Error creando cobro:', error);
     throw error;

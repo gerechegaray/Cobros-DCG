@@ -29,6 +29,7 @@ import {
 } from './utils';
 import CobroForm from './CobroForm';
 import CobroFormMovil from './CobroFormMovil';
+import { useEsMovil } from '../../hooks/useEsMovil';
 
 const CobrosLista = ({ user }) => {
   const [cobros, setCobros] = useState([]);
@@ -41,48 +42,10 @@ const CobrosLista = ({ user }) => {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedCobro, setSelectedCobro] = useState(null);
   const [filtrosVisible, setFiltrosVisible] = useState(false);
-  const [esMovil, setEsMovil] = useState(false);
+  const esMovil = useEsMovil();
   const toast = useRef(null);
 
   const isAdmin = user?.role === 'admin';
-
-  // 🆕 Detección robusta de móvil (breakpoint + dispositivo táctil)
-  useEffect(() => {
-    const detectarMovil = () => {
-      const ancho = window.innerWidth;
-      
-      // Verificar ancho de pantalla (breakpoint < 768px)
-      const esBreakpointMovil = ancho < 768;
-      
-      // Verificar si es dispositivo táctil
-      const esTactil = 'ontouchstart' in window || 
-                       navigator.maxTouchPoints > 0 || 
-                       navigator.msMaxTouchPoints > 0;
-      
-      // Verificar user agent para detectar móviles/tablets (útil en device emulation)
-      const userAgent = navigator.userAgent.toLowerCase();
-      const esUserAgentMovil = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-      
-      // Considerar móvil si:
-      // 1. Ancho muy pequeño (< 600px) - funciona siempre, incluso en device emulation
-      // 2. Breakpoint móvil (< 768px) Y (dispositivo táctil O user agent móvil)
-      // Esto permite que funcione en device emulation cuando se simula un user agent móvil
-      const esMovilDetectado = ancho < 600 || 
-                                (esBreakpointMovil && (esTactil || esUserAgentMovil));
-      
-      setEsMovil(esMovilDetectado);
-    };
-
-    // Detectar al montar
-    detectarMovil();
-    
-    // Detectar en cambios de tamaño
-    window.addEventListener('resize', detectarMovil);
-    
-    return () => {
-      window.removeEventListener('resize', detectarMovil);
-    };
-  }, []);
 
   useEffect(() => {
     let unsubscribe;
@@ -366,7 +329,7 @@ const CobrosLista = ({ user }) => {
         {isAdmin ? 'Todos los Cobros' : 'Mis Cobros'}
       </h2>
       <div className="flex gap-2 w-full md:w-auto">
-        {isAdmin && (
+        {isAdmin && !esMovil && (
           <Button
             label="Exportar Excel"
             icon="pi pi-file-excel"

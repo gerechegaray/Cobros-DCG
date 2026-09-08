@@ -17,6 +17,7 @@ import { ESTADOS_PEDIDO, CONDICIONES_PAGO, getColorEstado, getLabelEstado, getLa
 import { formatearMoneda, formatearFecha } from './utils';
 import { exportarListaPedidosPdf } from './exportarListaPedidosPdf';
 import { api } from '../../services/api';
+import { useEsMovil } from '../../hooks/useEsMovil';
 import './PedidosLista.css';
 
 const PedidosLista = ({ user }) => {
@@ -28,7 +29,7 @@ const PedidosLista = ({ user }) => {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [mostrarVerPedido, setMostrarVerPedido] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [esMovil, setEsMovil] = useState(false);
+  const esMovil = useEsMovil();
   const [mostrarPresupuestos, setMostrarPresupuestos] = useState(false);
   const [presupuestos, setPresupuestos] = useState([]);
   const [cargandoPresupuestos, setCargandoPresupuestos] = useState(false);
@@ -42,44 +43,6 @@ const PedidosLista = ({ user }) => {
   const [filtrosColapsados, setFiltrosColapsados] = useState(true);
 
   const esAdmin = user?.role === 'admin';
-
-  // 🆕 Detección robusta de móvil (breakpoint + dispositivo táctil)
-  useEffect(() => {
-    const detectarMovil = () => {
-      const ancho = window.innerWidth;
-      
-      // Verificar ancho de pantalla (breakpoint < 768px)
-      const esBreakpointMovil = ancho < 768;
-      
-      // Verificar si es dispositivo táctil
-      const esTactil = 'ontouchstart' in window || 
-                       navigator.maxTouchPoints > 0 || 
-                       navigator.msMaxTouchPoints > 0;
-      
-      // Verificar user agent para detectar móviles/tablets (útil en device emulation)
-      const userAgent = navigator.userAgent.toLowerCase();
-      const esUserAgentMovil = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-      
-      // Considerar móvil si:
-      // 1. Ancho muy pequeño (< 600px) - funciona siempre, incluso en device emulation
-      // 2. Breakpoint móvil (< 768px) Y (dispositivo táctil O user agent móvil)
-      // Esto permite que funcione en device emulation cuando se simula un user agent móvil
-      const esMovilDetectado = ancho < 600 || 
-                                (esBreakpointMovil && (esTactil || esUserAgentMovil));
-      
-      setEsMovil(esMovilDetectado);
-    };
-
-    // Detectar al montar
-    detectarMovil();
-    
-    // Detectar en cambios de tamaño
-    window.addEventListener('resize', detectarMovil);
-    
-    return () => {
-      window.removeEventListener('resize', detectarMovil);
-    };
-  }, []);
 
   // Cargar pedidos en tiempo real
   useEffect(() => {
@@ -368,8 +331,8 @@ const PedidosLista = ({ user }) => {
   const header = (
     <div className="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center gap-2">
       <h3 className="m-0">Lista de Pedidos ({pedidosFiltrados.length})</h3>
-      <div className="flex flex-wrap gap-2">
-        {esAdmin && (
+      <div className="flex flex-wrap gap-2 w-full md:w-auto">
+        {esAdmin && !esMovil && (
           <Button
             label={mostrarPresupuestos ? 'Ocultar presupuestos' : 'Mostrar presupuestos'}
             icon={mostrarPresupuestos ? 'pi pi-eye-slash' : 'pi pi-file'}
@@ -378,24 +341,28 @@ const PedidosLista = ({ user }) => {
             onClick={togglePresupuestos}
           />
         )}
-        <Button
-          label="Seleccionar filtrados"
-          icon="pi pi-check-square"
-          className="p-button-outlined"
-          onClick={() => setPedidosSeleccionados([...pedidosFiltrados])}
-          disabled={!pedidosFiltrados.length}
-        />
-        <Button
-          label={pedidosSeleccionados.length ? `Exportar PDF (${pedidosSeleccionados.length})` : 'Exportar PDF'}
-          icon="pi pi-file-pdf"
-          onClick={exportarListaPdf}
-          disabled={pedidosSeleccionados.length === 0}
-        />
+        {!esMovil && (
+          <>
+            <Button
+              label="Seleccionar filtrados"
+              icon="pi pi-check-square"
+              className="p-button-outlined"
+              onClick={() => setPedidosSeleccionados([...pedidosFiltrados])}
+              disabled={!pedidosFiltrados.length}
+            />
+            <Button
+              label={pedidosSeleccionados.length ? `Exportar PDF (${pedidosSeleccionados.length})` : 'Exportar PDF'}
+              icon="pi pi-file-pdf"
+              onClick={exportarListaPdf}
+              disabled={pedidosSeleccionados.length === 0}
+            />
+          </>
+        )}
         <Button
           label="Nuevo Pedido"
           icon="pi pi-plus"
           onClick={handleNuevoPedido}
-          className="p-button-success"
+          className="p-button-success w-full md:w-auto"
         />
       </div>
     </div>
