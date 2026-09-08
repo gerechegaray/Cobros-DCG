@@ -120,9 +120,6 @@ function EstadoCuenta({ user }) {
         
         // Verificar si viene desde parámetros URL (navegación desde MenuClientes)
         const clienteParam = searchParams.get('cliente');
-        // console.log('[EstadoCuenta] Parámetro cliente de URL:', clienteParam, 'tipo:', typeof clienteParam);
-        // console.log('[EstadoCuenta] Primeros 5 clientes con sus tipos de ID:', clientesOrdenados.slice(0, 5).map(c => ({ id: c.id, idType: typeof c.id, name: c.name })));
-        
         if (clienteParam && clientesOrdenados.length > 0 && !clienteAPreseleccionar) {
           // Convertir el parámetro a número para comparar con el ID
           const clienteParamNum = Number(clienteParam);
@@ -134,7 +131,6 @@ function EstadoCuenta({ user }) {
             c.nombre === clienteParam ||
             c['Razón Social'] === clienteParam
           );
-          // console.log('[EstadoCuenta] Cliente encontrado para preseleccionar:', clienteAPreseleccionar);
         }
         
         if (clienteAPreseleccionar) {
@@ -192,12 +188,10 @@ function EstadoCuenta({ user }) {
     setLoading(true);
     try {
       // 🆕 Primero consultar caché
-      console.log('[ESTADO CUENTA] Consultando caché para cliente:', clienteData.id);
       const cacheData = await api.getEstadoCuentaCache(clienteData.id);
       
       if (cacheData.exists && cacheData.facturas && cacheData.facturas.length > 0) {
         // Mostrar datos del caché inmediatamente
-        console.log('[ESTADO CUENTA] Datos encontrados en caché:', cacheData.facturas.length, 'facturas');
         setBoletas(cacheData.facturas);
         setTotales({
           totalAdeudado: cacheData.totalAdeudado || 0,
@@ -210,7 +204,6 @@ function EstadoCuenta({ user }) {
         // No mostrar toast, los datos ya están visibles
       } else {
         // No hay caché, mostrar mensaje pero no consultar Alegra automáticamente
-        console.log('[ESTADO CUENTA] No hay caché disponible');
         setBoletas([]);
         setTotales({
           totalAdeudado: 0,
@@ -257,12 +250,10 @@ function EstadoCuenta({ user }) {
     setRefreshingCache(true);
     try {
       // 🆕 Llamar al endpoint de refresh que consulta Alegra y actualiza caché
-      console.log('[ESTADO CUENTA] Refrescando desde Alegra para cliente:', cliente.id);
       const resultado = await api.refreshEstadoCuentaCache(cliente.id, true); // forzar = true
       
       if (resultado.fresh) {
         // Caché estaba fresco, usar datos existentes
-        console.log('[ESTADO CUENTA] Caché estaba fresco, usando datos existentes');
         toast.current.show({
           severity: 'info',
           summary: 'Caché actualizado',
@@ -270,7 +261,6 @@ function EstadoCuenta({ user }) {
         });
       } else {
         // Caché fue actualizado, recargar datos
-        console.log('[ESTADO CUENTA] Caché actualizado, recargando datos');
       await cargarEstadoCuenta(cliente);
       
       toast.current.show({

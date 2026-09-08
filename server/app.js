@@ -22,6 +22,7 @@ import {
   getComisionFlete
 } from "./comisionesFleteService.js";
 import { registerTelegramRoutes } from "./telegram/routes.js";
+import { crearAuthMiddleware } from "./authMiddleware.js";
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
@@ -203,6 +204,12 @@ app.use(cors({
 
 app.use(express.json());
 
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.use(crearAuthMiddleware(adminDb));
+
 registerTelegramRoutes(app, adminDb);
 
 // Endpoint para obtener facturas de venta de Alegra
@@ -247,28 +254,22 @@ app.get("/api/alegra/invoices", async (req, res) => {
     res.json(facturas);
   } catch (error) {
     console.error('❌ Error en /api/alegra/invoices:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor',
-      detalles: error.message 
-    });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
 // Presupuestos (Estimates) sin facturar desde Alegra
 app.get("/api/alegra/estimates", async (req, res) => {
   try {
-    if (String(req.query.role || '') !== 'admin') {
-      return res.status(403).json({ error: 'Solo el administrador puede consultar presupuestos de Alegra' });
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'No autorizado' });
     }
     const maxEstimates = parseInt(req.query.maxEstimates, 10) || 150;
     const presupuestos = await getAlegraEstimatesUnbilled(maxEstimates);
     res.json(presupuestos);
   } catch (error) {
     console.error('❌ Error en /api/alegra/estimates:', error);
-    res.status(500).json({
-      error: 'Error al obtener presupuestos de Alegra',
-      detalles: error.message
-    });
+    res.status(500).json({ error: 'Error al obtener presupuestos de Alegra' });
   }
 });
 
@@ -287,12 +288,12 @@ app.get("/api/alegra/contacts", async (req, res) => {
     });
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(500).json({ error: errorText });
+      return res.status(500).json({ error: 'Error interno del servidor' });
     }
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -311,12 +312,12 @@ app.get("/api/alegra/items", async (req, res) => {
     });
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(500).json({ error: errorText });
+      return res.status(500).json({ error: 'Error interno del servidor' });
     }
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -347,19 +348,8 @@ app.post("/api/alegra/quotes", async (req, res) => {
         
         // Agregar bonificación si existe
         if (item.bonificacion && item.bonificacion > 0) {
-          itemData.discount = item.bonificacion.toString(); // Convertir a string
-          itemData.discountType = 'percentage'; // Bonificación como porcentaje
-          console.log('🆕 Agregando bonificación al item:', {
-            producto: item.producto,
-            bonificacion: item.bonificacion,
-            discount: itemData.discount,
-            discountType: itemData.discountType
-          });
-        } else {
-          console.log('🆕 Item sin bonificación:', {
-            producto: item.producto,
-            bonificacion: item.bonificacion
-          });
+          itemData.discount = item.bonificacion.toString();
+          itemData.discountType = 'percentage';
         }
         
         return itemData;
@@ -369,15 +359,6 @@ app.post("/api/alegra/quotes", async (req, res) => {
     };
     if (fechaCreacion) alegraBody.date = fechaCreacion;
     if (vendedor) alegraBody.seller = vendedor;
-    // LOGS para depuración
-    console.log('🆕 Items con bonificación:', items.map(item => ({
-      producto: item.producto,
-      cantidad: item.cantidad,
-      bonificacion: item.bonificacion,
-      price: item.price
-    })));
-    console.log('Enviando a Alegra:', JSON.stringify(alegraBody, null, 2));
-    // Crear presupuesto en Alegra
     const alegraRes = await fetch(url, {
       method: 'POST',
       headers: {
@@ -388,9 +369,8 @@ app.post("/api/alegra/quotes", async (req, res) => {
       body: JSON.stringify(alegraBody)
     });
     const alegraText = await alegraRes.text();
-    console.log('Respuesta de Alegra:', alegraText);
     if (!alegraRes.ok) {
-      return res.status(500).json({ error: alegraText });
+      return res.status(500).json({ error: 'Error interno del servidor' });
     }
     const alegraQuote = JSON.parse(alegraText);
     // Guardar en Firestore
@@ -407,7 +387,7 @@ app.post("/api/alegra/quotes", async (req, res) => {
     res.json({ success: true, alegraQuote });
   } catch (error) {
     console.error('Error en /api/alegra/quotes:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -448,19 +428,8 @@ app.post("/api/presupuestos", async (req, res) => {
           
           // Agregar bonificación si existe
           if (item.bonificacion && item.bonificacion > 0) {
-            itemData.discount = item.bonificacion.toString(); // Convertir a string
-            itemData.discountType = 'percentage'; // Bonificación como porcentaje
-            console.log('🆕 Agregando bonificación al item (presupuestos):', {
-              producto: item.producto,
-              bonificacion: item.bonificacion,
-              discount: itemData.discount,
-              discountType: itemData.discountType
-            });
-          } else {
-            console.log('🆕 Item sin bonificación (presupuestos):', {
-              producto: item.producto,
-              bonificacion: item.bonificacion
-            });
+            itemData.discount = item.bonificacion.toString();
+            itemData.discountType = 'percentage';
           }
           
           return itemData;
@@ -470,15 +439,6 @@ app.post("/api/presupuestos", async (req, res) => {
       };
       if (fechaCreacion) alegraBody.date = fechaCreacion;
       if (vendedor) alegraBody.seller = vendedor;
-      
-      // LOGS para depuración
-      console.log('🆕 Items con bonificación (presupuestos):', items.map(item => ({
-        producto: item.producto,
-        cantidad: item.cantidad,
-        bonificacion: item.bonificacion,
-        price: item.price
-      })));
-      console.log('🆕 Body para Alegra (presupuestos):', JSON.stringify(alegraBody, null, 2));
       
       const alegraRes = await fetch(url, {
         method: 'POST',
@@ -504,7 +464,7 @@ app.post("/api/presupuestos", async (req, res) => {
     res.json({ success: true, presupuesto: { id: doc.id, ...doc.data() }, alegraQuote, alegraError });
   } catch (error) {
     console.error('Error en /api/presupuestos:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -526,20 +486,9 @@ app.get("/api/presupuestos", async (req, res) => {
   console.log('✅ Firebase inicializado correctamente');
   
       try {
-      const { email, role, page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta } = req.query;
-      
-      console.log('🆕 Parámetros recibidos:');
-      console.log('🆕 - email:', email);
-      console.log('🆕 - role:', role);
-      console.log('🆕 - page:', page);
-      console.log('🆕 - limit:', limit);
-      console.log('🆕 - estado:', estado);
-      console.log('🆕 - clienteId:', clienteId);
-      console.log('🆕 - fechaDesde:', fechaDesde);
-      console.log('🆕 - fechaHasta:', fechaHasta);
-    console.log(`Filtrando presupuestos para email: ${email}, role: ${role}`);
-    console.log(`Paginación: page=${page}, limit=${limit}`);
-    console.log(`Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}`);
+      const { page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta } = req.query;
+      const email = req.user.email;
+      const role = req.user.role;
     
     // 🆕 Verificar si Firebase está inicializado
     if (!adminDb) {
@@ -617,42 +566,15 @@ app.get("/api/presupuestos", async (req, res) => {
     let snapshot = await query.get();
     let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    console.log(`🆕 Presupuestos obtenidos de Firebase (página ${pageInt}): ${data.length}`);
-    console.log('🆕 Detalles de presupuestos obtenidos:');
-    data.forEach((p, index) => {
-      console.log(`🆕 ${index + 1}. ID: ${p.id}`);
-      console.log(`🆕    - Fecha: ${p.fechaCreacion}`);
-      console.log(`🆕    - Usuario: "${p.usuario}"`);
-      console.log(`🆕    - Vendedor: ${p.vendedor}`);
-      console.log(`🆕    - Estado: ${p.estado}`);
-      console.log(`🆕    - Cliente: ${p.clienteNombre || 'N/A'}`);
-    });
-    
-    // 🆕 Filtrar por rol después de obtener los datos (para evitar problemas con índices compuestos)
     if (role !== 'admin') {
-      console.log(`🆕 Vendedor ${role} (${email}): filtrando por rol`);
-      
-      // Debug: mostrar todos los presupuestos y sus usuarios
-      console.log('🆕 Todos los presupuestos (con filtro de fecha):');
-      data.forEach(p => {
-        console.log(`🆕 - ID: ${p.id}, Usuario: "${p.usuario}", Vendedor: ${p.vendedor}, Estado: ${p.estado}, Fecha: ${p.fechaCreacion}`);
-      });
-      
-      // Filtrado SOLO por rol/vendedor, no por email
       let filtrados;
       if (role === 'Guille') {
         filtrados = data.filter(p => p.vendedor === 1 || p.vendedor === "1");
-        console.log(`🆕 Filtrando para Guille (vendedor = 1): ${filtrados.length} de ${data.length}`);
       } else if (role === 'Santi') {
         filtrados = data.filter(p => p.vendedor === 2 || p.vendedor === "2");
-        console.log(`🆕 Filtrando para Santi (vendedor = 2): ${filtrados.length} de ${data.length}`);
       } else {
-        // Fallback: filtrar por email si no es Guille ni Santi
         filtrados = data.filter(p => p.usuario === email);
-        console.log(`🆕 Filtrando por email "${email}": ${filtrados.length} de ${data.length}`);
       }
-      
-      console.log(`🆕 Presupuestos filtrados para ${role}: ${filtrados.length} de ${data.length} total`);
       data = filtrados;
     } else {
       console.log(`🆕 Admin: mostrando todos los presupuestos sin filtro`);
@@ -682,13 +604,12 @@ app.get("/api/presupuestos", async (req, res) => {
       }
     };
     
-    console.log('🆕 Enviando respuesta completa:', JSON.stringify(responseData, null, 2));
     res.json(responseData);
   } catch (error) {
     console.error('❌ Error en /api/presupuestos:', error);
     console.error('❌ Stack trace:', error.stack);
     res.status(500).json({ 
-      error: error.message,
+      error: 'Error interno del servidor',
       success: false,
       data: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
@@ -715,12 +636,12 @@ app.get("/api/alegra/quote-status/:id", async (req, res) => {
     }
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(500).json({ error: errorText });
+      return res.status(500).json({ error: 'Error interno del servidor' });
     }
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -732,7 +653,7 @@ app.patch("/api/presupuestos/:id", async (req, res) => {
     await adminDb.collection('presupuestos').doc(id).update({ estado });
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -743,7 +664,7 @@ app.delete("/api/presupuestos/:id", async (req, res) => {
     await adminDb.collection('presupuestos').doc(id).delete();
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -766,7 +687,7 @@ app.post("/api/sync-clientes-alegra", async (req, res) => {
       });
       if (!response.ok) {
         const errorText = await response.text();
-        return res.status(500).json({ error: errorText });
+        return res.status(500).json({ error: 'Error interno del servidor' });
       }
       const data = await response.json();
       if (!Array.isArray(data) || data.length === 0) {
@@ -804,7 +725,7 @@ app.post("/api/sync-clientes-alegra", async (req, res) => {
     }
     res.json({ success: true, total });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -845,7 +766,7 @@ app.get("/api/clientes-firebase", async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('❌ Error en /api/clientes-firebase:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -890,7 +811,7 @@ app.put("/api/clientes-firebase/:id/ubicacion", async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error actualizando ubicación del cliente:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -916,7 +837,7 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Error obteniendo productos de Alegra:', errorText);
-        return res.status(500).json({ error: errorText });
+        return res.status(500).json({ error: 'Error interno del servidor' });
       }
       const data = await response.json();
       if (!Array.isArray(data) || data.length === 0) {
@@ -925,12 +846,6 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
         // Guardar/actualizar en Firestore con stock y ultimaActualizacion
         const ahora = new Date();
         for (const producto of data) {
-          // 🆕 Log para ver estructura del primer producto
-          if (total === 0) {
-            console.log('📦 Estructura del primer producto de Alegra:', JSON.stringify(producto, null, 2));
-          }
-          
-          // Extraer stock desde warehouses o inventory
           let stock = 0;
           if (Array.isArray(producto.warehouses) && producto.warehouses.length > 0) {
             stock = producto.warehouses[0].availableQuantity || 0;
@@ -965,7 +880,7 @@ app.post("/api/sync-productos-alegra", async (req, res) => {
     res.json({ success: true, total });
   } catch (error) {
     console.error('❌ Error en sincronización de productos:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1006,7 +921,7 @@ app.get("/api/productos-firebase", async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('❌ Error en /api/productos-firebase:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1119,7 +1034,7 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     if (!facturasResponse.ok) {
       const errorText = await facturasResponse.text();
       console.error(`[ESTADO CUENTA] Error de Alegra: ${errorText}`);
-      return res.status(500).json({ error: errorText });
+      return res.status(500).json({ error: 'Error interno del servidor' });
     }
     
     const facturasDelCliente = await facturasResponse.json();
@@ -1133,7 +1048,7 @@ app.get("/api/alegra/estado-cuenta/:clienteId", async (req, res) => {
     res.json(estadoCuenta.facturas);
   } catch (error) {
     console.error('Error al obtener estado de cuenta:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1193,7 +1108,7 @@ app.get("/api/estado-cuenta-cache/:clienteId", async (req, res) => {
     });
   } catch (error) {
     console.error('Error obteniendo estado de cuenta desde caché:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1411,7 +1326,7 @@ app.post("/api/estado-cuenta-cache/refresh/:clienteId", async (req, res) => {
     res.json(resultado);
   } catch (error) {
     console.error('Error refrescando estado de cuenta cache:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1461,7 +1376,7 @@ app.post("/api/sync-estados-presupuestos", async (req, res) => {
     res.json({ success: true, actualizados });
   } catch (error) {
     console.error('[SYNC] Error general:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1477,7 +1392,7 @@ app.get("/api/cache/status", (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error obteniendo estado del cache:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1504,7 +1419,7 @@ app.post("/api/cache/invalidate", (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error invalidando cache:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1544,7 +1459,7 @@ app.post("/api/cache/refresh", async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error actualizando cache:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1582,7 +1497,7 @@ app.get("/api/cache/stats", (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error obteniendo estadísticas del cache:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1665,43 +1580,7 @@ app.get("/api/visitas-cache", async (req, res) => {
     res.json(visitasFiltradas);
   } catch (error) {
     console.error('Error en /api/visitas-cache:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 🆕 TEMPORARY DEBUG ENDPOINT - FORCE CACHE INVALIDATION AND DIRECT FIRESTORE QUERY
-app.get("/api/debug/visitas", async (req, res) => {
-  try {
-    console.log('🆕 DEBUG: Forzando invalidación de cache de visitas');
-    invalidarCache('visitas');
-
-    console.log('🆕 DEBUG: Consultando Firestore directamente');
-    const snapshot = await adminDb.collection('visitas').get();
-    const visitas = [];
-
-    snapshot.forEach(doc => {
-      visitas.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
-    console.log(`🆕 DEBUG: Visitas encontradas en Firestore: ${visitas.length}`);
-    if (visitas.length > 0) {
-      console.log('🆕 DEBUG: Detalles de las visitas:');
-      visitas.forEach((v, index) => {
-        console.log(`🆕   ${index + 1}. ID: ${v.id}, Cliente: ${v.clienteNombre}, Fecha: ${v.fecha}, Programa: ${v.programaId}`);
-      });
-    }
-
-    res.json({
-      cacheInvalidado: true,
-      visitasEncontradas: visitas.length,
-      visitas: visitas
-    });
-  } catch (error) {
-    console.error('🆕 DEBUG: Error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1934,42 +1813,6 @@ app.delete("/api/visitas-programadas/:id", async (req, res) => {
   }
 });
 
-// 🆕 ENDPOINT TEMPORAL PARA DEBUG - FORZAR INVALIDACIÓN DE CACHE
-app.get("/api/debug/visitas", async (req, res) => {
-  try {
-    console.log('🆕 DEBUG: Forzando invalidación de cache de visitas');
-    invalidarCache('visitas');
-    
-    console.log('🆕 DEBUG: Consultando Firestore directamente');
-    const snapshot = await adminDb.collection('visitas').get();
-    const visitas = [];
-    
-    snapshot.forEach(doc => {
-      visitas.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    console.log(`🆕 DEBUG: Visitas encontradas en Firestore: ${visitas.length}`);
-    if (visitas.length > 0) {
-      console.log('🆕 DEBUG: Detalles de las visitas:');
-      visitas.forEach((v, index) => {
-        console.log(`🆕   ${index + 1}. ID: ${v.id}, Cliente: ${v.clienteNombre}, Fecha: ${v.fecha}, Programa: ${v.programaId}`);
-      });
-    }
-    
-    res.json({
-      cacheInvalidado: true,
-      visitasEncontradas: visitas.length,
-      visitas: visitas
-    });
-  } catch (error) {
-    console.error('🆕 DEBUG: Error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // 🆕 ENDPOINT PARA GENERAR VISITAS DESDE PROGRAMAS
 app.post("/api/visitas/generar", async (req, res) => {
   try {
@@ -2090,16 +1933,16 @@ app.get("/api/hojas-de-ruta", async (req, res) => {
     res.json(hojasDeRuta);
   } catch (error) {
     console.error('Error en /api/hojas-de-ruta:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-// Exportación de hojas de ruta en Markdown (solo admin vía query param)
+// Exportación de hojas de ruta en Markdown (solo admin)
 app.get("/api/hojas-de-ruta/export-md", async (req, res) => {
   try {
-    const { desde, hasta, responsable = 'todos', entrega = 'todos', role } = req.query;
+    const { desde, hasta, responsable = 'todos', entrega = 'todos' } = req.query;
 
-    if (role !== 'admin') {
+    if (req.user?.role !== 'admin') {
       return res.status(403).json({ error: 'Solo administradores pueden exportar hojas de ruta' });
     }
 
@@ -2251,7 +2094,7 @@ app.get("/api/hojas-de-ruta/export-md", async (req, res) => {
     res.send(md);
   } catch (error) {
     console.error('Error en /api/hojas-de-ruta/export-md:', error);
-    res.status(500).json({ error: error.message || 'Error exportando hojas de ruta' });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2260,9 +2103,6 @@ app.get("/api/cobros", async (req, res) => {
   console.log('Entrando a /api/cobros');
   try {
     const { page = 1, limit = 20, estado, clienteId, fechaDesde, fechaHasta, vendedorId, cobrador } = req.query;
-    console.log(`🔍 Parámetros recibidos:`, req.query);
-    console.log(`🔍 Paginación: page=${page}, limit=${limit}`);
-    console.log(`🔍 Filtros: estado=${estado}, clienteId=${clienteId}, fechaDesde=${fechaDesde}, fechaHasta=${fechaHasta}, vendedorId=${vendedorId}, cobrador=${cobrador}`);
     
     // 🆕 Construir query base
     let query = adminDb.collection('cobros');
@@ -2362,7 +2202,7 @@ app.get("/api/cobros", async (req, res) => {
     }
   } catch (error) {
     console.error('Error en /api/cobros:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2451,7 +2291,7 @@ app.post("/api/cobros", async (req, res) => {
     });
   } catch (error) {
     console.error('Error creando cobro:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2478,7 +2318,7 @@ app.put("/api/cobros/:id", async (req, res) => {
     res.json({ success: true, id });
   } catch (error) {
     console.error('Error actualizando cobro:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2492,7 +2332,7 @@ app.delete("/api/cobros/:id", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error eliminando cobro:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2610,7 +2450,7 @@ app.post("/api/cobros/update-vendedor-bulk", async (req, res) => {
   } catch (error) {
     console.error('❌ Error en actualización masiva:', error);
     res.status(500).json({ 
-      error: error.message,
+      error: 'Error interno del servidor',
       success: false 
     });
   }
@@ -2647,7 +2487,7 @@ app.get("/api/cleanup/stats", async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('Error obteniendo estadísticas de limpieza:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2677,7 +2517,7 @@ app.get("/api/cleanup/preview", async (req, res) => {
     });
   } catch (error) {
     console.error('Error obteniendo vista previa de limpieza:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2708,7 +2548,7 @@ app.get("/api/cleanup/export", async (req, res) => {
     });
   } catch (error) {
     console.error('Error exportando datos de limpieza:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2768,7 +2608,7 @@ app.post("/api/cleanup/execute", async (req, res) => {
     });
   } catch (error) {
     console.error('Error ejecutando limpieza de datos:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -2949,22 +2789,22 @@ function parseRetentionDays(value) {
 
 app.get("/api/cleanup/keep-latest", async (req, res) => {
   try {
-    if (String(req.query.role || '') !== 'admin') {
-      return res.status(403).json({ error: 'Solo el administrador puede consultar esta limpieza' });
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'No autorizado' });
     }
     const days = parseRetentionDays(req.query.days || req.query.keep);
     const preview = await planKeepLatest(days);
     res.json({ days, preview });
   } catch (error) {
     console.error('Error en preview keep-latest:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
 app.post("/api/cleanup/keep-latest", async (req, res) => {
   try {
-    if (String(req.body?.role || req.query.role || '') !== 'admin') {
-      return res.status(403).json({ error: 'Solo el administrador puede ejecutar esta limpieza' });
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'No autorizado' });
     }
     const days = parseRetentionDays(req.body?.days || req.body?.keep || req.query.days);
     const results = await executeKeepLatest(days);
@@ -2976,7 +2816,7 @@ app.post("/api/cleanup/keep-latest", async (req, res) => {
     });
   } catch (error) {
     console.error('Error ejecutando keep-latest:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3021,7 +2861,7 @@ async function sincronizarProductosDesdeAlegra() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[AUTO-SYNC] Error obteniendo productos de Alegra:', errorText);
-        return { success: false, total, error: errorText };
+        return { success: false, total, error: 'Error al consultar Alegra' };
       }
 
       const data = await response.json();
@@ -3062,7 +2902,7 @@ async function sincronizarProductosDesdeAlegra() {
     return { success: true, total };
   } catch (error) {
     console.error('[AUTO-SYNC] ❌ Error en sincronización de productos:', error);
-    return { success: false, total: 0, error: error.message };
+    return { success: false, total: 0, error: 'Error interno' };
   }
 }
 
@@ -3102,7 +2942,7 @@ async function sincronizarClientesDesdeAlegra() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[AUTO-SYNC] Error obteniendo clientes de Alegra:', errorText);
-        return { success: false, total, error: errorText };
+        return { success: false, total, error: 'Error al consultar Alegra' };
       }
 
       const data = await response.json();
@@ -3145,7 +2985,7 @@ async function sincronizarClientesDesdeAlegra() {
     return { success: true, total };
   } catch (error) {
     console.error('[AUTO-SYNC] ❌ Error en sincronización de clientes:', error);
-    return { success: false, total: 0, error: error.message };
+    return { success: false, total: 0, error: 'Error interno' };
   }
 }
 
@@ -3354,7 +3194,7 @@ app.post("/api/comisiones/reglas/seed", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error en seed de reglas:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3375,7 +3215,7 @@ app.post("/api/comisiones/sync-facturas", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error sincronizando facturas:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3398,7 +3238,7 @@ app.post("/api/comisiones/calcular/:periodo", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error calculando comisiones:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3456,7 +3296,7 @@ app.get("/api/comisiones/:vendedor/:periodo", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error obteniendo comisiones:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3492,7 +3332,7 @@ app.get("/api/comisiones/:vendedor", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error obteniendo comisiones del vendedor:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3508,7 +3348,7 @@ app.get("/api/comisiones/reglas", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES] Error obteniendo reglas:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3532,7 +3372,7 @@ app.post("/api/comisiones/cerrar/:periodo", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES CIERRE] Error cerrando período:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3562,7 +3402,7 @@ app.post("/api/comisiones/ajuste", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES AJUSTE] Error agregando ajuste:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3585,7 +3425,7 @@ app.post("/api/comisiones/pagar/:vendedor/:periodo", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES PAGO] Error marcando como pagado:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3609,7 +3449,7 @@ app.post("/api/comisiones/flete/calcular/:periodo", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES FLETE] Error calculando comisión por flete:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3627,7 +3467,7 @@ app.get("/api/comisiones/flete/:vendedor/:periodo", async (req, res) => {
     
   } catch (error) {
     console.error('[COMISIONES FLETE] Error obteniendo comisión por flete:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -3653,8 +3493,6 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     console.log('🆕 Verificando credenciales de Alegra...');
     console.log('🆕 ALEGRA_EMAIL configurado:', !!email);
     console.log('🆕 ALEGRA_API_KEY configurado:', !!apiKey);
-    console.log('🆕 ALEGRA_EMAIL valor:', email ? `${email.substring(0, 3)}...` : 'NO CONFIGURADO');
-    console.log('🆕 ALEGRA_API_KEY valor:', apiKey ? `${apiKey.substring(0, 3)}...` : 'NO CONFIGURADO');
     
     if (!email || !apiKey) {
       console.error('❌ Credenciales de Alegra no configuradas');
@@ -3677,8 +3515,7 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
     const url = `https://api.alegra.com/api/v1/estimates?date_afterOrNow=${fechaLimiteStr}&limit=30`;
     const authorization = 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
     
-    console.log('🆕 URL de Alegra:', url);
-    console.log('🆕 Authorization header:', authorization.substring(0, 20) + '...');
+    console.log(`🔄 Obteniendo presupuestos de Alegra desde ${fechaLimiteStr}...`);
     
     const response = await fetch(url, {
       headers: {
@@ -3696,7 +3533,7 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
       console.error('❌ Status:', response.status);
       console.error('❌ Status text:', response.statusText);
       return res.status(500).json({ 
-        error: `Error obteniendo presupuestos de Alegra: ${errorText}`,
+        error: 'Error al consultar Alegra',
         success: false 
       });
     }
@@ -3766,7 +3603,7 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
         console.error(`❌ Error sincronizando presupuesto ${presupuesto.id}:`, error);
         errores.push({
           id: presupuesto.id,
-          error: error.message
+          error: 'Error al sincronizar'
         });
       }
     }
@@ -3783,7 +3620,7 @@ app.post("/api/presupuestos/sincronizar-alegra", async (req, res) => {
   } catch (error) {
     console.error('❌ Error en sincronización:', error);
     res.status(500).json({ 
-      error: error.message,
+      error: 'Error interno del servidor',
       success: false 
     });
   }

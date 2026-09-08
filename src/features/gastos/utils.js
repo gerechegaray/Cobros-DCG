@@ -171,7 +171,6 @@ export const formatFecha = (fecha) => {
   
   const momentFecha = moment(fechaParaMoment);
   if (!momentFecha.isValid()) {
-    console.log('Fecha inválida recibida:', fecha, 'tipo:', typeof fecha);
     return 'Fecha inválida';
   }
   

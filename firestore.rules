@@ -1,81 +1,97 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function para verificar si es admin
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.token.email));
+    }
+
+    function hasAppRole() {
+      return isSignedIn() &&
+        userDoc().data.role in ['admin', 'Santi', 'Guille', 'Victor'];
+    }
+
     function isAdmin() {
-      return request.auth != null && 
-        get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.role == 'admin';
+      return hasAppRole() && userDoc().data.role == 'admin';
     }
-    
-    // Helper function para verificar si es el vendedor del cobro/pedido
+
     function isVendedor(data) {
-      return request.auth != null && data.vendedor == request.auth.token.email;
+      return isSignedIn() && data.vendedor == request.auth.token.email;
     }
-    
-    // Reglas para la colección de cobros
+
+    match /usuarios/{userId} {
+      allow get: if isSignedIn() && request.auth.token.email == userId;
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /cobros/{cobroId} {
-      // Leer: vendedor solo sus cobros, admin todos
-      allow read: if request.auth != null && 
+      allow read: if hasAppRole() &&
         (resource.data.vendedor == request.auth.token.email || isAdmin());
-      
-      // Crear: usuarios autenticados
-      allow create: if request.auth != null && 
+      allow create: if hasAppRole() &&
         request.resource.data.vendedor == request.auth.token.email;
-      
-      // Actualizar: admin puede todo, vendedor solo sus cobros pendientes
-      allow update: if request.auth != null && 
-        (isAdmin() || 
+      allow update: if hasAppRole() &&
+        (isAdmin() ||
          (isVendedor(resource.data) && resource.data.estado == 'pendiente'));
-      
-      // Eliminar: solo admin
       allow delete: if isAdmin();
     }
-    
-    // Reglas para logs de cobros
+
     match /cobros_logs/{logId} {
-      // Solo lectura para usuarios autenticados
-      allow read: if request.auth != null;
-      // Solo creación (auditoría)
-      allow create: if request.auth != null;
-      // No se puede modificar ni eliminar logs
+      allow read: if hasAppRole();
+      allow create: if hasAppRole();
       allow update, delete: if false;
     }
-    
-    // Reglas para la colección de pedidos
+
     match /pedidos/{pedidoId} {
-      // Leer: vendedor solo sus pedidos, admin todos
-      allow read: if request.auth != null && 
+      allow read: if hasAppRole() &&
         (resource.data.vendedor == request.auth.token.email || isAdmin());
-      
-      // Crear: usuarios autenticados
-      allow create: if request.auth != null && 
+      allow create: if hasAppRole() &&
         request.resource.data.vendedor == request.auth.token.email;
-      
-      // Actualizar: admin puede todo, vendedor solo sus pedidos no facturados
-      allow update: if request.auth != null && 
-        (isAdmin() || 
+      allow update: if hasAppRole() &&
+        (isAdmin() ||
          (isVendedor(resource.data) && resource.data.estado != 'facturado'));
-      
-      // Eliminar: solo admin o vendedor de sus propios pedidos no facturados
-      allow delete: if request.auth != null && 
-        (isAdmin() || 
+      allow delete: if hasAppRole() &&
+        (isAdmin() ||
          (isVendedor(resource.data) && resource.data.estado != 'facturado'));
     }
-    
-    // Reglas para logs de pedidos
+
     match /pedidos_logs/{logId} {
-      // Solo lectura para usuarios autenticados
-      allow read: if request.auth != null;
-      // Solo creación (auditoría)
-      allow create: if request.auth != null;
-      // No se puede modificar ni eliminar logs
+      allow read: if hasAppRole();
+      allow create: if hasAppRole();
       allow update, delete: if false;
     }
-    
-    // Reglas generales para otras colecciones (temporal - ajustar según necesidad)
+
+    match /productos/{productoId} {
+      allow read: if hasAppRole();
+      allow write: if isAdmin();
+    }
+
+    match /clientesAlegra/{clienteId} {
+      allow read: if hasAppRole();
+      allow write: if isAdmin();
+    }
+
+    match /hojasDeRuta/{hojaId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /gastos/{gastoId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /gastos_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
-} 
+}

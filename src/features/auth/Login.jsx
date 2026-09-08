@@ -4,70 +4,48 @@ import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { auth, googleProvider, db } from "../../services/firebase";
 import { signInWithPopup } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 function Login({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const toast = useRef(null);
 
   const handleGoogleLogin = async () => {
+    setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      
-      console.log("Usuario autenticado:", user.email);
-      
-      // Buscar usuario en Firestore
       const userDoc = await getDoc(doc(db, "usuarios", user.email));
-      
+
       if (!userDoc.exists()) {
-        console.log("Usuario no existe en Firestore, creando...");
-        // Crear nuevo usuario con rol vacío
-        await setDoc(doc(db, "usuarios", user.email), {
-          email: user.email,
-          name: user.displayName,
-          role: null
-        });
         toast.current.show({
           severity: "warn",
           summary: "Pendiente de autorización",
           detail: "Tu cuenta está pendiente de autorización. Contacta al administrador."
         });
-      } else {
-        const userData = userDoc.data();
-        const role = userData.role;
-        
-        console.log("Usuario encontrado en Firestore:", userData);
-        console.log("Rol del usuario:", role);
-        
-        // Validar roles permitidos
-        const validRoles = ["admin", "Santi", "Guille", "Victor"];
-        
-        if (role && validRoles.includes(role)) {
-          console.log("Rol válido, iniciando sesión...");
-          localStorage.setItem('userData', JSON.stringify(userData));
-          toast.current.show({
-            severity: 'success',
-            summary: 'Bienvenido',
-            detail: `Hola ${userData.name}!`
-          });
-          onLogin(userData);
-        } else {
-          console.log("Rol no válido:", role);
-          toast.current.show({
-            severity: "warn",
-            summary: "Pendiente de autorización",
-            detail: "Tu cuenta está pendiente de autorización. Contacta al administrador."
-          });
-        }
+        return;
       }
-    } catch (error) {
-      console.error("Error en login:", error);
+
+      const userData = userDoc.data();
+      const validRoles = ["admin", "Santi", "Guille", "Victor"];
+
+      if (userData.role && validRoles.includes(userData.role)) {
+        onLogin(userData);
+      } else {
+        toast.current.show({
+          severity: "warn",
+          summary: "Pendiente de autorización",
+          detail: "Tu cuenta está pendiente de autorización. Contacta al administrador."
+        });
+      }
+    } catch {
       toast.current.show({
         severity: "error",
         summary: "Error",
         detail: "Error al iniciar sesión. Intenta nuevamente."
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -101,4 +79,4 @@ function Login({ onLogin }) {
   );
 }
 
-export default Login; 
+export default Login;

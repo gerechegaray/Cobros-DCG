@@ -80,8 +80,6 @@ function MenuClientes({ user }) {
     if (clienteSeleccionado) {
       // Usar el ID del cliente como identificador principal
       const clienteId = clienteSeleccionado.id || clienteSeleccionado.name || clienteSeleccionado.nombre || clienteSeleccionado['Razón Social'];
-      // console.log('[MenuClientes] Navegando a estado de cuenta con cliente:', clienteSeleccionado);
-      // console.log('[MenuClientes] Cliente ID a pasar:', clienteId);
       navigate(`/estado-cuenta?cliente=${encodeURIComponent(clienteId)}`);
     }
   };

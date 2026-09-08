@@ -78,7 +78,6 @@ export const useAtajosTeclado = (callbacks) => {
         e.preventDefault();
         const numero = parseInt(e.key);
         // Esto se puede personalizar según las categorías
-        console.log(`Acceso rápido a categoría ${numero}`);
         return;
       }
     };

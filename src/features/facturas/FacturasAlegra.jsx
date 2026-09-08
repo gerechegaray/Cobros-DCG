@@ -337,8 +337,7 @@ const FacturasAlegra = ({ user }) => {
         desde: toYMD(exportFechaDesde),
         hasta: toYMD(exportFechaHasta),
         responsable: exportResponsable,
-        entrega: exportEntrega,
-        role: user?.role || ''
+        entrega: exportEntrega
       });
 
       const fileUrl = URL.createObjectURL(blob);

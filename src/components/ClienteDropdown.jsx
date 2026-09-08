@@ -20,12 +20,7 @@ export default function ClienteDropdown({ value, onChange, user }) {
       setLoading(true);
       setError(null);
       try {
-        console.log('[ClienteDropdown] Iniciando fetch de clientes...');
         const data = await api.getClientesFirebase();
-        console.log('[ClienteDropdown] Clientes obtenidos:', data.length);
-        console.log('[ClienteDropdown] Clientes obtenidos:', data.length);
-        console.log('[ClienteDropdown] Primer cliente:', data[0]);
-        
         // Filtrar clientes según el rol del usuario
         const sellerId = getSellerId();
         let clientesFiltrados = data;
@@ -38,15 +33,12 @@ export default function ClienteDropdown({ value, onChange, user }) {
             }
             return false;
           });
-          console.log(`[ClienteDropdown] Filtrando por sellerId ${sellerId}: ${clientesFiltrados.length} clientes`);
         } else if (user?.role === 'admin') {
           // Admin ve todos los clientes
           clientesFiltrados = data;
-          console.log(`[ClienteDropdown] Admin ve todos los clientes: ${clientesFiltrados.length}`);
         } else {
           // Usuario sin rol válido - no mostrar clientes
           clientesFiltrados = [];
-          console.log('[ClienteDropdown] Usuario sin rol válido - no se muestran clientes');
         }
         
         setClientes(clientesFiltrados);

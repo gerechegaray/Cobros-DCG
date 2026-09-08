@@ -170,7 +170,6 @@ const GastosCalendario = ({ user }) => {
               }
             });
           } else {
-            console.log('Fecha inválida para evento:', fechaEvento, 'tipo:', typeof fechaEvento);
           }
         }
       }

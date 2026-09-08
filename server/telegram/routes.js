@@ -39,7 +39,7 @@ export function registerTelegramRoutes(app, adminDb) {
       });
     } catch (error) {
       console.error('[TELEGRAM] Error consultando usuario:', error);
-      res.status(500).json({ ok: false, error: error.message });
+      res.status(500).json({ ok: false, error: 'Error interno' });
     }
   });
 
@@ -63,7 +63,7 @@ export function registerTelegramRoutes(app, adminDb) {
       res.json({ ok: true, result });
     } catch (error) {
       console.error('[TELEGRAM] Error procesando webhook:', error);
-      res.json({ ok: false, error: error.message });
+      res.json({ ok: false, error: 'Error interno' });
     }
   });
 }

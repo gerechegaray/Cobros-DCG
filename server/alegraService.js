@@ -192,7 +192,8 @@ export async function getAlegraContacts() {
   });
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Error al obtener los clientes de Alegra: ' + errorText);
+    console.error('Alegra contacts API error:', response.status, errorText);
+    throw new Error('Error al obtener los clientes de Alegra');
   }
   return await response.json();
 }
@@ -210,7 +211,8 @@ export async function getAlegraItems() {
   });
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Error al obtener los productos de Alegra: ' + errorText);
+    console.error('Alegra items API error:', response.status, errorText);
+    throw new Error('Error al obtener los productos de Alegra');
   }
   return await response.json();
 }

@@ -372,19 +372,12 @@ export default function VisitasDashboard({ user }) {
   useEffect(() => {
     const cargarVisitas = async () => {
       try {
-        console.log('🆕 Iniciando carga de visitas...');
         setLoading(true);
         const sellerId = getSellerId();
-        console.log('🆕 Seller ID:', sellerId);
-        console.log('🆕 Es admin:', esAdmin);
-        
         // Si es admin, no filtrar por vendedorId
         const data = esAdmin
           ? await api.getVisitasCache() // 🆕 Usar endpoint con caché
           : await api.getVisitasCache(sellerId); // 🆕 Usar endpoint con caché
-        
-        console.log('🆕 Datos recibidos del backend:', data);
-        console.log('🆕 Cantidad de visitas recibidas:', data.length);
         
         setVisitas(data);
       } catch (error) {
@@ -406,53 +399,13 @@ export default function VisitasDashboard({ user }) {
 
   // Filtrar visitas por fecha
   const visitasFiltradas = useMemo(() => {
-    console.log('🆕 Debug - Estado de visitas:');
-    console.log('🆕 Total visitas en estado:', visitas.length);
-    console.log('🆕 Filtro fecha:', filtroFecha);
-    
     if (!filtroFecha) return visitas;
     
     // Convertir la fecha del filtro a string YYYY-MM-DD sin problemas de timezone
     const fechaFiltro = new Date(filtroFecha);
     const fechaFiltroStr = `${fechaFiltro.getFullYear()}-${String(fechaFiltro.getMonth() + 1).padStart(2, '0')}-${String(fechaFiltro.getDate()).padStart(2, '0')}`;
     
-    console.log('🆕 Debug - Filtro de visitas:');
-    console.log('🆕 Fecha filtro (objeto):', filtroFecha);
-    console.log('🆕 Fecha filtro (string):', fechaFiltroStr);
-    console.log('🆕 Total visitas:', visitas.length);
-    
-    if (visitas.length > 0) {
-      console.log('🆕 Primeras 5 visitas:');
-      visitas.slice(0, 5).forEach((v, index) => {
-        console.log(`  ${index + 1}. ID: ${v.id}, Fecha: ${v.fecha}, Cliente: ${v.clienteNombre}`);
-      });
-    }
-    
-    const visitasFiltradas = visitas.filter(visita => {
-      // La fecha de la visita ya viene como string YYYY-MM-DD desde el backend
-      const fechaVisitaStr = visita.fecha;
-      const coincide = fechaVisitaStr === fechaFiltroStr;
-      
-      if (coincide) {
-        console.log(`🆕 Visita incluida: ${visita.id} - ${visita.clienteNombre} - ${fechaVisitaStr}`);
-      }
-      
-      return coincide;
-    });
-    
-    console.log('🆕 Visitas filtradas:', visitasFiltradas.length);
-    
-    // 🆕 Si no hay visitas filtradas, mostrar todas las visitas para debug
-    if (visitasFiltradas.length === 0 && visitas.length > 0) {
-      console.log('🆕 No se encontraron visitas para la fecha. Todas las fechas disponibles:');
-      const fechasUnicas = [...new Set(visitas.map(v => v.fecha))].sort();
-      fechasUnicas.forEach(fecha => {
-        const count = visitas.filter(v => v.fecha === fecha).length;
-        console.log(`  ${fecha}: ${count} visitas`);
-      });
-    }
-    
-    return visitasFiltradas;
+    return visitas.filter((visita) => visita.fecha === fechaFiltroStr);
   }, [visitas, filtroFecha]);
 
   // Filtrar clientes según el vendedor seleccionado (para nuevo programa)

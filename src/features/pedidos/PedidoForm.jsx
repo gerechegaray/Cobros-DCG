@@ -66,13 +66,6 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
     setLoadingProductos(true);
     try {
       const productosData = await getProductos(forzarActualizacion);
-      
-      // 🆕 Log para debugging - ver estructura del primer producto
-      if (productosData && productosData.length > 0) {
-        console.log('📦 Primer producto cargado:', productosData[0]);
-        console.log('💰 Precio del primer producto:', productosData[0].precio);
-      }
-      
       setProductos(productosData);
       
       if (forzarActualizacion) {
@@ -148,9 +141,6 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
   // Cuando se selecciona un producto, cargar su precio
   useEffect(() => {
     if (productoSeleccionado) {
-      console.log('🎯 Producto seleccionado:', productoSeleccionado);
-      console.log('💰 Precio del producto seleccionado:', productoSeleccionado.precio);
-      console.log('💰 Tipo de precio:', typeof productoSeleccionado.precio);
       setPrecioUnitario(productoSeleccionado.precio || 0);
     }
   }, [productoSeleccionado]);
@@ -429,8 +419,6 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
                         completeMethod={buscarProductos}
                         field="nombre"
                         onChange={(e) => {
-                          console.log('🔄 Cambio en AutoComplete:', e.value);
-                          console.log('🔄 Tipo de valor:', typeof e.value);
                           setProductoSeleccionado(e.value);
                         }}
                         placeholder="Buscar producto..."

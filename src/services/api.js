@@ -3,6 +3,7 @@
 // 🆕 FORZAR DEPLOY - Actualizado para usar nuevo backend
 
 import { ALEGRA_CONFIG, getDefaultConfig } from '../config/alegra.js';
+import { authHeaders } from '../utils/authHeaders';
 
 // 🆕 En desarrollo local, usar localhost. En producción, usar la URL configurada
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
@@ -10,55 +11,25 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
 
 // Función helper para hacer peticiones al backend
 export const apiRequest = async (endpoint, options = {}) => {
-  // Añadir parámetro de versión para evitar caché en producción
   const version = Date.now();
   const separator = endpoint.includes('?') ? '&' : '?';
   const url = `${API_BASE_URL}${endpoint}${separator}v=${version}`;
-  
-  console.log('🆕 DEBUG API Request:');
-  console.log('🆕 URL:', url);
-  console.log('🆕 API_BASE_URL:', API_BASE_URL);
-  console.log('🆕 Endpoint:', endpoint);
-  
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  };
+  const headers = await authHeaders({
+    'Content-Type': 'application/json',
+    ...options.headers,
+  });
 
-  const finalOptions = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers,
-    },
-  };
+  const { headers: _ignored, ...rest } = options;
+  const response = await fetch(url, {
+    ...rest,
+    headers
+  });
 
-  try {
-    console.log('🆕 Haciendo petición a:', url);
-    const response = await fetch(url, finalOptions);
-    
-    console.log('🆕 Response status:', response.status);
-    console.log('🆕 Response ok:', response.ok);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('🆕 Response data:', data);
-    console.log('🆕 Response data type:', typeof data);
-    console.log('🆕 Response data is array:', Array.isArray(data));
-    console.log('🆕 Response data length:', Array.isArray(data) ? data.length : 'Not an array');
-    console.log('🆕 Response data keys:', typeof data === 'object' ? Object.keys(data) : 'Not an object');
-    
-    return data;
-  } catch (error) {
-    console.error(`🆕 Error en petición a ${url}:`, error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
   }
+
+  return response.json();
 };
 
 // Funciones específicas para cada endpoint
@@ -72,16 +43,14 @@ export const api = {
       if (saved) {
         savedConfig = JSON.parse(saved);
       }
-    } catch (error) {
-      console.warn('Error cargando configuración guardada de Alegra:', error);
+    } catch {
+      savedConfig = null;
     }
     
     const config = getDefaultConfig();
     const finalDias = dias || savedConfig?.dias || config.dias;
     const finalLimit = limit || savedConfig?.limit || config.limit;
     const finalMaxInvoices = maxInvoices || savedConfig?.maxInvoices || config.maxInvoices;
-    
-    console.log(`🔧 API Alegra: usando configuración - días: ${finalDias}, limit: ${finalLimit}, maxInvoices: ${finalMaxInvoices}`);
     
     return apiRequest(`/api/alegra/invoices?dias=${finalDias}&limit=${finalLimit}&maxInvoices=${finalMaxInvoices}`);
   }, // 🆕 Límite configurable con paginación múltiple
@@ -92,8 +61,8 @@ export const api = {
     body: JSON.stringify(data),
   }),
   getAlegraQuoteStatus: (id) => apiRequest(`/api/alegra/quote-status/${id}`),
-  getAlegraEstimatesUnbilled: (maxEstimates = 150, role = '') =>
-    apiRequest(`/api/alegra/estimates?maxEstimates=${maxEstimates}&role=${encodeURIComponent(role)}`),
+  getAlegraEstimatesUnbilled: (maxEstimates = 150) =>
+    apiRequest(`/api/alegra/estimates?maxEstimates=${maxEstimates}`),
   getAlegraEstadoCuenta: (clienteId) => apiRequest(`/api/alegra/estado-cuenta/${clienteId}`),
   
   // 🆕 Estado de cuenta desde caché
@@ -116,12 +85,8 @@ export const api = {
   syncProductosAlegra: () => apiRequest('/api/sync-productos-alegra', { method: 'POST' }),
 
   // Presupuestos
-  getPresupuestos: (email, role, params = {}) => {
-    const queryParams = new URLSearchParams({
-      email: encodeURIComponent(email),
-      role: encodeURIComponent(role),
-      ...params
-    });
+  getPresupuestos: (_email, _role, params = {}) => {
+    const queryParams = new URLSearchParams(params);
     return apiRequest(`/api/presupuestos?${queryParams.toString()}`);
   },
   createPresupuesto: (data) => apiRequest('/api/presupuestos', {
@@ -195,7 +160,7 @@ export const api = {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'text/markdown' }
+      headers: await authHeaders({ Accept: 'text/markdown' })
     });
 
     if (!response.ok) {
@@ -235,25 +200,15 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(params),
   }),
-  previewKeepLatest: (days = 60, role = 'admin') =>
-    apiRequest(`/api/cleanup/keep-latest?days=${days}&role=${encodeURIComponent(role)}`),
-  executeKeepLatest: (days = 60, role = 'admin') => apiRequest('/api/cleanup/keep-latest', {
+  previewKeepLatest: (days = 60) =>
+    apiRequest(`/api/cleanup/keep-latest?days=${days}`),
+  executeKeepLatest: (days = 60) => apiRequest('/api/cleanup/keep-latest', {
     method: 'POST',
-    body: JSON.stringify({ days, role }),
+    body: JSON.stringify({ days }),
   }),
 
   // 🆕 Sincronizar presupuestos desde Alegra
-  sincronizarPresupuestosDesdeAlegra: async () => {
-    try {
-      console.log('🔄 Iniciando sincronización desde Alegra...');
-      const response = await apiRequest('/api/presupuestos/sincronizar-alegra', {
-        method: 'POST'
-      });
-      console.log('🔄 Respuesta de sincronización:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Error sincronizando desde Alegra:', error);
-      throw error;
-    }
-  },
+  sincronizarPresupuestosDesdeAlegra: () => apiRequest('/api/presupuestos/sincronizar-alegra', {
+    method: 'POST'
+  }),
 }; 

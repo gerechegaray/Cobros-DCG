@@ -69,12 +69,6 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
       const fechaVencimiento = gasto.fechaVencimiento ? new Date(gasto.fechaVencimiento) : null;
       const fechaPago = gasto.fechaPago ? new Date(gasto.fechaPago) : null;
       
-      console.log('Cargando gasto para edición:', gasto);
-      console.log('fechaVencimiento original:', gasto.fechaVencimiento);
-      console.log('fechaVencimiento convertida:', fechaVencimiento);
-      console.log('fechaPago original:', gasto.fechaPago);
-      console.log('fechaPago convertida:', fechaPago);
-      
       reset({
         categoria: gasto.categoria || '',
         subcategoria: gasto.subcategoria || '',
@@ -188,15 +182,6 @@ const GastoForm = ({ visible, onHide, gasto, onSuccess, user }) => {
       };
 
       // Debug: Log de los datos que se van a guardar
-      console.log('Datos del formulario:', data);
-      console.log('Estado de pago:', estadoPago);
-      console.log('Fecha de pago:', data.fechaPago);
-      console.log('Fecha de pago tipo:', typeof data.fechaPago);
-      console.log('Fecha de pago instanceof Date:', data.fechaPago instanceof Date);
-      console.log('Datos finales del gasto:', gastoData);
-      console.log('fechaPago en gastoData:', gastoData.fechaPago);
-      console.log('fechaPago en gastoData tipo:', typeof gastoData.fechaPago);
-
       if (gasto) {
         await actualizarGasto(gasto.id, gastoData, user);
         setToast({ severity: 'success', summary: 'Éxito', detail: 'Gasto actualizado correctamente' });

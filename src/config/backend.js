@@ -52,7 +52,7 @@ export const getApiUrl = (endpoint) => {
 // Función para verificar el estado del backend
 export const checkBackendStatus = async () => {
   try {
-    const response = await fetch(`${BACKEND_CONFIG.API_BASE_URL}/api/alegra/contacts`);
+    const response = await fetch(`${BACKEND_CONFIG.API_BASE_URL}/api/health`);
     return {
       status: 'online',
       url: BACKEND_CONFIG.API_BASE_URL,

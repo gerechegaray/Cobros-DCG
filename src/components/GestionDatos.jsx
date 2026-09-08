@@ -88,7 +88,6 @@ function GestionDatos({ user }) {
         }
       }
     } catch (error) {
-      console.log('Error obteniendo nombre de vendedor:', error);
     }
     return `Vendedor ${vendedorId}`;
   };
@@ -730,7 +729,6 @@ function GestionDatos({ user }) {
         setClientes(cacheData.data || []);
       }
     } catch (error) {
-      console.log('Error cargando clientes:', error);
       setClientes([]);
     }
   };

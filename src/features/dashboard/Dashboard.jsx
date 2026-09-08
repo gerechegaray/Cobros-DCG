@@ -56,7 +56,6 @@ function Dashboard({ user }) {
         ALEGRA_CONFIG.INVOICES.DEFAULT_TOTAL
       );
       setFacturasAlegra(facturas);
-      console.log(`✅ Facturas de Alegra cargadas: ${facturas.length} (configuración: ${ALEGRA_CONFIG.INVOICES.DEFAULT_TOTAL} total, ${ALEGRA_CONFIG.INVOICES.MAX_PER_REQUEST} por petición)`);
     } catch (error) {
       console.error('❌ Error cargando facturas de Alegra:', error);
       setFacturasAlegra([]);
