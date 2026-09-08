@@ -286,11 +286,17 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
     if (activeStep === 0) {
       return (
         <div className="p-3">
-          <h3 className="text-xl font-bold mb-3">Cliente</h3>
+          <h3 className="text-xl font-bold mb-2">Cliente</h3>
+          <p className="text-sm mb-3" style={{ color: 'var(--dcg-text-muted)' }}>
+            Tocá un cliente para seguir
+          </p>
           <ClientePickerMovil
             clientes={clientes}
             value={typeof cliente === 'object' ? cliente : null}
-            onChange={setCliente}
+            onChange={(elegido) => {
+              setCliente(elegido);
+              if (elegido) setActiveStep(1);
+            }}
             disabled={loading}
           />
         </div>
@@ -468,7 +474,7 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
         className="p-fluid pedido-form-movil"
         contentStyle={{ padding: '0' }}
       >
-        <div style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
+        <div className="form-movil-scroll">
           {renderPaso()}
         </div>
       </Dialog>

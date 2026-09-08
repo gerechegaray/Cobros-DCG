@@ -182,7 +182,7 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
         contentStyle={{ padding: '0' }}
         dismissableMask={!loading}
       >
-        <div className="p-4" style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
+        <div className="p-4 form-movil-scroll">
           <div className="field mb-4">
             <label className="block mb-2 font-semibold">Cliente <span className="text-red-500">*</span></label>
             <ClientePickerMovil

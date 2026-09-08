@@ -73,58 +73,25 @@ function Navbar({ user, onLogout, menuItems }) {
         className={`navbar-dcg ${navExpanded ? "navbar-dcg--expanded" : "navbar-dcg--collapsed"}`}
         style={{
           background: "linear-gradient(135deg, var(--dcg-azul-oscuro) 0%, var(--dcg-azul-claro) 50%, var(--dcg-azul-oscuro) 100%)",
-          padding: "1rem 2rem",
           boxShadow: "var(--dcg-shadow-lg)",
           position: "sticky",
           top: 0,
           zIndex: 1000,
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
           width: "100%"
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap"
-          }}
-        >
+        <div className="navbar-dcg-inner">
           {/* Logo DCG */}
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <div
-              style={{
-                background: "rgba(255, 255, 255, 0.15)",
-                padding: "0.75rem",
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
-              <div style={{ 
-                fontSize: "1.5rem", 
-                fontWeight: "bold",
-                color: "white",
-                textShadow: "0 2px 4px rgba(0,0,0,0.3)"
-              }}>
-                DCG
-              </div>
+          <div className="navbar-dcg-brand">
+            <div className="navbar-dcg-logo">
+              <div>DCG</div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-              <h1 style={{ color: "white", margin: 0, fontSize: "1.5rem", fontWeight: "700" }}>
-                Sistema de Gestión DCG
+            <div>
+              <h1>
+                <span className="navbar-dcg-title-full">Sistema de Gestión DCG</span>
+                <span className="navbar-dcg-title-short">Gestión DCG</span>
               </h1>
-              <div
-                className="navbar-dcg-brand-sub"
-                style={{
-                  color: "rgba(255, 255, 255, 0.8)",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                  marginTop: "-4px"
-                }}
-              >
+              <div className="navbar-dcg-brand-sub">
                 DISTRIBUCIONES
               </div>
             </div>
@@ -243,15 +210,9 @@ function Navbar({ user, onLogout, menuItems }) {
           {/* Botón móvil */}
           <Button
             icon="pi pi-bars"
-            className="p-button-text"
-            style={{
-              color: "white",
-              display: "none",
-              backgroundColor: "rgba(255, 255, 255, 0.15)",
-              borderRadius: "12px",
-              padding: "0.75rem"
-            }}
+            className="p-button-text navbar-dcg-menu-btn"
             onClick={() => setSidebarVisible(true)}
+            aria-label="Menú"
           />
         </div>
       </nav>
@@ -363,8 +324,8 @@ function Navbar({ user, onLogout, menuItems }) {
           nav.navbar-dcg .navbar-dcg-desktop-cluster {
             display: none !important;
           }
-          nav.navbar-dcg > div > button {
-            display: block !important;
+          nav.navbar-dcg .navbar-dcg-menu-btn {
+            display: inline-flex !important;
           }
         }
       `}</style>

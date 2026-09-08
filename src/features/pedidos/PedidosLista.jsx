@@ -461,7 +461,37 @@ const PedidosLista = ({ user }) => {
         </div>
       </Panel>
 
-      {/* Tabla de pedidos */}
+      {esMovil ? (
+        <div className="lista-movil">
+          <div className="lista-movil__toolbar">
+            <h3>Pedidos ({pedidosFiltrados.length})</h3>
+            <Button
+              label="Nuevo"
+              icon="pi pi-plus"
+              onClick={handleNuevoPedido}
+              className="p-button-success"
+            />
+          </div>
+          {loading && <p className="lista-movil__vacio">Cargando...</p>}
+          {!loading && pedidosFiltrados.length === 0 && (
+            <p className="lista-movil__vacio">No hay pedidos</p>
+          )}
+          {pedidosFiltrados.map((pedidoItem) => (
+            <article key={pedidoItem.id} className="lista-movil__card">
+              <div className="lista-movil__top">
+                <strong>{pedidoItem.cliente}</strong>
+                <span className="lista-movil__monto">{formatearMoneda(pedidoItem.total)}</span>
+              </div>
+              <div className="lista-movil__meta">
+                <span>{formatearFecha(pedidoItem.fechaPedido)}</span>
+                <Tag value={getLabelEstado(pedidoItem.estado)} severity={getColorEstado(pedidoItem.estado)} />
+                {pedidoItem.origen === 'presupuesto' && <Tag value="Presupuesto" severity="info" />}
+              </div>
+              <div className="lista-movil__actions">{accionesTemplate(pedidoItem)}</div>
+            </article>
+          ))}
+        </div>
+      ) : (
       <div className="pedidos-table">
         <DataTable
           value={pedidosFiltrados}
@@ -508,6 +538,7 @@ const PedidosLista = ({ user }) => {
         <Column body={accionesTemplate} header="Acciones" style={{ width: '180px' }} />
       </DataTable>
       </div>
+      )}
 
       {/* Formulario de pedido */}
       {/* 🆕 Usar formulario móvil o desktop según detección */}

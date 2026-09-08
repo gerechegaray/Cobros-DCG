@@ -102,7 +102,7 @@
 
 /* Ajustes para el formulario en móvil */
 @media (max-width: 768px) {
-  .p-dialog {
+  .p-dialog:not(.pedido-form-movil):not(.cobro-form-movil) {
     width: 95vw !important;
     max-width: 95vw !important;
   }

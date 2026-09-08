@@ -354,7 +354,7 @@ const CobrosLista = ({ user }) => {
       <ConfirmDialog />
       
       <Card className="cobros-lista">
-        {headerTemplate}
+        {!esMovil && headerTemplate}
         
         {/* Panel de filtros desplegable */}
         <Panel 
@@ -442,6 +442,46 @@ const CobrosLista = ({ user }) => {
           </div>
         </Panel>
 
+        {esMovil ? (
+          <div className="lista-movil">
+            <div className="lista-movil__toolbar">
+              <h3>{isAdmin ? 'Cobros' : 'Mis cobros'} ({getCobrosFiltrados().length})</h3>
+              <Button
+                label="Nuevo"
+                icon="pi pi-plus"
+                onClick={handleNuevoCobro}
+              />
+            </div>
+            {loading && <p className="lista-movil__vacio">Cargando...</p>}
+            {!loading && getCobrosFiltrados().length === 0 && (
+              <p className="lista-movil__vacio">No hay cobros</p>
+            )}
+            {getCobrosFiltrados()
+              .filter((cobro) => {
+                if (!globalFilter) return true;
+                const q = globalFilter.toLowerCase();
+                return String(cobro.cliente || '').toLowerCase().includes(q)
+                  || String(cobro.notas || '').toLowerCase().includes(q);
+              })
+              .map((cobro) => (
+                <article key={cobro.id} className="lista-movil__card">
+                  <div className="lista-movil__top">
+                    <strong>{cobro.cliente}</strong>
+                    <span className="lista-movil__monto">{formatearMonto(cobro.monto)}</span>
+                  </div>
+                  <div className="lista-movil__meta">
+                    <span>{formatearFecha(cobro.fechaCobro)}</span>
+                    <span>{getFormaPagoLabel(cobro.formaPago)}</span>
+                    <Tag
+                      value={getEstadoLabel(cobro.estado)}
+                      severity={ESTADO_COLORS[cobro.estado]}
+                    />
+                  </div>
+                  <div className="lista-movil__actions">{accionesTemplate(cobro)}</div>
+                </article>
+              ))}
+          </div>
+        ) : (
         <div className="cobros-table">
           <DataTable
             value={getCobrosFiltrados()}
@@ -517,6 +557,7 @@ const CobrosLista = ({ user }) => {
           />
         </DataTable>
         </div>
+        )}
       </Card>
 
       {/* 🆕 Usar formulario móvil solo para crear nuevos cobros, desktop para editar */}
