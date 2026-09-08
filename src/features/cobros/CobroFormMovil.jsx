@@ -4,6 +4,7 @@ import { Button } from 'primereact/button';
 import { InputNumber } from 'primereact/inputnumber';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Toast } from 'primereact/toast';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { crearCobro } from './cobrosService';
 import { FORMAS_PAGO } from './constants';
 import { getClientesCatalogo } from '../../services/firebase';
@@ -102,6 +103,30 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
     return true;
   };
 
+  const cerrarYBorrar = () => {
+    borrarBorradorCobro();
+    limpiarFormulario();
+    onHide();
+  };
+
+  const handleCerrar = () => {
+    if (loading) return;
+    const hayDatos = Boolean(cliente || monto || observaciones.trim());
+    if (!hayDatos) {
+      cerrarYBorrar();
+      return;
+    }
+    confirmDialog({
+      message: 'Se va a borrar el cliente y el monto de este cobro.',
+      header: 'Descartar cobro',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, borrar',
+      rejectLabel: 'Seguir',
+      acceptClassName: 'p-button-danger',
+      accept: cerrarYBorrar
+    });
+  };
+
   const handleSubmit = async () => {
     if (!validarFormulario()) return;
 
@@ -153,7 +178,7 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
         label="Cancelar"
         icon="pi pi-times"
         className="p-button-text flex-1"
-        onClick={onHide}
+        onClick={handleCerrar}
         disabled={loading}
         style={{ padding: '12px', fontSize: '16px' }}
       />
@@ -171,16 +196,18 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
   return (
     <>
       <Toast ref={toast} />
+      <ConfirmDialog baseZIndex={4000} />
       <Dialog
         visible={visible}
-        onHide={onHide}
+        onHide={handleCerrar}
         header="Nuevo cobro"
         footer={footer}
         style={{ width: '100vw', maxWidth: '100%', height: '100vh', maxHeight: '100%' }}
         modal
+        closable={!loading}
         className="p-fluid cobro-form-movil"
         contentStyle={{ padding: '0' }}
-        dismissableMask={!loading}
+        dismissableMask={false}
       >
         <div className="p-4 form-movil-scroll cobro-form-campos">
           <div className="field mb-3">

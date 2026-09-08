@@ -231,7 +231,8 @@
   line-height: 1.3;
 }
 
-.lista-movil__monto {
+.lista-movil__monto,
+.lista-importe {
   font-weight: 700;
   white-space: nowrap;
   color: var(--dcg-azul-claro);

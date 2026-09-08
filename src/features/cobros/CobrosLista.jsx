@@ -233,7 +233,7 @@ const CobrosLista = ({ user }) => {
 
   // Templates para las columnas
   const montoTemplate = (rowData) => {
-    return <span data-label="Monto">{formatearMonto(rowData.monto)}</span>;
+    return <span data-label="Monto" className="lista-importe">{formatearMonto(rowData.monto)}</span>;
   };
 
   const fechaTemplate = (rowData) => {
@@ -493,8 +493,6 @@ const CobrosLista = ({ user }) => {
             rowsPerPageOptions={[10, 25, 50]}
             sortField="fechaCobro"
             sortOrder={-1}
-            responsiveLayout="stack"
-            breakpoint="768px"
             stripedRows
             className="mt-3"
           >

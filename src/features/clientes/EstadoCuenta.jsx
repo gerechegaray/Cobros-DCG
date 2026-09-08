@@ -26,7 +26,7 @@ import {
   severityEstado,
   totalVencido
 } from "./estadoCuentaUtils";
-import { dibujarBloqueDeuda, exportarEstadoCuentaClientePdf } from "./exportarEstadoCuentaPdf";
+import { dibujarBloqueDeuda, dibujarEncabezadoPdf, exportarEstadoCuentaClientePdf, compartirEstadoCuentaWhatsApp } from "./exportarEstadoCuentaPdf";
 import jsPDF from 'jspdf';
 import './EstadoCuenta.css';
 import '../../styles/estado-cuenta.css';
@@ -57,6 +57,7 @@ function EstadoCuenta({ user }) {
   const [mostrarDialogMasivo, setMostrarDialogMasivo] = useState(false);
   const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
   const [generandoReporte, setGenerandoReporte] = useState(false);
+  const [compartiendo, setCompartiendo] = useState(false);
 
   const boletasOrdenadas = useMemo(() => ordenarBoletas(boletas), [boletas]);
   const montoVencido = useMemo(() => totalVencido(boletas), [boletas]);
@@ -337,7 +338,13 @@ function EstadoCuenta({ user }) {
     </div>
   );
 
-  const exportarPDF = () => {
+  const datosPdfCliente = () => ({
+    nombreCliente: nombreClienteCuenta(cliente, boletas),
+    facturas: boletas,
+    saldoAdeudado: totales.totalAdeudado
+  });
+
+  const exportarPDF = async () => {
     if (!cliente || boletas.length === 0) {
       toast.current.show({
         severity: 'warn',
@@ -348,23 +355,52 @@ function EstadoCuenta({ user }) {
     }
 
     try {
-      exportarEstadoCuentaClientePdf({
-        nombreCliente: nombreClienteCuenta(cliente, boletas),
-        facturas: boletas,
-        saldoAdeudado: totales.totalAdeudado
-      });
+      await exportarEstadoCuentaClientePdf(datosPdfCliente());
       toast.current.show({
         severity: 'success',
         summary: 'PDF exportado',
-        detail: 'Estado de cuenta listo para imprimir'
+        detail: 'Se descargó el PDF para imprimir o guardar'
       });
     } catch (error) {
       console.error('Error al exportar PDF:', error);
       toast.current.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'No se pudo exportar el PDF'
+        detail: 'No se pudo generar el PDF'
       });
+    }
+  };
+
+  const compartirWhatsApp = async () => {
+    if (!cliente || boletas.length === 0) {
+      toast.current.show({
+        severity: 'warn',
+        summary: 'Sin datos',
+        detail: 'No hay estado de cuenta para compartir'
+      });
+      return;
+    }
+
+    setCompartiendo(true);
+    try {
+      const modo = await compartirEstadoCuentaWhatsApp(datosPdfCliente());
+      if (modo === 'whatsapp' || modo === 'texto') {
+        toast.current.show({
+          severity: 'info',
+          summary: 'WhatsApp',
+          detail: 'Se abrió el mensaje. Si no adjuntó la imagen, el teléfono no permite compartir archivos desde acá.'
+        });
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      console.error('Error al compartir estado de cuenta:', error);
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo compartir el estado de cuenta'
+      });
+    } finally {
+      setCompartiendo(false);
     }
   };
 
@@ -376,27 +412,10 @@ function EstadoCuenta({ user }) {
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      let currentY = 20;
-
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('HOJA SÁBANA DE ESTADOS DE CUENTA', pageWidth / 2, 16, { align: 'center' });
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Generado el: ${new Date().toLocaleString('es-AR')}`, pageWidth - 10, 22, { align: 'right' });
-
-      doc.setFontSize(7);
-      doc.setTextColor(80, 80, 80);
-      doc.text(
-        'Leyenda: Vencida = vencimiento anterior a hoy (texto rojo). Pendiente = aún no vencida (texto azul).',
-        15,
-        29
-      );
-      doc.setTextColor(0, 0, 0);
-
-      currentY = 36;
+      let currentY = await dibujarEncabezadoPdf(doc, {
+        titulo: 'HOJA SÁBANA',
+        leyenda: 'Vencida = vencimiento anterior a hoy (rojo). Pendiente = aún no vencida (azul).'
+      });
 
       const clientesSinRefreshOk = [];
 
@@ -521,34 +540,55 @@ function EstadoCuenta({ user }) {
             </div>
             <div className="estado-cuenta-header-buttons">
               <Button
-                label="Volver"
+                label={esMovil ? undefined : 'Volver'}
                 icon="pi pi-arrow-left"
                 className="p-button-outlined"
                 onClick={() => navigate('/dashboard')}
+                tooltip="Volver"
+                tooltipOptions={{ position: 'bottom' }}
+                aria-label="Volver"
               />
               {user?.role === 'admin' && (
                 <Button
-                  label="Reporte masivo"
+                  label={esMovil ? undefined : 'Reporte masivo'}
                   icon="pi pi-users"
                   className="p-button-success"
                   onClick={() => setMostrarDialogMasivo(true)}
-                  tooltip="Generar hoja sábana de múltiples clientes (sin elegir uno individual)"
+                  tooltip="Reporte masivo"
+                  tooltipOptions={{ position: 'bottom' }}
+                  aria-label="Reporte masivo"
                 />
               )}
               {cliente && (
                 <>
                   <Button
-                    label={refreshingCache ? "Actualizando..." : "Actualizar ahora"}
-                    icon={refreshingCache ? "pi pi-spin pi-spinner" : "pi pi-refresh"}
+                    label={esMovil ? undefined : (refreshingCache ? 'Actualizando...' : 'Actualizar')}
+                    icon={refreshingCache ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'}
                     className="p-button-outlined"
                     onClick={actualizarDesdeAlegra}
                     disabled={refreshingCache}
+                    tooltip="Actualizar ahora"
+                    tooltipOptions={{ position: 'bottom' }}
+                    aria-label="Actualizar ahora"
                   />
                   <Button
-                    label="Exportar PDF"
-                    icon="pi pi-file-pdf"
+                    label={esMovil ? undefined : 'Imprimir / PDF'}
+                    icon="pi pi-print"
                     className="p-button-outlined"
                     onClick={exportarPDF}
+                    tooltip="Imprimir / exportar PDF"
+                    tooltipOptions={{ position: 'bottom' }}
+                    aria-label="Imprimir o exportar PDF"
+                  />
+                  <Button
+                    label={esMovil ? undefined : 'WhatsApp'}
+                    icon={compartiendo ? 'pi pi-spin pi-spinner' : 'pi pi-whatsapp'}
+                    className="p-button-outlined cuenta-btn-whatsapp"
+                    onClick={compartirWhatsApp}
+                    disabled={compartiendo}
+                    tooltip="Compartir por WhatsApp"
+                    tooltipOptions={{ position: 'bottom' }}
+                    aria-label="Compartir por WhatsApp"
                   />
                 </>
               )}

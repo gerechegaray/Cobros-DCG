@@ -278,7 +278,7 @@ const PedidosLista = ({ user }) => {
   };
 
   const totalTemplate = (rowData) => {
-    return <span data-label="Total">{formatearMoneda(rowData.total)}</span>;
+    return <span data-label="Total" className="lista-importe">{formatearMoneda(rowData.total)}</span>;
   };
 
   const vendedorTemplate = (rowData) => {
@@ -501,8 +501,6 @@ const PedidosLista = ({ user }) => {
           rowsPerPageOptions={[10, 20, 50]}
           loading={loading}
           emptyMessage="No hay pedidos registrados"
-          responsiveLayout="stack"
-          breakpoint="960px"
           dataKey="id"
           selection={pedidosSeleccionados}
           onSelectionChange={(e) => setPedidosSeleccionados(Array.isArray(e.value) ? e.value : [])}
@@ -529,12 +527,14 @@ const PedidosLista = ({ user }) => {
           body={totalTemplate}
           sortable 
         />
-        <Column 
-          field="vendedorNombre" 
-          header="Vendedor" 
-          body={vendedorTemplate}
-          sortable 
-        />
+        {esAdmin && (
+          <Column 
+            field="vendedorNombre" 
+            header="Vendedor" 
+            body={vendedorTemplate}
+            sortable 
+          />
+        )}
         <Column body={accionesTemplate} header="Acciones" style={{ width: '180px' }} />
       </DataTable>
       </div>

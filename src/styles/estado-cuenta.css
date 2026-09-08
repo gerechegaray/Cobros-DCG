@@ -83,19 +83,6 @@
   }
 }
 
-@media (max-width: 767px) {
-  .estado-cuenta-header-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.45rem;
-  }
-
-  .estado-cuenta-header-buttons .p-button {
-    width: 100% !important;
-    padding: 0.55rem 0.65rem !important;
-  }
-}
-
 .estado-cuenta-header-buttons .p-button {
   border-radius: var(--border-radius-xl) !important; /* Estilo pill */
   padding: var(--spacing-3) var(--spacing-5) !important;
@@ -113,6 +100,33 @@
   color: var(--dcg-azul-claro) !important;
   transform: translateY(-1px);
   box-shadow: var(--dcg-shadow-sm);
+}
+
+.estado-cuenta-header-buttons .cuenta-btn-whatsapp.p-button {
+  color: #25d366 !important;
+  border-color: #25d366 !important;
+}
+
+.estado-cuenta-header-buttons .cuenta-btn-whatsapp.p-button:hover {
+  color: #128c7e !important;
+  border-color: #128c7e !important;
+}
+
+@media (max-width: 767px) {
+  .estado-cuenta-header-buttons {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .estado-cuenta-header-buttons .p-button {
+    width: 2.55rem !important;
+    min-width: 2.55rem !important;
+    height: 2.55rem !important;
+    padding: 0 !important;
+  }
 }
 
 .estado-cuenta-header-buttons .p-button:disabled {
