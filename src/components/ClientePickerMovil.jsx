@@ -31,27 +31,34 @@ function ClientePickerMovil({ clientes, value, onChange, loading, disabled }) {
 
   const mostrarRecientes = !busqueda.trim() && recientes.length > 0;
 
+  if (value) {
+    return (
+      <div className="cliente-picker-movil">
+        <button
+          type="button"
+          className="cliente-picker-movil__elegido"
+          onClick={() => {
+            setBusqueda('');
+            onChange(null);
+          }}
+          disabled={disabled}
+        >
+          <span>{nombreCliente(value)}</span>
+          <span className="cliente-picker-movil__cambiar">cambiar</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="cliente-picker-movil">
       <InputText
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
         placeholder={loading ? 'Cargando clientes...' : 'Buscar cliente'}
-        className="w-full"
+        className="w-full pedido-busqueda"
         disabled={disabled || loading}
-        style={{ fontSize: '16px', padding: '12px' }}
       />
-
-      {value && (
-        <button
-          type="button"
-          className="cliente-picker-movil__elegido"
-          onClick={() => onChange(null)}
-        >
-          <span>{nombreCliente(value)}</span>
-          <span className="cliente-picker-movil__cambiar">cambiar</span>
-        </button>
-      )}
 
       {mostrarRecientes && (
         <div className="cliente-picker-movil__bloque">
@@ -81,7 +88,7 @@ function ClientePickerMovil({ clientes, value, onChange, loading, disabled }) {
           <button
             key={cliente.id}
             type="button"
-            className={`cliente-picker-movil__item ${value?.id === cliente.id ? 'is-active' : ''}`}
+            className="cliente-picker-movil__item"
             onClick={() => onChange(cliente)}
             disabled={disabled}
           >

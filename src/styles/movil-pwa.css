@@ -274,4 +274,122 @@
   .lista-movil ~ .p-datatable {
     display: none;
   }
+
+  .pedido-cliente-chip {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    border: 1px solid var(--dcg-azul-claro);
+    background: var(--dcg-azul-claro-alpha);
+    color: var(--dcg-text-primary);
+    font-size: 0.95rem;
+  }
+
+  .pedido-cliente-chip span:last-child {
+    color: var(--dcg-azul-claro);
+    font-size: 0.8rem;
+  }
+
+  .pedido-busqueda.p-inputtext {
+    font-size: 16px;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--dcg-azul-claro) !important;
+    background: var(--dcg-bg-tertiary);
+  }
+
+  .pedido-agregar {
+    border: 1px solid var(--dcg-border);
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin: 0.5rem 0 0.75rem;
+    background: var(--dcg-bg-elevated);
+  }
+
+  .pedido-agregar__nombre {
+    font-weight: 600;
+    margin: 0 0 0.6rem;
+  }
+
+  .pedido-agregar__fila {
+    display: grid;
+    grid-template-columns: 1.3fr 0.9fr;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .pedido-linea {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.65rem 0.2rem 0.65rem 0;
+    border-bottom: 1px solid var(--dcg-border);
+  }
+
+  .pedido-linea__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .pedido-linea__info strong {
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .pedido-linea__info span {
+    font-size: 0.78rem;
+    color: var(--dcg-text-muted);
+  }
+
+  .pedido-linea__total {
+    font-weight: 700;
+    white-space: nowrap;
+    font-size: 0.9rem;
+  }
+
+  .pedido-form-movil.p-fluid .pedido-linea__borrar {
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    flex-shrink: 0;
+  }
+
+  .pedido-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.75rem 0 1rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    background: var(--dcg-bg-elevated);
+    border: 1px solid var(--dcg-border);
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+
+  .pedido-form-footer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .pedido-form-movil.p-fluid .pedido-form-footer .p-button,
+  .cobro-form-movil.p-fluid .p-dialog-footer .p-button {
+    width: auto !important;
+  }
+
+  .pedido-form-movil.p-fluid .pedido-form-footer__guardar,
+  .cobro-form-movil.p-fluid .p-dialog-footer .p-button:last-child {
+    flex: 1;
+    width: auto !important;
+  }
 }

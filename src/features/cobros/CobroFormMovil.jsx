@@ -182,8 +182,8 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
         contentStyle={{ padding: '0' }}
         dismissableMask={!loading}
       >
-        <div className="p-4 form-movil-scroll">
-          <div className="field mb-4">
+        <div className="p-4 form-movil-scroll cobro-form-campos">
+          <div className="field mb-3">
             <label className="block mb-2 font-semibold">Cliente <span className="text-red-500">*</span></label>
             <ClientePickerMovil
               clientes={clientes}
@@ -194,7 +194,9 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
             />
           </div>
 
-          <div className="field mb-4">
+          {cliente && (
+            <>
+          <div className="field mb-3">
             <label htmlFor="monto-cobro-movil" className="block mb-2 font-semibold">
               Monto <span className="text-red-500">*</span>
             </label>
@@ -208,10 +210,11 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
               className="w-full"
               inputMode="decimal"
               inputStyle={{ fontSize: '18px', padding: '14px' }}
+              autoFocus
             />
           </div>
 
-          <div className="field mb-4">
+          <div className="field mb-3">
             <label className="block mb-2 font-semibold">Forma de pago</label>
             <div className="cobro-formas">
               {FORMAS_PAGO.map((opcion) => (
@@ -227,17 +230,19 @@ const CobroFormMovil = ({ visible, onHide, onSuccess, user }) => {
             </div>
           </div>
 
-          <div className="field mb-4">
+          <div className="field mb-3">
             <label htmlFor="obs-cobro-movil" className="block mb-2 font-semibold">Observaciones</label>
             <InputTextarea
               id="obs-cobro-movil"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
-              rows={3}
+              rows={2}
               className="w-full"
               style={{ fontSize: '16px', padding: '12px' }}
             />
           </div>
+            </>
+          )}
         </div>
       </Dialog>
     </>

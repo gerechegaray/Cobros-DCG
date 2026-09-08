@@ -3,10 +3,8 @@ import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
-import { Dropdown } from 'primereact/dropdown';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Toast } from 'primereact/toast';
-import { Card } from 'primereact/card';
 import { crearPedido, actualizarPedido, getProductos, getClientesAsignados } from './pedidosService';
 import { CONDICIONES_PAGO } from './constants';
 import { formatearMoneda, calcularTotal, calcularTotalProducto } from './utils';
@@ -304,20 +302,24 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
     }
 
     return (
-      <div className="p-3">
-        <h3 className="text-xl font-bold mb-2">Pedido</h3>
-        <p className="text-sm mb-3">{nombreCliente(cliente)}</p>
+      <div className="p-3 pedido-paso-productos">
+        <button
+          type="button"
+          className="pedido-cliente-chip"
+          onClick={() => setActiveStep(0)}
+        >
+          <span>{nombreCliente(cliente)}</span>
+          <span>cambiar</span>
+        </button>
 
-        <div className="field mb-3">
-          <label htmlFor="producto-movil" className="block mb-2 font-semibold">Buscar producto</label>
+        <div className="field mb-2">
           <InputText
             id="producto-movil"
             value={busquedaProducto}
             onChange={(e) => setBusquedaProducto(e.target.value)}
-            placeholder={loadingProductos ? 'Cargando...' : 'Nombre o código'}
-            className="w-full"
+            placeholder={loadingProductos ? 'Cargando productos...' : 'Buscar producto o código'}
+            className="w-full pedido-busqueda"
             disabled={loadingProductos}
-            style={{ fontSize: '16px', padding: '12px' }}
           />
         </div>
 
@@ -336,91 +338,86 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
         ))}
 
         {productoSeleccionado && (
-          <Card className="mb-3 mt-2">
-            <div className="p-3">
-              <p className="font-semibold mb-2">{productoSeleccionado.nombre}</p>
-              <div className="field mb-3">
-                <label htmlFor="cantidad-movil" className="block mb-2">Cantidad</label>
-                <InputNumber
-                  id="cantidad-movil"
-                  value={cantidad}
-                  onValueChange={(e) => setCantidad(e.value || 1)}
-                  min={1}
-                  className="w-full"
-                  inputMode="numeric"
-                  inputStyle={{ fontSize: '16px', padding: '12px' }}
-                />
-              </div>
-              <div className="field mb-3">
-                <label htmlFor="descuento-movil" className="block mb-2">% Descuento</label>
-                <InputNumber
-                  id="descuento-movil"
-                  value={descuentoProducto}
-                  onValueChange={(e) => setDescuentoProducto(validarDescuento(e.value || 0))}
-                  min={0}
-                  max={100}
-                  suffix="%"
-                  className="w-full"
-                  inputStyle={{ fontSize: '16px', padding: '12px' }}
-                />
-              </div>
-              <Button
-                label="Agregar"
-                icon="pi pi-plus"
-                className="w-full p-button-success"
-                onClick={agregarProducto}
-                style={{ padding: '12px', fontSize: '16px' }}
+          <div className="pedido-agregar">
+            <p className="pedido-agregar__nombre">{productoSeleccionado.nombre}</p>
+            <div className="pedido-agregar__fila">
+              <InputNumber
+                id="cantidad-movil"
+                value={cantidad}
+                onValueChange={(e) => setCantidad(e.value || 1)}
+                min={1}
+                showButtons
+                buttonLayout="horizontal"
+                decrementButtonClassName="p-button-outlined"
+                incrementButtonClassName="p-button-outlined"
+                inputMode="numeric"
+              />
+              <InputNumber
+                id="descuento-movil"
+                value={descuentoProducto}
+                onValueChange={(e) => setDescuentoProducto(validarDescuento(e.value || 0))}
+                min={0}
+                max={100}
+                suffix="%"
+                placeholder="Desc."
               />
             </div>
-          </Card>
+            <Button
+              label="Agregar"
+              icon="pi pi-plus"
+              className="w-full p-button-success"
+              onClick={agregarProducto}
+            />
+          </div>
         )}
 
         {productosAgregados.map((prod, index) => (
-          <Card key={`${prod.id}-${index}`} className="mb-2">
-            <div className="flex justify-content-between align-items-start p-2">
-              <div>
-                <p className="font-semibold m-0">{prod.nombre}</p>
-                <p className="text-sm m-0">
-                  {prod.cantidad} x {formatearMoneda(prod.precioUnitario)}
-                  {prod.descuento > 0 ? ` · ${prod.descuento}%` : ''}
-                </p>
-                <p className="text-sm font-semibold m-0">{formatearMoneda(prod.total)}</p>
-              </div>
-              <Button
-                icon="pi pi-trash"
-                className="p-button-rounded p-button-danger p-button-text"
-                onClick={() => eliminarProducto(index)}
-              />
+          <div key={`${prod.id}-${index}`} className="pedido-linea">
+            <div className="pedido-linea__info">
+              <strong>{prod.nombre}</strong>
+              <span>
+                {prod.cantidad} × {formatearMoneda(prod.precioUnitario)}
+                {prod.descuento > 0 ? ` · ${prod.descuento}%` : ''}
+              </span>
             </div>
-          </Card>
+            <span className="pedido-linea__total">{formatearMoneda(prod.total)}</span>
+            <Button
+              icon="pi pi-trash"
+              className="p-button-rounded p-button-danger p-button-text pedido-linea__borrar"
+              onClick={() => eliminarProducto(index)}
+              aria-label="Quitar producto"
+            />
+          </div>
         ))}
 
-        <Card className="mb-3 mt-3">
-          <div className="flex justify-content-between align-items-center p-2">
-            <span className="font-bold">Total</span>
-            <span className="font-bold">{formatearMoneda(total)}</span>
-          </div>
-        </Card>
+        <div className="pedido-total">
+          <span>Total</span>
+          <span>{formatearMoneda(total)}</span>
+        </div>
 
         <div className="field mb-3">
-          <label htmlFor="condicion-movil" className="block mb-2 font-semibold">Condición de pago</label>
-          <Dropdown
-            id="condicion-movil"
-            value={condicionPago}
-            options={CONDICIONES_PAGO}
-            onChange={(e) => setCondicionPago(e.value)}
-            className="w-full"
-          />
+          <label className="block mb-2 font-semibold">Condición de pago</label>
+          <div className="cobro-formas">
+            {CONDICIONES_PAGO.map((opcion) => (
+              <button
+                key={opcion.value}
+                type="button"
+                className={`cobro-forma ${condicionPago === opcion.value ? 'is-active' : ''}`}
+                onClick={() => setCondicionPago(opcion.value)}
+              >
+                {opcion.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="field mb-3">
+        <div className="field mb-2">
           <label htmlFor="observaciones-movil" className="block mb-2 font-semibold">Observaciones</label>
           <InputTextarea
             id="observaciones-movil"
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
-            rows={3}
+            rows={2}
             className="w-full"
-            style={{ fontSize: '16px', padding: '12px' }}
           />
         </div>
       </div>
@@ -428,7 +425,7 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
   };
 
   const footer = (
-    <div className="flex justify-content-between gap-2 p-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+    <div className="pedido-form-footer">
       {activeStep > 0 && (
         <Button
           label="Atrás"
@@ -436,10 +433,8 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
           className="p-button-text"
           onClick={pasoAnterior}
           disabled={loading}
-          style={{ padding: '12px', fontSize: '16px' }}
         />
       )}
-      <div className="flex-1" />
       {activeStep < 1 ? (
         <Button
           label="Siguiente"
@@ -447,7 +442,6 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
           iconPos="right"
           onClick={siguientePaso}
           disabled={loading}
-          style={{ padding: '12px', fontSize: '16px' }}
         />
       ) : (
         <Button
@@ -455,7 +449,7 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
           icon="pi pi-check"
           onClick={handleSubmit}
           loading={loading}
-          style={{ padding: '12px', fontSize: '16px' }}
+          className="pedido-form-footer__guardar"
         />
       )}
     </div>
