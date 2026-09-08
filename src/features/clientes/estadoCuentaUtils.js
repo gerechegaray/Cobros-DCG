@@ -74,17 +74,6 @@ export function severityEstado(etiqueta) {
   return 'info';
 }
 
-export function filtrarBoletas(boletas, filtro) {
-  const lista = boletas || [];
-  if (filtro === 'vencidas') {
-    return lista.filter((factura) => !estaPagada(factura) && esFacturaVencida(factura.fechaVencimiento));
-  }
-  if (filtro === 'pendientes') {
-    return lista.filter((factura) => !estaPagada(factura));
-  }
-  return lista;
-}
-
 export function ordenarBoletas(boletas) {
   return [...(boletas || [])].sort((a, b) => {
     const aPagada = estaPagada(a) ? 1 : 0;
@@ -97,10 +86,6 @@ export function ordenarBoletas(boletas) {
     const diaB = soloDiaVencimientoComoEnTabla(b.fechaVencimiento)?.getTime() || 0;
     return diaA - diaB;
   });
-}
-
-export function boletasVisibles(boletas, filtro) {
-  return ordenarBoletas(filtrarBoletas(boletas, filtro));
 }
 
 export function totalVencido(boletas) {

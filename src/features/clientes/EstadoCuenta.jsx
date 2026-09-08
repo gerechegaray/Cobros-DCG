@@ -14,7 +14,6 @@ import { api } from "../../services/api";
 import { useEsMovil } from "../../hooks/useEsMovil";
 import ClientePickerMovil, { nombreCliente } from "../../components/ClientePickerMovil";
 import {
-  boletasVisibles as listarBoletasVisibles,
   esFacturaVencida,
   estaPagada,
   etiquetaEstado,
@@ -22,6 +21,7 @@ import {
   formatMonto,
   montoPendienteFactura,
   nombreClienteCuenta,
+  ordenarBoletas,
   proximosVencimientos,
   severityEstado,
   totalVencido
@@ -30,12 +30,6 @@ import { dibujarBloqueDeuda, exportarEstadoCuentaClientePdf } from "./exportarEs
 import jsPDF from 'jspdf';
 import './EstadoCuenta.css';
 import '../../styles/estado-cuenta.css';
-
-const FILTROS_BOLETA = [
-  { id: 'pendientes', label: 'Pendientes' },
-  { id: 'vencidas', label: 'Vencidas' },
-  { id: 'todas', label: 'Todas' }
-];
 
 function EstadoCuenta({ user }) {
   const location = useLocation();
@@ -53,7 +47,6 @@ function EstadoCuenta({ user }) {
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [cacheExists, setCacheExists] = useState(false);
   const [expandedRows, setExpandedRows] = useState(null);
-  const [filtroBoletas, setFiltroBoletas] = useState('pendientes');
   const [totales, setTotales] = useState({
     totalAdeudado: 0,
     totalPagado: 0,
@@ -65,10 +58,7 @@ function EstadoCuenta({ user }) {
   const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
   const [generandoReporte, setGenerandoReporte] = useState(false);
 
-  const boletasFiltradas = useMemo(
-    () => listarBoletasVisibles(boletas, filtroBoletas),
-    [boletas, filtroBoletas]
-  );
+  const boletasOrdenadas = useMemo(() => ordenarBoletas(boletas), [boletas]);
   const montoVencido = useMemo(() => totalVencido(boletas), [boletas]);
   const listaProximos = useMemo(() => proximosVencimientos(boletas, 5), [boletas]);
 
@@ -626,21 +616,7 @@ function EstadoCuenta({ user }) {
 
         {cliente && (
           <div className="estado-cuenta-tabla-container">
-            <div className="cuenta-tabla-toolbar">
-              <h3 className="estado-cuenta-tabla-title">Facturas</h3>
-              <div className="cuenta-filtros">
-                {FILTROS_BOLETA.map((filtro) => (
-                  <button
-                    key={filtro.id}
-                    type="button"
-                    className={`cuenta-filtro ${filtroBoletas === filtro.id ? 'is-active' : ''}`}
-                    onClick={() => setFiltroBoletas(filtro.id)}
-                  >
-                    {filtro.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <h3 className="estado-cuenta-tabla-title">Facturas</h3>
             {loading ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
                 <ProgressSpinner />
@@ -650,10 +626,10 @@ function EstadoCuenta({ user }) {
               <>
                 <div className="vista-desktop estado-cuenta-table">
                   <DataTable
-                    value={boletasFiltradas}
+                    value={boletasOrdenadas}
                     paginator
                     rows={20}
-                    emptyMessage="No hay facturas en este filtro."
+                    emptyMessage="No hay facturas para mostrar."
                     className="p-datatable-sm"
                     dataKey="numero"
                     expandedRows={expandedRows}
@@ -697,10 +673,10 @@ function EstadoCuenta({ user }) {
                 </div>
 
                 <div className="vista-movil">
-                  {boletasFiltradas.length === 0 ? (
-                    <p className="lista-movil__vacio">No hay facturas en este filtro.</p>
+                  {boletasOrdenadas.length === 0 ? (
+                    <p className="lista-movil__vacio">No hay facturas para mostrar.</p>
                   ) : (
-                    boletasFiltradas.map((boleta, index) => {
+                    boletasOrdenadas.map((boleta, index) => {
                       const adeudado = montoPendienteFactura(boleta);
                       const etiqueta = etiquetaEstado(boleta);
                       const abierta = Boolean(expandedRows?.[boleta.numero]);
