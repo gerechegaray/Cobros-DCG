@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
@@ -6,35 +6,54 @@ import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
-import { useRef } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Dropdown } from "primereact/dropdown";
 import { MultiSelect } from "primereact/multiselect";
 import { Dialog } from "primereact/dialog";
-import { getEstadoCuenta } from "../../services/alegra";
 import { api } from "../../services/api";
-import html2canvas from 'html2canvas';
+import { useEsMovil } from "../../hooks/useEsMovil";
+import ClientePickerMovil, { nombreCliente } from "../../components/ClientePickerMovil";
+import {
+  boletasVisibles as listarBoletasVisibles,
+  esFacturaVencida,
+  estaPagada,
+  etiquetaEstado,
+  formatFecha,
+  formatMonto,
+  montoPendienteFactura,
+  nombreClienteCuenta,
+  proximosVencimientos,
+  severityEstado,
+  totalVencido
+} from "./estadoCuentaUtils";
+import { dibujarBloqueDeuda, exportarEstadoCuentaClientePdf } from "./exportarEstadoCuentaPdf";
 import jsPDF from 'jspdf';
 import './EstadoCuenta.css';
 import '../../styles/estado-cuenta.css';
+
+const FILTROS_BOLETA = [
+  { id: 'pendientes', label: 'Pendientes' },
+  { id: 'vencidas', label: 'Vencidas' },
+  { id: 'todas', label: 'Todas' }
+];
 
 function EstadoCuenta({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useRef(null);
+  const esMovil = useEsMovil();
   
   const [cliente, setCliente] = useState(null);
   const [clientes, setClientes] = useState([]);
   const [loadingClientes, setLoadingClientes] = useState(true);
   const [boletas, setBoletas] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [refreshingCache, setRefreshingCache] = useState(false); // 🆕 Estado para refresh de caché
-  const [ultimaActualizacion, setUltimaActualizacion] = useState(null); // 🆕 Timestamp de última actualización
-  const [cacheExists, setCacheExists] = useState(false); // 🆕 Indica si existe caché
-  const [expandedProductos, setExpandedProductos] = useState({}); // 🆕 Estado para productos expandidos
-  const [expandedRows, setExpandedRows] = useState({}); // 🆕 Estado combinado para expansión
+  const [refreshingCache, setRefreshingCache] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
+  const [cacheExists, setCacheExists] = useState(false);
+  const [expandedRows, setExpandedRows] = useState(null);
+  const [filtroBoletas, setFiltroBoletas] = useState('pendientes');
   const [totales, setTotales] = useState({
     totalAdeudado: 0,
     totalPagado: 0,
@@ -46,41 +65,19 @@ function EstadoCuenta({ user }) {
   const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
   const [generandoReporte, setGenerandoReporte] = useState(false);
 
-  // Obtener el sellerId según el rol del usuario
+  const boletasFiltradas = useMemo(
+    () => listarBoletasVisibles(boletas, filtroBoletas),
+    [boletas, filtroBoletas]
+  );
+  const montoVencido = useMemo(() => totalVencido(boletas), [boletas]);
+  const listaProximos = useMemo(() => proximosVencimientos(boletas, 5), [boletas]);
+
   const getSellerId = () => {
     if (user?.role === 'Guille') return 1;
     if (user?.role === 'Santi') return 2;
     if (user?.role === 'admin') return null; // Admin ve todos
     return null;
   };
-
-  // 🆕 Función para alternar la expansión de productos
-  const toggleProductos = (numero) => {
-    setExpandedProductos(prev => ({
-      ...prev,
-      [numero]: !prev[numero]
-    }));
-
-    // También actualizar el estado combinado de expansión
-    setExpandedRows(prev => ({
-      ...prev,
-      [numero]: !prev[numero]
-    }));
-  };
-
-  // 🆕 Inicializar estado de expansión cuando se cargan las boletas
-  useEffect(() => {
-    if (boletas.length > 0) {
-      const estadoInicial = {};
-      boletas.forEach(boleta => {
-        // Expandir automáticamente si tiene pagos
-        if (boleta.pagos && boleta.pagos.length > 0) {
-          estadoInicial[boleta.numero] = true;
-        }
-      });
-      setExpandedRows(estadoInicial);
-    }
-  }, [boletas]);
 
   // Cargar clientes al montar el componente
   useEffect(() => {
@@ -170,10 +167,10 @@ function EstadoCuenta({ user }) {
 
   const handleClienteChange = (clienteSeleccionado) => {
     setCliente(clienteSeleccionado);
+    setExpandedRows(null);
     if (clienteSeleccionado) {
       cargarEstadoCuenta(clienteSeleccionado);
     } else {
-      // Limpiar datos si no hay cliente seleccionado
       setBoletas([]);
       setTotales({
         totalAdeudado: 0,
@@ -304,180 +301,49 @@ function EstadoCuenta({ user }) {
     }
   };
 
-  const formatFecha = (fecha) => {
-    if (!fecha) return "";
-    const date = new Date(fecha);
-    // Ajustar a zona horaria de Argentina (UTC-3)
-    const fechaArgentina = new Date(date.getTime() + (3 * 60 * 60 * 1000));
-    return fechaArgentina.toLocaleDateString("es-AR", {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+  const estadoBody = (rowData) => {
+    const etiqueta = etiquetaEstado(rowData);
+    return <Tag value={etiqueta} severity={severityEstado(etiqueta)} />;
   };
 
-  const formatMonto = (monto) => {
-    // Convertir a número y validar
-    const numMonto = Number(monto);
-    if (isNaN(numMonto) || numMonto === null || numMonto === undefined) {
-      return '$0,00';
-    }
-    
-    try {
-      const formatted = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS'
-      }).format(numMonto);
-      
-      // Asegurar que devuelva string
-      const result = String(formatted);
-      return result;
-    } catch (error) {
-      console.error('Error formateando monto:', error, monto);
-      return '$0,00';
-    }
-  };
-
-  /**
-   * Día calendario de HOY en el navegador (sin correr fechas de factura).
-   */
-  const soloDiaHoyCalendario = () => {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
-  };
-
-  /**
-   * Día de vencimiento alineado con lo que muestra `formatFecha` (mismo +3h).
-   * Evita que "2026-04-09" en UTC se lea como 08/04 local y desfase leyenda vs columna Venc.
-   */
-  const soloDiaVencimientoComoEnTabla = (fechaVencimiento) => {
-    if (!fechaVencimiento) return null;
-    const date = new Date(fechaVencimiento);
-    if (Number.isNaN(date.getTime())) return null;
-    const fechaArgentina = new Date(date.getTime() + 3 * 60 * 60 * 1000);
-    return new Date(
-      fechaArgentina.getFullYear(),
-      fechaArgentina.getMonth(),
-      fechaArgentina.getDate()
-    );
-  };
-
-  /** Vencida = vencimiento (misma lógica que columna Venc.) estrictamente anterior a hoy. */
-  const esFacturaVencida = (fechaVencimiento) => {
-    const v = soloDiaVencimientoComoEnTabla(fechaVencimiento);
-    if (!v) return false;
-    const hoy = soloDiaHoyCalendario();
-    return v < hoy;
-  };
-
-  /**
-   * Vence hoy o en los próximos `dias` días (0 = hoy, 5 = dentro de 5 días). Las ya vencidas no entran.
-   */
-  const esFacturaVenceEnProximosDias = (fechaVencimiento, dias = 5) => {
-    const v = soloDiaVencimientoComoEnTabla(fechaVencimiento);
-    if (!v) return false;
-    const hoy = soloDiaHoyCalendario();
-    const diffDias = Math.round((v.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDias >= 0 && diffDias <= dias;
-  };
-
-  const estadoTemplate = (rowData) => {
-    const getSeverity = (estado) => {
-      switch (estado) {
-        case "PAGADO":
-          return "success";
-        case "PENDIENTE":
-          return "warning";
-        case "VENCIDO":
-          return "danger";
-        default:
-          return "info";
-      }
-    };
-
+  const adeudadoBody = (rowData) => {
+    const pendiente = montoPendienteFactura(rowData);
+    const vencida = !estaPagada(rowData) && esFacturaVencida(rowData.fechaVencimiento);
     return (
-      <div>
-        <span className="p-hidden md:inline">
-          <Tag
-            value={rowData.estado}
-            severity={getSeverity(rowData.estado)}
-            style={{
-              borderRadius: "15px",
-              fontSize: "0.75rem",
-              fontWeight: "500"
-            }}
-          />
-        </span>
-        <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-            Estado:
-          </span>
-          <Tag
-            value={rowData.estado}
-            severity={getSeverity(rowData.estado)}
-            style={{
-              borderRadius: "15px",
-              fontSize: "0.75rem",
-              fontWeight: "500"
-            }}
-          />
-        </div>
-      </div>
+      <span className={vencida ? 'cuenta-monto-vencido' : ''}>
+        {formatMonto(pendiente)}
+      </span>
     );
   };
 
-  const montoTemplate = (field) => (rowData) => (
-    <span>
-      {formatMonto(rowData[field])}
-    </span>
-  );
-
-  // Template para celdas con label en responsive
-  const cellWithLabelTemplate = (field, label) => (rowData) => (
-    <div>
-        <span className="p-hidden md:inline">
-        {rowData[field]}
-      </span>
-      <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-          {label}:
-        </span>
-          <span>
-          {rowData[field]}
-        </span>
-      </div>
-    </div>
-  );
-
-  const fechaWithLabelTemplate = (field, label) => (rowData) => (
-    <div>
-        <span className="p-hidden md:inline">
-        {formatFecha(rowData[field])}
-      </span>
-      <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-          {label}:
-        </span>
-          <span>
-          {formatFecha(rowData[field])}
-        </span>
-      </div>
-    </div>
-  );
-
-  const montoWithLabelTemplate = (field, label) => (rowData) => (
-    <div>
-        <span className="p-hidden md:inline">
-        {formatMonto(rowData[field])}
-      </span>
-      <div className="md:hidden">
-          <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-          {label}:
-        </span>
-          <span>
-          {formatMonto(rowData[field])}
-        </span>
-      </div>
+  const detalleExpandido = (rowData) => (
+    <div className="estado-cuenta-expanded-details">
+      <strong>Pagos</strong>
+      {rowData.pagos && rowData.pagos.length > 0 ? (
+        <ul>
+          {rowData.pagos.map((pago, idx) => (
+            <li key={idx}>
+              {formatFecha(pago.date)} · {formatMonto(pago.amount)}
+              {pago.notes ? ` · ${pago.notes}` : ''}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>Sin pagos registrados.</p>
+      )}
+      <strong>Productos</strong>
+      {rowData.productos && rowData.productos.length > 0 ? (
+        <ul>
+          {rowData.productos.map((producto, idx) => (
+            <li key={idx}>
+              {producto.quantity || 1}× {producto.name || producto.description || 'Producto'}
+              {producto.total ? ` · ${formatMonto(producto.total)}` : ''}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>Sin productos registrados.</p>
+      )}
     </div>
   );
 
@@ -492,126 +358,16 @@ function EstadoCuenta({ user }) {
     }
 
     try {
-      // Crear un elemento temporal para el PDF
-      const pdfContainer = document.createElement('div');
-      pdfContainer.id = 'pdf-export-container';
-      pdfContainer.style.position = 'absolute';
-      pdfContainer.style.left = '-9999px';
-      pdfContainer.style.top = '0';
-      pdfContainer.style.width = '794px'; // A4 width in pixels (210mm * 3.78)
-      pdfContainer.style.backgroundColor = '#ffffff';
-      pdfContainer.style.color = '#1a1a1a'; // Color de texto oscuro por defecto
-      pdfContainer.style.padding = '20px 30px'; // Márgenes más conservadores
-      pdfContainer.style.fontFamily = 'Arial, sans-serif';
-      pdfContainer.style.fontSize = '12px';
-      pdfContainer.style.lineHeight = '1.4';
-      pdfContainer.style.boxSizing = 'border-box';
-      
-      // Crear el contenido del PDF
-      pdfContainer.innerHTML = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #1a1a1a; margin: 0; font-size: 24px; font-weight: bold;">ESTADO DE CUENTA</h1>
-        </div>
-        
-        <div style="margin-bottom: 20px;">
-          <p style="margin: 5px 0; color: #1a1a1a;"><strong style="color: #1a1a1a;">Cliente:</strong> ${boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'N/A')}</p>
-          <p style="margin: 5px 0; color: #4a4a4a;"><strong style="color: #1a1a1a;">Generado el:</strong> ${new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}</p>
-        </div>
-        
-        <div style="margin-bottom: 30px;">
-          <h2 style="color: #1a1a1a; margin-bottom: 15px; font-size: 18px; font-weight: bold;">RESUMEN DE TOTALES</h2>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="color: #c53030; font-weight: 600;"><strong style="color: #1a1a1a;">Total Adeudado:</strong> ${formatMonto(totales.totalAdeudado)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="color: #22543d; font-weight: 600;"><strong style="color: #1a1a1a;">Total Pagado:</strong> ${formatMonto(totales.totalPagado)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span style="color: #1a1a1a; font-weight: 600;"><strong style="color: #1a1a1a;">Total General:</strong> ${formatMonto(totales.totalGeneral)}</span>
-          </div>
-        </div>
-        
-        <div style="margin-bottom: 20px;">
-          <h2 style="color: #1a1a1a; margin-bottom: 15px; font-size: 18px; font-weight: bold;">DETALLE DE BOLETAS</h2>
-          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; font-size: 11px;">
-            <thead>
-              <tr style="background-color: #2d3748; color: #ffffff;">
-                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Número</th>
-                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Fecha Emisión</th>
-                <th style="padding: 8px 6px; text-align: left; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Fecha Vencimiento</th>
-                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Monto Total</th>
-                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Monto Pagado</th>
-                <th style="padding: 8px 6px; text-align: right; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Monto Adeudado</th>
-                <th style="padding: 8px 6px; text-align: center; border: 1px solid #ddd; font-size: 10px; color: #ffffff; font-weight: bold;">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${boletas.map(boleta => {
-                const estadoColor = boleta.estado === 'PAGADO' ? '#22543d' : (boleta.estado === 'PENDIENTE' ? '#c53030' : '#1a1a1a');
-                return `
-                <tr style="background-color: ${boletas.indexOf(boleta) % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; color: #1a1a1a;">${boleta.numero || 'N/A'}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; color: #1a1a1a;">${formatFecha(boleta.fechaEmision)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; color: #1a1a1a;">${formatFecha(boleta.fechaVencimiento)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right; color: #1a1a1a;">${formatMonto(boleta.montoTotal || 0)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right; color: #1a1a1a;">${formatMonto(boleta.montoPagado || 0)}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: right; color: #1a1a1a;">${formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}</td>
-                  <td style="padding: 8px 6px; border: 1px solid #ddd; font-size: 10px; text-align: center; color: ${estadoColor}; font-weight: 600;">${boleta.estado || 'N/A'}</td>
-                </tr>
-              `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-      
-      // Agregar el contenedor al DOM
-      document.body.appendChild(pdfContainer);
-      
-      // Capturar la imagen
-      html2canvas(pdfContainer, {
-        scale: 1.5, // Reducir escala para mejor ajuste
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 794, // Ancho fijo para A4
-        height: pdfContainer.scrollHeight
-      }).then(canvas => {
-        // Remover el contenedor temporal
-        document.body.removeChild(pdfContainer);
-        
-                 // Convertir a PDF usando jsPDF
-         const imgData = canvas.toDataURL('image/png');
-         const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgWidth = 210;
-        const pageHeight = 295;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-        
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-        
-                 // Guardar el PDF
-         const clienteNombre = boletas.length > 0 && boletas[0].clienteNombre ? boletas[0].clienteNombre : (cliente.razonSocial || cliente.id || 'Cliente');
-         const fechaArgentina = new Date(new Date().getTime() + (3 * 60 * 60 * 1000));
-         const fileName = `estado_cuenta_${clienteNombre.replace(/[^a-zA-Z0-9]/g, '_')}_${fechaArgentina.toISOString().split('T')[0]}.pdf`;
-        pdf.save(fileName);
-        
-        toast.current.show({
-          severity: 'success',
-          summary: 'PDF Exportado',
-          detail: 'Estado de cuenta exportado correctamente'
-        });
+      exportarEstadoCuentaClientePdf({
+        nombreCliente: nombreClienteCuenta(cliente, boletas),
+        facturas: boletas,
+        saldoAdeudado: totales.totalAdeudado
       });
-      
+      toast.current.show({
+        severity: 'success',
+        summary: 'PDF exportado',
+        detail: 'Estado de cuenta listo para imprimir'
+      });
     } catch (error) {
       console.error('Error al exportar PDF:', error);
       toast.current.show({
@@ -624,32 +380,28 @@ function EstadoCuenta({ user }) {
 
   const generarReporteMasivo = async () => {
     if (clientesSeleccionados.length === 0) return;
-    
+
     setGenerandoReporte(true);
     try {
-      const { jsPDF } = window.jspdf ? window : { jsPDF: null };
-      const doc = jsPDF ? new jsPDF('p', 'mm', 'a4') : new (await import('jspdf')).jsPDF('p', 'mm', 'a4');
-      
+      const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
       let currentY = 20;
 
-      // Encabezado Principal (sin relleno para ahorrar tinta al imprimir)
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('HOJA SÁBANA DE ESTADOS DE CUENTA', pageWidth / 2, 16, { align: 'center' });
-      
+
       doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text(`Generado el: ${new Date().toLocaleString('es-AR')}`, pageWidth - 10, 22, { align: 'right' });
 
       doc.setFontSize(7);
       doc.setTextColor(80, 80, 80);
       doc.text(
         'Leyenda: Vencida = vencimiento anterior a hoy (texto rojo). Pendiente = aún no vencida (texto azul).',
-        margin,
+        15,
         29
       );
       doc.setTextColor(0, 0, 0);
@@ -659,9 +411,6 @@ function EstadoCuenta({ user }) {
       const clientesSinRefreshOk = [];
 
       for (const [index, clienteSel] of clientesSeleccionados.entries()) {
-        setGenerandoReporte(true);
-
-        // Forzar actualización desde Alegra (mismo flujo que "Actualizar ahora"); el PDF usa datos frescos.
         let cacheData;
         let datosSoloCache = false;
         try {
@@ -676,7 +425,7 @@ function EstadoCuenta({ user }) {
           try {
             cacheData = await api.getEstadoCuentaCache(clienteSel.id);
             datosSoloCache = true;
-          } catch (e2) {
+          } catch {
             cacheData = { facturas: [], totalAdeudado: 0, exists: false };
             datosSoloCache = true;
           }
@@ -686,184 +435,26 @@ function EstadoCuenta({ user }) {
           clientesSinRefreshOk.push(clienteSel.name || clienteSel.nombre || String(clienteSel.id));
         }
 
-        // Pausa entre clientes para no saturar la API de Alegra
         if (index < clientesSeleccionados.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 450));
         }
 
-        const facturasPendientes = (cacheData.facturas || []).filter(f => f.estado !== 'PAGADO');
-        const saldoAdeudado = cacheData.totalAdeudado || 0;
-
-        // Verificar si hay espacio para el siguiente cliente (aprox 30mm mínimo)
-        if (currentY > pageHeight - 35) {
-          doc.addPage();
-          currentY = 20;
-        }
-
-        // Título de Cliente y Saldo (sin sombreado para ahorrar tinta)
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(30, 41, 59);
-        doc.text(`${clienteSel.name || clienteSel.nombre || 'Cliente'}`, margin + 2, currentY + 7);
-
-        doc.setTextColor(197, 48, 48); // Rojo
-        doc.text(`SALDO: ${formatMonto(saldoAdeudado)}`, pageWidth - margin - 2, currentY + 7, { align: 'right' });
-        currentY += 12;
-
-        if (datosSoloCache) {
-          if (currentY > pageHeight - 20) {
-            doc.addPage();
-            currentY = 20;
-          }
-          doc.setFontSize(7);
-          doc.setFont(undefined, 'italic');
-          doc.setTextColor(180, 83, 9);
-          doc.text(
-            'Advertencia: no se pudo actualizar desde Alegra; se usó caché (puede estar desactualizado).',
-            margin + 2,
-            currentY
-          );
-          doc.setFont(undefined, 'normal');
-          doc.setTextColor(0, 0, 0);
-          currentY += 4;
-        }
-
-        const montoPendienteFactura = (f) =>
-          (Number(f.montoTotal) || 0) - (Number(f.montoPagado) || 0);
-
-        const listaVencidas = facturasPendientes.filter((f) => esFacturaVencida(f.fechaVencimiento));
-        const totalPendienteVencido = listaVencidas.reduce((acc, f) => acc + montoPendienteFactura(f), 0);
-
-        const listaProximasVencer = facturasPendientes
-          .filter((f) => esFacturaVenceEnProximosDias(f.fechaVencimiento, 5))
-          .sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
-
-        const asegurarEspacioVertical = (mmNecesarios) => {
-          if (currentY > pageHeight - mmNecesarios) {
-            doc.addPage();
-            currentY = 20;
-          }
-        };
-
-        asegurarEspacioVertical(28);
-        doc.setFontSize(8);
-        if (listaVencidas.length > 0) {
-          doc.setFont(undefined, 'bold');
-          doc.setTextColor(127, 29, 29);
-          doc.text(
-            `Total facturas vencidas (pendiente): ${formatMonto(totalPendienteVencido)}`,
-            margin + 2,
-            currentY
-          );
-          currentY += 4;
-        } else {
-          doc.setFont(undefined, 'italic');
-          doc.setTextColor(90, 90, 90);
-          doc.text('No tiene facturas vencidas.', margin + 2, currentY);
-          currentY += 4;
-        }
-        doc.setFont(undefined, 'normal');
-
-        if (listaProximasVencer.length > 0) {
-          asegurarEspacioVertical(8 + listaProximasVencer.length * 3.5);
-          doc.setFontSize(7);
-          doc.setFont(undefined, 'bold');
-          doc.setTextColor(146, 64, 14);
-          doc.text('Próximos vencimientos (5 días):', margin + 2, currentY);
-          currentY += 3.5;
-          doc.setFont(undefined, 'normal');
-          listaProximasVencer.forEach((f) => {
-            asegurarEspacioVertical(12);
-            const num = f.numero ?? 'N/A';
-            const v = soloDiaVencimientoComoEnTabla(f.fechaVencimiento);
-            const hoy = soloDiaHoyCalendario();
-            const diffDias =
-              v && hoy ? Math.round((v.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)) : -1;
-            let textoVence;
-            if (diffDias === 0) textoVence = 'hoy';
-            else if (diffDias === 1) textoVence = 'mañana';
-            else textoVence = `el ${formatFecha(f.fechaVencimiento)}`;
-            doc.text(`Factura ${num} vence ${textoVence}.`, margin + 4, currentY);
-            currentY += 3.5;
-          });
-        }
-
-        doc.setTextColor(0, 0, 0);
-        currentY += 2;
-
-        if (facturasPendientes.length > 0) {
-          const xFactura = margin + 2;
-          const xFecha = margin + 28;
-          const xVenc = margin + 52;
-          const xEstado = margin + 78;
-          const xMontoTot = pageWidth - margin - 52;
-          const xPend = pageWidth - margin - 2;
-
-          doc.setFontSize(8);
-          doc.setFont(undefined, 'bold');
-          doc.setTextColor(100, 100, 100);
-
-          doc.text('Factura', xFactura, currentY);
-          doc.text('Fecha', xFecha, currentY);
-          doc.text('Venc.', xVenc, currentY);
-          doc.text('Estado', xEstado, currentY);
-          doc.text('Monto Total', xMontoTot, currentY, { align: 'right' });
-          doc.text('Pendiente', xPend, currentY, { align: 'right' });
-
-          currentY += 4;
-          doc.setDrawColor(220, 220, 220);
-          doc.line(margin, currentY, pageWidth - margin, currentY);
-          currentY += 4;
-
-          const rowH = 5;
-
-          facturasPendientes.forEach((fact) => {
-            if (currentY > pageHeight - 18) {
-              doc.addPage();
-              currentY = 20;
-            }
-
-            const vencida = esFacturaVencida(fact.fechaVencimiento);
-
-            doc.setFontSize(8);
-            doc.setFont(undefined, 'normal');
-            if (vencida) {
-              doc.setTextColor(127, 29, 29);
-            } else {
-              doc.setTextColor(30, 64, 175);
-            }
-
-            doc.text(String(fact.numero ?? 'N/A'), xFactura, currentY);
-            doc.text(formatFecha(fact.fechaEmision), xFecha, currentY);
-            doc.text(formatFecha(fact.fechaVencimiento), xVenc, currentY);
-            doc.setFont(undefined, 'bold');
-            doc.text(vencida ? 'Vencida' : 'Pendiente', xEstado, currentY);
-            doc.setFont(undefined, 'normal');
-            doc.text(formatMonto(fact.montoTotal), xMontoTot, currentY, { align: 'right' });
-            doc.text(formatMonto(fact.montoTotal - fact.montoPagado), xPend, currentY, { align: 'right' });
-
-            currentY += rowH + 0.5;
-          });
-
-          doc.setTextColor(50, 50, 50);
-        } else {
-          doc.setFontSize(8);
-          doc.setFont(undefined, 'italic');
-          doc.setTextColor(150, 150, 150);
-          doc.text('Sin facturas pendientes hoy.', margin + 2, currentY);
-          currentY += 4;
-        }
-
-        currentY += 8; // Espacio para el próximo cliente
+        currentY = dibujarBloqueDeuda(doc, {
+          nombreCliente: clienteSel.name || clienteSel.nombre || 'Cliente',
+          facturas: cacheData.facturas || [],
+          saldoAdeudado: cacheData.totalAdeudado || 0,
+          datosSoloCache,
+          currentY
+        });
+        currentY += 8;
       }
 
-      // Pie de página final
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
       doc.text('Distribuidora DCG - Reporte de Deuda Masivo', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
       doc.save(`Repo_Masivo_Deuda_${new Date().toISOString().split('T')[0]}.pdf`);
-      
+
       const detalleBase = `Se actualizó desde Alegra y se incluyeron ${clientesSeleccionados.length} cliente(s).`;
       const detalleAdvertencia =
         clientesSinRefreshOk.length > 0
@@ -875,7 +466,7 @@ function EstadoCuenta({ user }) {
         summary: 'Reporte generado',
         detail: detalleBase + detalleAdvertencia
       });
-      
+
       setMostrarDialogMasivo(false);
       setClientesSeleccionados([]);
     } catch (error) {
@@ -912,7 +503,7 @@ function EstadoCuenta({ user }) {
               {cliente ? (
                 <div>
                   <p className="estado-cuenta-subtitle">
-                  Cliente: <strong>{cliente.name || cliente.nombre || cliente['Razón Social'] || cliente.id}</strong>
+                  Cliente: <strong>{nombreCliente(cliente)}</strong>
                 </p>
                   {ultimaActualizacion && (
                     <p className="estado-cuenta-update-time">
@@ -921,7 +512,7 @@ function EstadoCuenta({ user }) {
                   )}
                   {!cacheExists && (
                     <p className="estado-cuenta-warning">
-                      ⚠️ Sin datos en caché. Presiona "Actualizar ahora" para cargar.
+                      Sin datos en caché. Tocá Actualizar ahora para cargar.
                     </p>
                   )}
                 </div>
@@ -975,297 +566,158 @@ function EstadoCuenta({ user }) {
           </div>
         </div>
 
-        {/* Selector de Cliente */}
         <div className="estado-cuenta-selector">
           <div className="p-field">
-            <label className="p-block p-mb-2">
-              Seleccionar Cliente
-            </label>
-            <Dropdown
-              value={cliente}
-              options={clientes}
-              onChange={(e) => handleClienteChange(e.value)}
-              optionLabel="name"
-              placeholder="Selecciona un cliente"
-              filter
-              filterPlaceholder="Buscar cliente..."
-              showClear
-              className="p-fluid"
-              style={{ width: "100%" }}
-            />
+            <label className="p-block p-mb-2">Cliente</label>
+            {esMovil ? (
+              <ClientePickerMovil
+                clientes={clientes}
+                value={cliente}
+                onChange={handleClienteChange}
+                loading={loadingClientes}
+              />
+            ) : (
+              <Dropdown
+                value={cliente}
+                options={clientes}
+                onChange={(e) => handleClienteChange(e.value)}
+                optionLabel="name"
+                placeholder="Selecciona un cliente"
+                filter
+                filterPlaceholder="Buscar cliente..."
+                showClear
+                className="p-fluid"
+                style={{ width: '100%' }}
+              />
+            )}
           </div>
         </div>
 
-        {/* Resumen de Totales - Solo mostrar si hay cliente seleccionado */}
         {cliente && (
           <div className="estado-cuenta-kpis">
             <Card className="estado-cuenta-kpi-card">
               <div className="estado-cuenta-kpi-content">
-                <i className="pi pi-exclamation-triangle estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-error)' }}></i>
                 <div className="estado-cuenta-kpi-value adeudado">
                   {formatMonto(totales.totalAdeudado)}
+                </div>
+                <div className="estado-cuenta-kpi-label">Adeudado</div>
               </div>
-                <div className="estado-cuenta-kpi-label">Total Adeudado</div>
-          </div>
             </Card>
             <Card className="estado-cuenta-kpi-card">
               <div className="estado-cuenta-kpi-content">
-                <i className="pi pi-check-circle estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-success)' }}></i>
+                <div className="estado-cuenta-kpi-value adeudado">
+                  {formatMonto(montoVencido)}
+                </div>
+                <div className="estado-cuenta-kpi-label">Vencido</div>
+              </div>
+            </Card>
+            <Card className="estado-cuenta-kpi-card">
+              <div className="estado-cuenta-kpi-content">
                 <div className="estado-cuenta-kpi-value pagado">
                   {formatMonto(totales.totalPagado)}
-              </div>
-                <div className="estado-cuenta-kpi-label">Total Pagado</div>
-          </div>
-            </Card>
-            <Card className="estado-cuenta-kpi-card">
-              <div className="estado-cuenta-kpi-content">
-                <i className="pi pi-dollar estado-cuenta-kpi-icon" style={{ color: 'var(--dcg-text-primary)' }}></i>
-                <div className="estado-cuenta-kpi-value general">
-                  {formatMonto(totales.totalGeneral)}
                 </div>
-                <div className="estado-cuenta-kpi-label">Total General</div>
+                <div className="estado-cuenta-kpi-label">Pagado</div>
               </div>
             </Card>
-        </div>
+          </div>
         )}
 
-        {/* Tabla de Boletas con filas expandibles para pagos - Solo mostrar si hay cliente seleccionado */}
+        {cliente && listaProximos.length > 0 && (
+          <div className="cuenta-aviso-proximos">
+            <strong>Vence en 5 días:</strong>{' '}
+            {listaProximos
+              .map((factura) => `#${factura.numero} (${formatFecha(factura.fechaVencimiento)})`)
+              .join(' · ')}
+          </div>
+        )}
+
         {cliente && (
           <div className="estado-cuenta-tabla-container">
-            <h3 className="estado-cuenta-tabla-title">
-              Detalle de Boletas
-            </h3>
+            <div className="cuenta-tabla-toolbar">
+              <h3 className="estado-cuenta-tabla-title">Facturas</h3>
+              <div className="cuenta-filtros">
+                {FILTROS_BOLETA.map((filtro) => (
+                  <button
+                    key={filtro.id}
+                    type="button"
+                    className={`cuenta-filtro ${filtroBoletas === filtro.id ? 'is-active' : ''}`}
+                    onClick={() => setFiltroBoletas(filtro.id)}
+                  >
+                    {filtro.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {loading ? (
-              <div style={{ textAlign: "center", padding: "2rem" }}>
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
                 <ProgressSpinner />
-                <p style={{ marginTop: "1rem" }}>
-                  Cargando estado de cuenta...
-                </p>
+                <p style={{ marginTop: '1rem' }}>Cargando estado de cuenta...</p>
               </div>
             ) : (
               <>
-                {/* Vista Desktop - DataTable */}
                 <div className="vista-desktop estado-cuenta-table">
                   <DataTable
-                   value={boletas}
-                   paginator
-                   rows={10}
-                   emptyMessage="No hay boletas para mostrar."
-                   className="p-datatable-sm"
-                  rowExpansionTemplate={(rowData) => (
-                <div className="estado-cuenta-expanded-details">
-                  {/* Sección de Pagos */}
-                  <div style={{ marginBottom: expandedProductos[rowData.numero] ? 20 : 0 }}>
-                    <strong>Pagos asociados:</strong>
-                    {rowData.pagos && rowData.pagos.length > 0 ? (
-                      <ul style={{ margin: 0, paddingLeft: 20 }}>
-                        {rowData.pagos.map((pago, idx) => (
-                          <li key={idx} style={{ marginBottom: 4 }}>
-                            <span>Fecha: {formatFecha(pago.date)}</span> | <span>Monto: {formatMonto(pago.amount)}</span> {pago.notes ? `| Nota: ${pago.notes}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div style={{ color: '#6b7280', marginLeft: 20 }}>
-                        Sin pagos registrados para esta factura.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sección de Productos */}
-                  {expandedProductos[rowData.numero] && (
-                    <div>
-                      <strong>Productos:</strong>
-                      {rowData.productos && rowData.productos.length > 0 ? (
-                        <ul style={{ margin: 0, paddingLeft: 20 }}>
-                          {rowData.productos.map((producto, idx) => (
-                            <li key={idx} style={{ marginBottom: 4 }}>
-                              <span><strong>{producto.quantity || 1}x</strong> {producto.name || producto.description || 'Producto'}</span>
-                              {producto.total && (
-                                <span style={{ color: '#6b7280' }}> - {formatMonto(producto.total)}</span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div style={{ color: '#6b7280', marginLeft: 20 }}>
-                          Sin productos registrados para esta factura.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              expandedRows={expandedRows}
-              dataKey="numero"
-            >
-              <Column 
-                expander 
-                style={{ width: '5%' }}
-                body={(rowData) => (
-                  <div>
-                    <span className="p-hidden md:inline">
-                      <i className="pi pi-chevron-right" style={{ fontSize: '0.8rem' }}></i>
-                    </span>
-                    <div className="md:hidden">
-                      <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-                        Expandir:
-                      </span>
-                      <i className="pi pi-chevron-down" style={{ fontSize: '1rem', color: '#3b82f6' }}></i>
-                    </div>
-                  </div>
-                )}
-              />
-              <Column 
-                header="Productos" 
-                body={(rowData) => (
-                  <div>
-                    <span className="p-hidden md:inline">
-                      <span
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleProductos(rowData.numero);
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = '#e5e7eb';
-                          e.target.style.cursor = 'pointer';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = 'transparent';
-                        }}
-                        className="estado-cuenta-productos-button"
-                        style={{
-                          color: (!rowData.productos || rowData.productos.length === 0) ? 'var(--dcg-text-muted)' : 'var(--dcg-azul-claro)',
-                          opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
-                          cursor: (!rowData.productos || rowData.productos.length === 0) ? 'not-allowed' : 'pointer'
-                        }}
-                        title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
-                      >
-                        {expandedProductos[rowData.numero] ? "👁️‍🗨️" : "👁️"}
-                      </span>
-                    </span>
-                    <div className="md:hidden">
-                      <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-                        Productos:
-                      </span>
-                      <span
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleProductos(rowData.numero);
-                        }}
-                        className="estado-cuenta-productos-button"
-                        style={{
-                          color: (!rowData.productos || rowData.productos.length === 0) ? 'var(--dcg-text-muted)' : 'var(--dcg-azul-claro)',
-                          opacity: (!rowData.productos || rowData.productos.length === 0) ? 0.5 : 1,
-                          cursor: (!rowData.productos || rowData.productos.length === 0) ? 'not-allowed' : 'pointer',
-                          padding: 'var(--spacing-2) var(--spacing-3)',
-                          minWidth: '40px',
-                          minHeight: '40px'
-                        }}
-                        title={expandedProductos[rowData.numero] ? "Ocultar productos" : "Ver productos"}
-                      >
-                        {expandedProductos[rowData.numero] ? "👁️‍🗨️" : "👁️"} {(!rowData.productos || rowData.productos.length === 0) ? "Sin productos" : "Ver productos"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                style={{ 
-                  width: "8%",
-                  textAlign: "center"
-                }}
-              />
-              <Column
-                 field="numero"
-                 header="Número"
-                 body={cellWithLabelTemplate('numero', 'Número')}
-                 style={{ 
-                   width: "12%"
-                 }}
-               />
-               <Column
-                 field="clienteNombre"
-                 header="Cliente"
-                 body={cellWithLabelTemplate('clienteNombre', 'Cliente')}
-                 style={{ 
-                   width: "20%"
-                 }}
-               />
-               <Column
-                 field="fechaEmision"
-                 header="Fecha Emisión"
-                 body={fechaWithLabelTemplate('fechaEmision', 'Fecha Emisión')}
-                 style={{ 
-                   width: "15%"
-                 }}
-               />
-               <Column
-                 field="fechaVencimiento"
-                 header="Fecha Vencimiento"
-                 body={fechaWithLabelTemplate('fechaVencimiento', 'Fecha Vencimiento')}
-                 style={{ 
-                   width: "15%"
-                 }}
-               />
-               <Column
-                 field="montoTotal"
-                 header="Monto Total"
-                 body={montoWithLabelTemplate('montoTotal', 'Monto Total')}
-                 style={{ 
-                   width: "15%"
-                 }}
-               />
-               <Column
-                 field="montoPagado"
-                 header="Monto Pagado"
-                 body={montoWithLabelTemplate('montoPagado', 'Monto Pagado')}
-                 style={{ 
-                   width: "15%"
-                 }}
-               />
-               <Column
-                 field="montoAdeudado"
-                 header="Monto Adeudado"
-                 body={rowData => (
-                   <div>
-                     <span className="p-hidden md:inline">
-                       {formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
-                     </span>
-                     <div className="md:hidden">
-                       <span style={{ fontWeight: "bold", display: "block", marginBottom: "0.25rem" }}>
-                         Monto Adeudado:
-                       </span>
-                       <span>
-                         {formatMonto((rowData.montoTotal || 0) - (rowData.montoPagado || 0))}
-                       </span>
-                     </div>
-                   </div>
-                 )}
-                 style={{ 
-                   width: "15%"
-                 }}
-               />
-               <Column
-                 field="estado"
-                 header="Estado"
-                 body={estadoTemplate}
-                 style={{ 
-                   width: "10%"
-                 }}
-               />
+                    value={boletasFiltradas}
+                    paginator
+                    rows={20}
+                    emptyMessage="No hay facturas en este filtro."
+                    className="p-datatable-sm"
+                    dataKey="numero"
+                    expandedRows={expandedRows}
+                    onRowToggle={(e) => setExpandedRows(e.data)}
+                    rowExpansionTemplate={detalleExpandido}
+                    rowClassName={(data) =>
+                      !estaPagada(data) && esFacturaVencida(data.fechaVencimiento)
+                        ? 'cuenta-fila-vencida'
+                        : ''
+                    }
+                  >
+                    <Column expander style={{ width: '3rem' }} />
+                    <Column field="numero" header="Nº" style={{ width: '12%' }} />
+                    <Column
+                      field="fechaEmision"
+                      header="Emisión"
+                      body={(row) => formatFecha(row.fechaEmision)}
+                      style={{ width: '12%' }}
+                    />
+                    <Column
+                      field="fechaVencimiento"
+                      header="Vence"
+                      body={(row) => formatFecha(row.fechaVencimiento)}
+                      style={{ width: '12%' }}
+                    />
+                    <Column
+                      field="montoTotal"
+                      header="Total"
+                      body={(row) => formatMonto(row.montoTotal)}
+                      style={{ width: '14%' }}
+                    />
+                    <Column
+                      field="montoPagado"
+                      header="Pagado"
+                      body={(row) => formatMonto(row.montoPagado)}
+                      style={{ width: '14%' }}
+                    />
+                    <Column header="Adeudado" body={adeudadoBody} style={{ width: '14%' }} />
+                    <Column header="Estado" body={estadoBody} style={{ width: '12%' }} />
                   </DataTable>
                 </div>
 
                 <div className="vista-movil">
-                  {boletas.length === 0 ? (
-                    <p className="lista-movil__vacio">No hay boletas para mostrar.</p>
+                  {boletasFiltradas.length === 0 ? (
+                    <p className="lista-movil__vacio">No hay facturas en este filtro.</p>
                   ) : (
-                    boletas.map((boleta, index) => {
-                      const adeudado = (boleta.montoTotal || 0) - (boleta.montoPagado || 0);
-                      const abierta = Boolean(expandedRows[boleta.numero]);
+                    boletasFiltradas.map((boleta, index) => {
+                      const adeudado = montoPendienteFactura(boleta);
+                      const etiqueta = etiquetaEstado(boleta);
+                      const abierta = Boolean(expandedRows?.[boleta.numero]);
                       return (
-                        <article key={boleta.numero || index} className="lista-movil__card cuenta-boleta">
+                        <article
+                          key={boleta.numero || index}
+                          className={`lista-movil__card cuenta-boleta ${
+                            etiqueta === 'VENCIDA' ? 'cuenta-boleta--vencida' : ''
+                          }`}
+                        >
                           <div className="lista-movil__top">
                             <strong>Factura #{boleta.numero}</strong>
                             <span className={`lista-movil__monto ${adeudado > 0 ? 'cuenta-boleta__adeudado' : ''}`}>
@@ -1273,10 +725,7 @@ function EstadoCuenta({ user }) {
                             </span>
                           </div>
                           <div className="lista-movil__meta">
-                            <Tag
-                              value={boleta.estado}
-                              severity={boleta.estado === 'PAGADO' ? 'success' : boleta.estado === 'PENDIENTE' ? 'warning' : 'danger'}
-                            />
+                            <Tag value={etiqueta} severity={severityEstado(etiqueta)} />
                             <span>Emisión {formatFecha(boleta.fechaEmision)}</span>
                             <span>Vence {formatFecha(boleta.fechaVencimiento)}</span>
                           </div>
@@ -1289,43 +738,14 @@ function EstadoCuenta({ user }) {
                             className="cuenta-boleta__toggle"
                             onClick={() => {
                               setExpandedRows((prev) => ({
-                                ...prev,
-                                [boleta.numero]: !prev[boleta.numero]
+                                ...(prev || {}),
+                                [boleta.numero]: !prev?.[boleta.numero]
                               }));
                             }}
                           >
                             {abierta ? 'Ocultar detalle' : 'Ver pagos y productos'}
                           </button>
-                          {abierta && (
-                            <div className="cuenta-boleta__detalle">
-                              <strong>Pagos</strong>
-                              {boleta.pagos && boleta.pagos.length > 0 ? (
-                                <ul>
-                                  {boleta.pagos.map((pago, idx) => (
-                                    <li key={idx}>
-                                      {formatFecha(pago.date)} · {formatMonto(pago.amount)}
-                                      {pago.notes ? ` · ${pago.notes}` : ''}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p>Sin pagos registrados.</p>
-                              )}
-                              <strong>Productos</strong>
-                              {boleta.productos && boleta.productos.length > 0 ? (
-                                <ul>
-                                  {boleta.productos.map((producto, idx) => (
-                                    <li key={idx}>
-                                      {producto.quantity || 1}× {producto.name || producto.description || 'Producto'}
-                                      {producto.total ? ` · ${formatMonto(producto.total)}` : ''}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p>Sin productos registrados.</p>
-                              )}
-                            </div>
-                          )}
+                          {abierta && detalleExpandido(boleta)}
                         </article>
                       );
                     })

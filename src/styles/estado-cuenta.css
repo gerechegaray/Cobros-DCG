@@ -458,9 +458,69 @@
   color: var(--dcg-text-secondary);
 }
 
-/* ============================================
-   DETALLES EXPANDIBLES
-   ============================================ */
+.cuenta-tabla-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.cuenta-tabla-toolbar .estado-cuenta-tabla-title {
+  margin: 0 !important;
+}
+
+.cuenta-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cuenta-filtro {
+  border: 1px solid var(--dcg-border);
+  background: transparent;
+  color: var(--dcg-text-secondary);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.cuenta-filtro.is-active {
+  border-color: var(--dcg-azul-claro);
+  background: var(--dcg-azul-claro-alpha);
+  color: var(--dcg-text-primary);
+  font-weight: 600;
+}
+
+.cuenta-aviso-proximos {
+  margin: 0 var(--spacing-6) var(--spacing-3);
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--dcg-border);
+  background: var(--dcg-bg-tertiary);
+  color: var(--dcg-text-secondary);
+  font-size: 0.85rem;
+}
+
+.cuenta-monto-vencido {
+  color: var(--dcg-error);
+  font-weight: 700;
+}
+
+.estado-cuenta-table .cuenta-fila-vencida > td:first-child {
+  border-left: 3px solid var(--dcg-error);
+}
+
+.cuenta-boleta--vencida {
+  border-left: 3px solid var(--dcg-error);
+}
+
+@media (max-width: 960px) {
+  .cuenta-aviso-proximos {
+    margin: 0 var(--spacing-4) var(--spacing-3);
+  }
+}
 .estado-cuenta-expanded-details {
   margin-top: var(--spacing-4);
   padding: var(--spacing-4);
@@ -470,8 +530,14 @@
 }
 
 .estado-cuenta-expanded-details strong {
+  display: block;
   color: var(--dcg-text-primary);
   font-weight: var(--font-weight-semibold);
+}
+
+.estado-cuenta-expanded-details ul + strong,
+.estado-cuenta-expanded-details p + strong {
+  margin-top: var(--spacing-3);
 }
 
 .estado-cuenta-expanded-details ul {
