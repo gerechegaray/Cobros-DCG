@@ -594,40 +594,33 @@ function EstadoCuenta({ user }) {
         </div>
 
         {cliente && (
-          <div className="estado-cuenta-kpis">
-            <Card className="estado-cuenta-kpi-card">
-              <div className="estado-cuenta-kpi-content">
-                <div className="estado-cuenta-kpi-value adeudado">
-                  {formatMonto(totales.totalAdeudado)}
-                </div>
-                <div className="estado-cuenta-kpi-label">Adeudado</div>
-              </div>
-            </Card>
-            <Card className="estado-cuenta-kpi-card">
-              <div className="estado-cuenta-kpi-content">
-                <div className="estado-cuenta-kpi-value adeudado">
-                  {formatMonto(montoVencido)}
-                </div>
-                <div className="estado-cuenta-kpi-label">Vencido</div>
-              </div>
-            </Card>
-            <Card className="estado-cuenta-kpi-card">
-              <div className="estado-cuenta-kpi-content">
-                <div className="estado-cuenta-kpi-value pagado">
-                  {formatMonto(totales.totalPagado)}
-                </div>
-                <div className="estado-cuenta-kpi-label">Pagado</div>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {cliente && listaProximos.length > 0 && (
-          <div className="cuenta-aviso-proximos">
-            <strong>Vence en 5 días:</strong>{' '}
-            {listaProximos
-              .map((factura) => `#${factura.numero} (${formatFecha(factura.fechaVencimiento)})`)
-              .join(' · ')}
+          <div className="cuenta-resumen">
+            <div className="cuenta-resumen__fila">
+              <span>Adeudado</span>
+              <strong className="cuenta-resumen__monto is-deuda">
+                {formatMonto(totales.totalAdeudado)}
+              </strong>
+            </div>
+            <div className="cuenta-resumen__fila">
+              <span>Vencido</span>
+              <strong className="cuenta-resumen__monto is-deuda">
+                {formatMonto(montoVencido)}
+              </strong>
+            </div>
+            <div className="cuenta-resumen__fila">
+              <span>Pagado</span>
+              <strong className="cuenta-resumen__monto is-ok">
+                {formatMonto(totales.totalPagado)}
+              </strong>
+            </div>
+            {listaProximos.length > 0 && (
+              <p className="cuenta-resumen__aviso">
+                Vence en 5 días:{' '}
+                {listaProximos
+                  .map((factura) => `#${factura.numero} (${formatFecha(factura.fechaVencimiento)})`)
+                  .join(' · ')}
+              </p>
+            )}
           </div>
         )}
 

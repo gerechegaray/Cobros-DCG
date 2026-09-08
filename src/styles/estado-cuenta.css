@@ -83,6 +83,19 @@
   }
 }
 
+@media (max-width: 767px) {
+  .estado-cuenta-header-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .estado-cuenta-header-buttons .p-button {
+    width: 100% !important;
+    padding: 0.55rem 0.65rem !important;
+  }
+}
+
 .estado-cuenta-header-buttons .p-button {
   border-radius: var(--border-radius-xl) !important; /* Estilo pill */
   padding: var(--spacing-3) var(--spacing-5) !important;
@@ -141,69 +154,85 @@
 /* ============================================
    KPIs / TOTALES
    ============================================ */
-.estado-cuenta-kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--spacing-4);
-  padding: var(--spacing-6);
-  border-bottom: var(--border-width-thin) solid var(--dcg-border-light);
-}
-
-.estado-cuenta-kpi-card {
-  background: var(--dcg-bg-elevated);
+.cuenta-resumen {
+  margin: 0 var(--spacing-6) var(--spacing-4);
   border: var(--border-width-thin) solid var(--dcg-border);
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--dcg-shadow-sm);
-  padding: var(--spacing-5);
-  text-align: center;
-  transition: all var(--transition-base);
+  border-radius: 12px;
+  background: var(--dcg-bg-tertiary);
+  overflow: hidden;
 }
 
-.estado-cuenta-kpi-card:hover {
-  box-shadow: var(--dcg-shadow-md);
-  transform: translateY(-2px);
-  border-color: var(--dcg-border);
-}
-
-.estado-cuenta-kpi-content {
+.cuenta-resumen__fila {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-2);
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--dcg-border);
 }
 
-.estado-cuenta-kpi-icon {
-  font-size: var(--font-size-2xl);
-  opacity: 0.8;
-  margin-bottom: var(--spacing-1);
+.cuenta-resumen__fila:last-child {
+  border-bottom: none;
 }
 
-.estado-cuenta-kpi-value {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--dcg-text-primary);
-  line-height: var(--line-height-tight);
-  letter-spacing: var(--letter-spacing-tight);
+.cuenta-resumen__fila span {
+  color: var(--dcg-text-muted);
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
-.estado-cuenta-kpi-value.adeudado {
+.cuenta-resumen__monto {
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: right;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cuenta-resumen__monto.is-deuda {
   color: var(--dcg-error);
 }
 
-.estado-cuenta-kpi-value.pagado {
+.cuenta-resumen__monto.is-ok {
   color: var(--dcg-success);
 }
 
-.estado-cuenta-kpi-value.general {
-  color: var(--dcg-text-primary);
+.cuenta-resumen__aviso {
+  margin: 0;
+  padding: 0.55rem 1rem;
+  font-size: 0.8rem;
+  color: var(--dcg-text-secondary);
+  border-top: 1px solid var(--dcg-border);
 }
 
-.estado-cuenta-kpi-label {
-  font-size: var(--font-size-sm);
-  color: var(--dcg-text-secondary);
-  text-transform: uppercase;
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-wide);
+@media (min-width: 768px) {
+  .cuenta-resumen {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cuenta-resumen__fila {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    border-bottom: none;
+    border-right: 1px solid var(--dcg-border);
+    padding: 0.95rem 1.1rem;
+  }
+
+  .cuenta-resumen__fila:nth-child(3) {
+    border-right: none;
+  }
+
+  .cuenta-resumen__monto {
+    font-size: 1.2rem;
+    text-align: left;
+  }
+
+  .cuenta-resumen__aviso {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ============================================
@@ -340,27 +369,8 @@
     font-size: var(--font-size-2xl) !important;
   }
 
-  .estado-cuenta-kpis {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    padding: 0.75rem;
-  }
-
-  .estado-cuenta-kpi-card {
-    padding: 0.55rem 0.35rem;
-  }
-
-  .estado-cuenta-kpi-icon {
-    display: none;
-  }
-
-  .estado-cuenta-kpi-value {
-    font-size: 0.82rem;
-  }
-
-  .estado-cuenta-kpi-label {
-    font-size: 0.65rem;
-    letter-spacing: 0.02em;
+  .cuenta-resumen {
+    margin: 0 var(--spacing-4) var(--spacing-3);
   }
 
   .estado-cuenta-tabla-container {
@@ -389,10 +399,6 @@
 
   .estado-cuenta-header h1 {
     font-size: var(--font-size-xl) !important;
-  }
-
-  .estado-cuenta-kpi-value {
-    font-size: 0.75rem;
   }
 
   .estado-cuenta-table .p-datatable .p-datatable-tbody > tr > td {
@@ -493,16 +499,6 @@
   font-weight: 600;
 }
 
-.cuenta-aviso-proximos {
-  margin: 0 var(--spacing-6) var(--spacing-3);
-  padding: 0.65rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid var(--dcg-border);
-  background: var(--dcg-bg-tertiary);
-  color: var(--dcg-text-secondary);
-  font-size: 0.85rem;
-}
-
 .cuenta-monto-vencido {
   color: var(--dcg-error);
   font-weight: 700;
@@ -514,12 +510,6 @@
 
 .cuenta-boleta--vencida {
   border-left: 3px solid var(--dcg-error);
-}
-
-@media (max-width: 960px) {
-  .cuenta-aviso-proximos {
-    margin: 0 var(--spacing-4) var(--spacing-3);
-  }
 }
 .estado-cuenta-expanded-details {
   margin-top: var(--spacing-4);
