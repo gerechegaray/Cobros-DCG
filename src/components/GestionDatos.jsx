@@ -208,8 +208,8 @@ function GestionDatos({ user }) {
 
   const ejecutarKeepLatest = () => {
     confirmDialog({
-      header: 'Dejar últimos 60',
-      message: 'Se van a borrar pedidos, cobros y hojas de ruta más viejos, y dejar solo los 60 más recientes de cada uno. No se puede deshacer.',
+      header: 'Conservar últimos 60 días',
+      message: 'Se van a borrar pedidos, cobros y hojas de ruta con más de 60 días. La cantidad de registros no importa: se conserva todo lo de los últimos 60 días. No se puede deshacer.',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Sí, borrar el resto',
       rejectLabel: 'Cancelar',
@@ -918,9 +918,9 @@ function GestionDatos({ user }) {
   const renderLimpiezaDatos = () => (
     <div className="grid">
       <div className="col-12">
-        <Card title="Dejar últimos 60 (pedidos, cobros y hojas de ruta)" className="mb-3">
+        <Card title="Conservar últimos 60 días (pedidos, cobros y hojas de ruta)" className="mb-3">
           <p className="mt-0 mb-3 text-sm">
-            Conserva los 60 registros más nuevos de cada colección y borra el resto.
+            Conserva todos los pedidos, cobros y hojas de ruta de los últimos 60 días y borra lo anterior.
             También limpia los logs de pedidos y cobros que ya no tienen documento.
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -932,7 +932,7 @@ function GestionDatos({ user }) {
               onClick={previewKeepLatest}
             />
             <Button
-              label="Dejar últimos 60"
+              label="Conservar últimos 60 días"
               icon="pi pi-trash"
               className="p-button-danger"
               loading={keepLatestLoading}

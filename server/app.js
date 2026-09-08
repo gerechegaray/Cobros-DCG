@@ -2798,12 +2798,39 @@ function timestampToDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+const OPERATIVE_RETENTION_DAYS = 60;
+
 function fechaDocumento(data, fields) {
   for (const field of fields) {
     const parsed = timestampToDate(data[field]);
     if (parsed) return parsed;
   }
-  return new Date(0);
+  return null;
+}
+
+function cutoffDate(days) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+function splitByRetention(docs, cutoff) {
+  const toKeep = [];
+  const toDelete = [];
+  for (const item of docs) {
+    if (!item.date || item.date >= cutoff) {
+      toKeep.push(item);
+    } else {
+      toDelete.push(item);
+    }
+  }
+  const datedKept = toKeep
+    .filter((item) => item.date)
+    .sort((a, b) => b.date - a.date);
+  return {
+    toKeep,
+    toDelete,
+    oldestKept: datedKept.length ? datedKept[datedKept.length - 1].date.toISOString() : null,
+    newestKept: datedKept.length ? datedKept[0].date.toISOString() : null
+  };
 }
 
 async function deleteRefsInBatches(refs) {
@@ -2819,21 +2846,18 @@ async function deleteRefsInBatches(refs) {
   return deleted;
 }
 
-async function planKeepLatest(keep) {
+async function planKeepLatest(days) {
+  const cutoff = cutoffDate(days);
   const results = [];
 
   for (const spec of KEEP_LATEST_SPECS) {
     const snapshot = await adminDb.collection(spec.collection).get();
-    const docs = snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ref: docSnap.ref,
-        date: fechaDocumento(docSnap.data(), spec.dateFields)
-      }))
-      .sort((a, b) => b.date - a.date);
-
-    const toKeep = docs.slice(0, keep);
-    const toDelete = docs.slice(keep);
+    const docs = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ref: docSnap.ref,
+      date: fechaDocumento(docSnap.data(), spec.dateFields)
+    }));
+    const { toKeep, toDelete, oldestKept, newestKept } = splitByRetention(docs, cutoff);
     const keepIds = new Set(toKeep.map((item) => item.id));
 
     let logsToDelete = 0;
@@ -2851,29 +2875,27 @@ async function planKeepLatest(keep) {
       keep: toKeep.length,
       delete: toDelete.length,
       logsDelete: logsToDelete,
-      oldestKept: toKeep.length ? toKeep[toKeep.length - 1].date.toISOString() : null,
-      newestKept: toKeep.length ? toKeep[0].date.toISOString() : null
+      oldestKept,
+      newestKept,
+      cutoff: cutoff.toISOString()
     });
   }
 
   return results;
 }
 
-async function executeKeepLatest(keep) {
+async function executeKeepLatest(days) {
+  const cutoff = cutoffDate(days);
   const results = [];
 
   for (const spec of KEEP_LATEST_SPECS) {
     const snapshot = await adminDb.collection(spec.collection).get();
-    const docs = snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ref: docSnap.ref,
-        date: fechaDocumento(docSnap.data(), spec.dateFields)
-      }))
-      .sort((a, b) => b.date - a.date);
-
-    const toKeep = docs.slice(0, keep);
-    const toDelete = docs.slice(keep);
+    const docs = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ref: docSnap.ref,
+      date: fechaDocumento(docSnap.data(), spec.dateFields)
+    }));
+    const { toKeep, toDelete } = splitByRetention(docs, cutoff);
     const keepIds = new Set(toKeep.map((item) => item.id));
 
     const deleted = await deleteRefsInBatches(toDelete.map((item) => item.ref));
@@ -2908,8 +2930,8 @@ async function autoKeepLatestOperativos() {
     return;
   }
   try {
-    console.log('[AUTO-CLEANUP] Recortando pedidos, cobros y hojas de ruta a los 60 más recientes...');
-    const results = await executeKeepLatest(60);
+    console.log(`[AUTO-CLEANUP] Borrando pedidos, cobros y hojas de ruta con más de ${OPERATIVE_RETENTION_DAYS} días...`);
+    const results = await executeKeepLatest(OPERATIVE_RETENTION_DAYS);
     results.forEach((item) => {
       console.log(
         `[AUTO-CLEANUP] ${item.collection}: total=${item.total} quedan=${item.keep} borrados=${item.deleted} logs=${item.logsDeleted}`
@@ -2920,14 +2942,19 @@ async function autoKeepLatestOperativos() {
   }
 }
 
+function parseRetentionDays(value) {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : OPERATIVE_RETENTION_DAYS;
+}
+
 app.get("/api/cleanup/keep-latest", async (req, res) => {
   try {
     if (String(req.query.role || '') !== 'admin') {
       return res.status(403).json({ error: 'Solo el administrador puede consultar esta limpieza' });
     }
-    const keep = Math.max(1, parseInt(req.query.keep, 10) || 60);
-    const preview = await planKeepLatest(keep);
-    res.json({ keep, preview });
+    const days = parseRetentionDays(req.query.days || req.query.keep);
+    const preview = await planKeepLatest(days);
+    res.json({ days, preview });
   } catch (error) {
     console.error('Error en preview keep-latest:', error);
     res.status(500).json({ error: error.message });
@@ -2939,13 +2966,13 @@ app.post("/api/cleanup/keep-latest", async (req, res) => {
     if (String(req.body?.role || req.query.role || '') !== 'admin') {
       return res.status(403).json({ error: 'Solo el administrador puede ejecutar esta limpieza' });
     }
-    const keep = Math.max(1, parseInt(req.body?.keep, 10) || 60);
-    const results = await executeKeepLatest(keep);
+    const days = parseRetentionDays(req.body?.days || req.body?.keep || req.query.days);
+    const results = await executeKeepLatest(days);
     res.json({
       success: true,
-      keep,
+      days,
       results,
-      mensaje: `Se dejaron los últimos ${keep} registros de pedidos, cobros y hojas de ruta`
+      mensaje: `Se conservaron pedidos, cobros y hojas de ruta de los últimos ${days} días`
     });
   } catch (error) {
     console.error('Error ejecutando keep-latest:', error);
@@ -3243,7 +3270,7 @@ app.listen(PORT, () => {
   if (autoCleanupDisabled) {
     console.log('[AUTO-CLEANUP] Recorte automático DESHABILITADO (AUTO_CLEANUP_KEEP_LATEST=false)');
   } else {
-    console.log('[AUTO-CLEANUP] Recorte automático HABILITADO (60 pedidos, cobros y hojas de ruta)');
+    console.log('[AUTO-CLEANUP] Recorte automático HABILITADO (conservar últimos 60 días de pedidos, cobros y hojas de ruta)');
     console.log('[AUTO-CLEANUP] Primera ejecución en 3 minutos, después cada 24 horas');
     setTimeout(() => {
       autoKeepLatestOperativos();
