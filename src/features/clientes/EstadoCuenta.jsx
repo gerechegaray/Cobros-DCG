@@ -1257,176 +1257,78 @@ function EstadoCuenta({ user }) {
                   </DataTable>
                 </div>
 
-                {/* Vista Móvil - Cards personalizados */}
                 <div className="vista-movil">
                   {boletas.length === 0 ? (
-                      <div style={{ textAlign: "center", padding: "2rem" }}>
-                      No hay boletas para mostrar.
-                    </div>
+                    <p className="lista-movil__vacio">No hay boletas para mostrar.</p>
                   ) : (
-                    <div>
-                      {boletas.map((boleta, index) => (
-                        <Card key={boleta.numero || index} className="mb-3" style={{ borderRadius: "12px" }}>
-                          <div style={{ padding: "1rem" }}>
-                            <div className="grid">
-                              <div className="col-12">
-                                <div style={{ 
-                                  display: "flex", 
-                                  justifyContent: "space-between", 
-                                  alignItems: "center",
-                                  marginBottom: "0.75rem"
-                                }}>
-                                  <h4 style={{ margin: 0 }}>
-                                    Factura #{boleta.numero}
-                                  </h4>
-                                  <Tag
-                                    value={boleta.estado}
-                                    severity={boleta.estado === "PAGADO" ? "success" : boleta.estado === "PENDIENTE" ? "warning" : "danger"}
-                                    style={{
-                                      borderRadius: "15px",
-                                      fontSize: "0.75rem",
-                                      fontWeight: "500"
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              
-                              <div className="col-12">
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold" }}>Cliente:</span>
-                                  <span style={{ marginLeft: "0.5rem" }}>
-                                    {boleta.clienteNombre}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              <div className="col-6">
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold" }}>Emisión:</span>
-                                  <div>
-                                    {formatFecha(boleta.fechaEmision)}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="col-6">
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold" }}>Vencimiento:</span>
-                                  <div>
-                                    {formatFecha(boleta.fechaVencimiento)}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="col-12">
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold" }}>Monto Total:</span>
-                                  <span style={{ 
-                                    marginLeft: "0.5rem", 
-                                    fontWeight: "600",
-                                    fontSize: "1.1rem"
-                                  }}>
-                                    {formatMonto(boleta.montoTotal)}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              <div className="col-6">
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold" }}>Pagado:</span>
-                                  <div style={{ color: "var(--dcg-success)", fontWeight: "600" }}>
-                                    {formatMonto(boleta.montoPagado)}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="col-6">
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <span style={{ fontWeight: "bold" }}>Adeudado:</span>
-                                  <div style={{ color: "var(--dcg-error)", fontWeight: "600" }}>
-                                    {formatMonto((boleta.montoTotal || 0) - (boleta.montoPagado || 0))}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Botones de acción */}
-                              <div className="col-12">
-                                <div style={{ 
-                                  display: "flex", 
-                                  gap: "0.5rem", 
-                                  marginTop: "0.75rem",
-                                  flexWrap: "wrap"
-                                }}>
-                                  <Button
-                                    icon="pi pi-eye"
-                                    className="p-button-sm p-button-outlined"
-                                    onClick={() => {
-                                      const newExpanded = { ...expandedRows };
-                                      newExpanded[boleta.numero] = !newExpanded[boleta.numero];
-                                      setExpandedRows(newExpanded);
-                                    }}
-                                    label={expandedRows[boleta.numero] ? "Ocultar detalles" : "Ver detalles"}
-                                  />
-                                  
-                                  {(boleta.productos && boleta.productos.length > 0) && (
-                                    <Button
-                                      icon={expandedProductos[boleta.numero] ? "pi pi-eye-slash" : "pi pi-eye"}
-                                      className="p-button-sm p-button-outlined"
-                                      onClick={() => toggleProductos(boleta.numero)}
-                                      label={expandedProductos[boleta.numero] ? "Ocultar productos" : "Ver productos"}
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Detalles expandibles */}
-                            {expandedRows[boleta.numero] && (
-                              <div className="estado-cuenta-expanded-details">
-                                <strong>Pagos asociados:</strong>
-                                {boleta.pagos && boleta.pagos.length > 0 ? (
-                                  <ul style={{ margin: "0.5rem 0 0 1rem", padding: 0 }}>
-                                    {boleta.pagos.map((pago, idx) => (
-                                      <li key={idx} style={{ marginBottom: "0.25rem" }}>
-                                        <span>Fecha: {formatFecha(pago.date)}</span> | 
-                                        <span> Monto: {formatMonto(pago.amount)}</span>
-                                        {pago.notes && <span> | Nota: {pago.notes}</span>}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <div style={{ marginTop: "0.5rem" }}>
-                                    Sin pagos registrados para esta factura.
-                                  </div>
-                                )}
-                                
-                                {expandedProductos[boleta.numero] && (
-                                  <div style={{ marginTop: "1rem" }}>
-                                    <strong>Productos:</strong>
-                                    {boleta.productos && boleta.productos.length > 0 ? (
-                                      <ul style={{ margin: "0.5rem 0 0 1rem", padding: 0 }}>
-                                        {boleta.productos.map((producto, idx) => (
-                                          <li key={idx} style={{ marginBottom: "0.25rem" }}>
-                                            <span><strong>{producto.quantity || 1}x</strong> {producto.name || producto.description || 'Producto'}</span>
-                                            {producto.total && (
-                                              <span style={{ color: '#6b7280' }}> - {formatMonto(producto.total)}</span>
-                                            )}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <div style={{ marginTop: "0.5rem" }}>
-                                        Sin productos registrados para esta factura.
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                    boletas.map((boleta, index) => {
+                      const adeudado = (boleta.montoTotal || 0) - (boleta.montoPagado || 0);
+                      const abierta = Boolean(expandedRows[boleta.numero]);
+                      return (
+                        <article key={boleta.numero || index} className="lista-movil__card cuenta-boleta">
+                          <div className="lista-movil__top">
+                            <strong>Factura #{boleta.numero}</strong>
+                            <span className={`lista-movil__monto ${adeudado > 0 ? 'cuenta-boleta__adeudado' : ''}`}>
+                              {formatMonto(adeudado)}
+                            </span>
                           </div>
-                        </Card>
-                      ))}
-                    </div>
+                          <div className="lista-movil__meta">
+                            <Tag
+                              value={boleta.estado}
+                              severity={boleta.estado === 'PAGADO' ? 'success' : boleta.estado === 'PENDIENTE' ? 'warning' : 'danger'}
+                            />
+                            <span>Emisión {formatFecha(boleta.fechaEmision)}</span>
+                            <span>Vence {formatFecha(boleta.fechaVencimiento)}</span>
+                          </div>
+                          <div className="cuenta-boleta__montos">
+                            <span>Total {formatMonto(boleta.montoTotal)}</span>
+                            <span>Pagado {formatMonto(boleta.montoPagado)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="cuenta-boleta__toggle"
+                            onClick={() => {
+                              setExpandedRows((prev) => ({
+                                ...prev,
+                                [boleta.numero]: !prev[boleta.numero]
+                              }));
+                            }}
+                          >
+                            {abierta ? 'Ocultar detalle' : 'Ver pagos y productos'}
+                          </button>
+                          {abierta && (
+                            <div className="cuenta-boleta__detalle">
+                              <strong>Pagos</strong>
+                              {boleta.pagos && boleta.pagos.length > 0 ? (
+                                <ul>
+                                  {boleta.pagos.map((pago, idx) => (
+                                    <li key={idx}>
+                                      {formatFecha(pago.date)} · {formatMonto(pago.amount)}
+                                      {pago.notes ? ` · ${pago.notes}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p>Sin pagos registrados.</p>
+                              )}
+                              <strong>Productos</strong>
+                              {boleta.productos && boleta.productos.length > 0 ? (
+                                <ul>
+                                  {boleta.productos.map((producto, idx) => (
+                                    <li key={idx}>
+                                      {producto.quantity || 1}× {producto.name || producto.description || 'Producto'}
+                                      {producto.total ? ` · ${formatMonto(producto.total)}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p>Sin productos registrados.</p>
+                              )}
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
                   )}
                 </div>
               </>

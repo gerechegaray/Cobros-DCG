@@ -341,13 +341,26 @@
   }
 
   .estado-cuenta-kpis {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-3);
-    padding: var(--spacing-4);
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .estado-cuenta-kpi-card {
+    padding: 0.55rem 0.35rem;
+  }
+
+  .estado-cuenta-kpi-icon {
+    display: none;
   }
 
   .estado-cuenta-kpi-value {
-    font-size: var(--font-size-2xl);
+    font-size: 0.82rem;
+  }
+
+  .estado-cuenta-kpi-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.02em;
   }
 
   .estado-cuenta-tabla-container {
@@ -379,7 +392,7 @@
   }
 
   .estado-cuenta-kpi-value {
-    font-size: var(--font-size-xl);
+    font-size: 0.75rem;
   }
 
   .estado-cuenta-table .p-datatable .p-datatable-tbody > tr > td {
@@ -391,43 +404,58 @@
 /* ============================================
    VISTA MÓVIL - CARDS
    ============================================ */
-.vista-movil .p-card {
-  background: var(--dcg-bg-elevated);
-  border: var(--border-width-thin) solid var(--dcg-border);
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--dcg-shadow-sm);
-  margin-bottom: var(--spacing-4);
-  transition: all var(--transition-base);
+.cuenta-boleta__adeudado {
+  color: var(--dcg-error);
 }
 
-.vista-movil .p-card:hover {
-  box-shadow: var(--dcg-shadow-md);
-  transform: translateY(-2px);
+.cuenta-boleta__montos {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--dcg-text-muted);
 }
 
-.vista-movil .p-card .p-card-body {
-  padding: var(--spacing-4);
+.cuenta-boleta__toggle {
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--dcg-border);
+  background: transparent;
+  color: var(--dcg-azul-claro);
+  font-size: 0.85rem;
 }
 
-.vista-movil .p-card h4 {
-  color: var(--dcg-text-primary) !important;
-  font-size: var(--font-size-lg) !important;
-  font-weight: var(--font-weight-semibold) !important;
+.cuenta-boleta__detalle {
+  margin-top: 0.7rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--dcg-border);
+  font-size: 0.85rem;
 }
 
-.vista-movil .p-card span[style*="font-weight: bold"] {
-  color: var(--dcg-text-secondary) !important;
-  font-weight: var(--font-weight-medium) !important;
+.cuenta-boleta__detalle strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--dcg-text-primary);
 }
 
-.vista-movil .p-card span:not([style*="font-weight: bold"]) {
-  color: var(--dcg-text-primary) !important;
+.cuenta-boleta__detalle strong + strong,
+.cuenta-boleta__detalle p + strong,
+.cuenta-boleta__detalle ul + strong {
+  margin-top: 0.7rem;
 }
 
-.vista-movil .p-button {
-  border-radius: var(--border-radius-xl) !important;
-  padding: var(--spacing-2) var(--spacing-4) !important;
-  font-size: var(--font-size-sm) !important;
+.cuenta-boleta__detalle ul {
+  margin: 0 0 0 1.1rem;
+  padding: 0;
+}
+
+.cuenta-boleta__detalle li,
+.cuenta-boleta__detalle p {
+  margin: 0 0 0.25rem;
+  color: var(--dcg-text-secondary);
 }
 
 /* ============================================

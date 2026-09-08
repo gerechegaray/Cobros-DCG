@@ -5,6 +5,7 @@ import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Toast } from 'primereact/toast';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { crearPedido, actualizarPedido, getProductos, getClientesAsignados } from './pedidosService';
 import { CONDICIONES_PAGO } from './constants';
 import { formatearMoneda, calcularTotal, calcularTotalProducto } from './utils';
@@ -207,6 +208,36 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
 
   const pasoAnterior = () => {
     if (activeStep > 0) setActiveStep(activeStep - 1);
+  };
+
+  const cerrarYBorrar = () => {
+    borrarBorradorPedido();
+    limpiarFormulario();
+    onHide();
+  };
+
+  const handleCerrar = () => {
+    if (loading) return;
+    if (pedido) {
+      onHide();
+      return;
+    }
+    const hayDatos = Boolean(
+      cliente || productosAgregados.length > 0 || observaciones.trim()
+    );
+    if (!hayDatos) {
+      cerrarYBorrar();
+      return;
+    }
+    confirmDialog({
+      message: 'Se va a borrar el cliente y los productos de este pedido.',
+      header: 'Descartar pedido',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, borrar',
+      rejectLabel: 'Seguir',
+      acceptClassName: 'p-button-danger',
+      accept: cerrarYBorrar
+    });
   };
 
   const handleSubmit = async () => {
@@ -458,13 +489,16 @@ const PedidoFormMovil = ({ visible, onHide, pedido, onSuccess, user }) => {
   return (
     <>
       <Toast ref={toast} />
+      <ConfirmDialog baseZIndex={4000} />
       <Dialog
         visible={visible}
-        onHide={onHide}
+        onHide={handleCerrar}
         header={pedido ? 'Editar pedido' : 'Nuevo pedido'}
         footer={footer}
         style={{ width: '100vw', maxWidth: '100%', height: '100vh', maxHeight: '100%' }}
         modal
+        closable={!loading}
+        dismissableMask={false}
         className="p-fluid pedido-form-movil"
         contentStyle={{ padding: '0' }}
       >

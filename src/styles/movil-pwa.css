@@ -20,6 +20,10 @@
   color: #fff;
 }
 
+.p-confirm-dialog {
+  z-index: 5000 !important;
+}
+
 .cliente-picker-movil__bloque {
   margin-top: 0.75rem;
 }
