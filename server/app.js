@@ -25,7 +25,7 @@ import {
 import { REGLAS_FAMILIA } from "./comisionesPolitica.js";
 import { registerTelegramRoutes } from "./telegram/routes.js";
 import { crearAuthMiddleware } from "./authMiddleware.js";
-import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, cert, applicationDefault, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -35,12 +35,23 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// 🆕 Debug: Verificar variables de entorno
+function resolverFirebaseProjectId() {
+  const raw = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_PROJECT_ID || 'planilla-cobranzas';
+  if (/^\d+$/.test(String(raw))) {
+    console.warn('[AUTH] FIREBASE_PROJECT_ID numérico; usando planilla-cobranzas');
+    return 'planilla-cobranzas';
+  }
+  return raw;
+}
+
+const firebaseProjectId = resolverFirebaseProjectId();
+
 console.log('🔍 Debug - Variables de entorno Firebase:');
 console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✅ Configurado' : '❌ No configurado');
 console.log('FIREBASE_PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? '✅ Configurado' : '❌ No configurado');
 console.log('FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? '✅ Configurado' : '❌ No configurado');
 console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configurado' : '❌ No configurado');
+console.log('Firebase Admin projectId:', firebaseProjectId);
 
         // Inicializar Firebase Admin si no está inicializado
         try {
@@ -50,7 +61,7 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
               console.log('🔄 Intentando inicializar Firebase con variables de entorno...');
               const serviceAccount = {
                 type: "service_account",
-                project_id: process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_PROJECT_ID || "planilla-cobranzas",
+                project_id: firebaseProjectId,
                 private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || process.env.GOOGLE_PRIVATE_KEY_ID,
                 private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
                 client_email: process.env.FIREBASE_CLIENT_EMAIL,
@@ -64,6 +75,7 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
               
               initializeApp({
                 credential: cert(serviceAccount),
+                projectId: firebaseProjectId,
               });
               console.log('✅ Firebase Admin inicializado con variables de entorno');
             } else if (process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_CLIENT_EMAIL) {
@@ -71,12 +83,13 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
               initializeApp({
                 credential: cert({
                   type: "service_account",
-                  project_id: process.env.GOOGLE_PROJECT_ID || "planilla-cobranzas",
+                  project_id: firebaseProjectId,
                   private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
                   private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
                   client_email: process.env.GOOGLE_CLIENT_EMAIL,
                   client_id: process.env.GOOGLE_CLIENT_ID,
                 }),
+                projectId: firebaseProjectId,
               });
               console.log('✅ Firebase Admin inicializado con GOOGLE_*');
             } else {
@@ -87,11 +100,13 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
               
               initializeApp({
                 credential: cert(serviceAccount),
+                projectId: serviceAccount.project_id || firebaseProjectId,
               });
               console.log('✅ Firebase Admin inicializado con credenciales de archivo');
             }
           }
           global._firebaseAdminInitialized = true;
+          console.log('Firebase Admin app projectId:', getApps()[0]?.options?.projectId || 'unknown');
         } catch (error) {
           console.error('❌ Error cargando credenciales de Firebase:', error);
           // Fallback a applicationDefault si el archivo no está disponible
@@ -99,6 +114,7 @@ console.log('FIREBASE_CLIENT_ID:', process.env.FIREBASE_CLIENT_ID ? '✅ Configu
             console.log('🔄 Intentando con applicationDefault...');
             initializeApp({
               credential: applicationDefault(),
+              projectId: firebaseProjectId,
             });
             console.log('✅ Firebase Admin inicializado con applicationDefault');
           } catch (fallbackError) {
@@ -205,7 +221,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type', 
-    'Authorization', 
+    'Authorization',
+    'X-Firebase-Token',
     'Cache-Control', 
     'Pragma',
     'Expires',

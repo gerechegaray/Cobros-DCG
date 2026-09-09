@@ -27,7 +27,17 @@ export const apiRequest = async (endpoint, options = {}) => {
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Sesión vencida. Cerrá sesión y volvé a entrar.');
+      let code = '';
+      try {
+        const body = await response.json();
+        code = body?.code || '';
+      } catch {
+        code = '';
+      }
+      if (code === 'NO_TOKEN') {
+        throw new Error('No se pudo enviar la sesión al servidor. Recargá la página.');
+      }
+      throw new Error('El servidor no pudo validar tu usuario. Recargá e intentá de nuevo.');
     }
     if (response.status === 403) {
       throw new Error('No autorizado para esta acción.');

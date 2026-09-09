@@ -28,6 +28,29 @@ function esSoloAdmin(path) {
   );
 }
 
+function primerHeader(value) {
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+  return value || '';
+}
+
+function extraerToken(req) {
+  const auth = String(primerHeader(req.headers.authorization)).trim();
+  if (auth.startsWith('Bearer ')) {
+    const token = auth.slice(7).trim();
+    if (token) {
+      return token;
+    }
+  }
+
+  const alt = String(primerHeader(req.headers['x-firebase-token'])).trim();
+  if (alt.startsWith('Bearer ')) {
+    return alt.slice(7).trim();
+  }
+  return alt;
+}
+
 export function crearAuthMiddleware(adminDb) {
   return async function requireAuth(req, res, next) {
     if (req.method === 'OPTIONS') {
@@ -43,17 +66,18 @@ export function crearAuthMiddleware(adminDb) {
       return next();
     }
 
-    const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+    const token = extraerToken(req);
     if (!token) {
-      return res.status(401).json({ error: 'No autenticado' });
+      console.error('[AUTH] NO_TOKEN', req.method, path);
+      return res.status(401).json({ error: 'No autenticado', code: 'NO_TOKEN' });
     }
 
     try {
       const decoded = await getAuth().verifyIdToken(token);
       const email = decoded.email;
       if (!email) {
-        return res.status(401).json({ error: 'No autenticado' });
+        console.error('[AUTH] INVALID_TOKEN missing email', req.method, path);
+        return res.status(401).json({ error: 'No autenticado', code: 'INVALID_TOKEN' });
       }
 
       const snap = await adminDb.collection('usuarios').doc(email).get();
@@ -78,8 +102,8 @@ export function crearAuthMiddleware(adminDb) {
 
       return next();
     } catch (error) {
-      console.error('[AUTH] Token inválido:', error?.code || error?.message || error);
-      return res.status(401).json({ error: 'No autenticado' });
+      console.error('[AUTH] INVALID_TOKEN', error?.code || error?.message || error, req.method, path);
+      return res.status(401).json({ error: 'No autenticado', code: 'INVALID_TOKEN' });
     }
   };
 }
