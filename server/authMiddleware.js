@@ -30,10 +30,16 @@ function esSoloAdmin(path) {
 
 export function crearAuthMiddleware(adminDb) {
   return async function requireAuth(req, res, next) {
-    if (rutaPublica(req.path)) {
+    if (req.method === 'OPTIONS') {
       return next();
     }
-    if (!req.path.startsWith('/api')) {
+
+    const path = (req.originalUrl || req.url || '').split('?')[0];
+
+    if (rutaPublica(path)) {
+      return next();
+    }
+    if (!path.startsWith('/api')) {
       return next();
     }
 
@@ -66,12 +72,13 @@ export function crearAuthMiddleware(adminDb) {
         name: data.name || ''
       };
 
-      if (esSoloAdmin(req.path) && req.user.role !== 'admin') {
+      if (esSoloAdmin(path) && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'No autorizado' });
       }
 
       return next();
-    } catch {
+    } catch (error) {
+      console.error('[AUTH] Token inválido:', error?.code || error?.message || error);
       return res.status(401).json({ error: 'No autenticado' });
     }
   };

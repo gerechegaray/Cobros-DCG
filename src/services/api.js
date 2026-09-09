@@ -26,6 +26,12 @@ export const apiRequest = async (endpoint, options = {}) => {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Sesión vencida. Cerrá sesión y volvé a entrar.');
+    }
+    if (response.status === 403) {
+      throw new Error('No autorizado para esta acción.');
+    }
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
