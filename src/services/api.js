@@ -14,16 +14,23 @@ export const apiRequest = async (endpoint, options = {}) => {
   const version = Date.now();
   const separator = endpoint.includes('?') ? '&' : '?';
   const url = `${API_BASE_URL}${endpoint}${separator}v=${version}`;
-  const headers = await authHeaders({
-    'Content-Type': 'application/json',
-    ...options.headers,
-  });
-
   const { headers: _ignored, ...rest } = options;
-  const response = await fetch(url, {
-    ...rest,
-    headers
-  });
+
+  const send = async (forceRefresh) => {
+    const headers = await authHeaders({
+      'Content-Type': 'application/json',
+      ...options.headers,
+    }, forceRefresh);
+    return fetch(url, {
+      ...rest,
+      headers
+    });
+  };
+
+  let response = await send(false);
+  if (response.status === 401) {
+    response = await send(true);
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -37,10 +44,16 @@ export const apiRequest = async (endpoint, options = {}) => {
       if (code === 'NO_TOKEN') {
         throw new Error('No se pudo enviar la sesión al servidor. Recargá la página.');
       }
+      if (code === 'MISSING_EMAIL') {
+        throw new Error('Tu usuario de Google no tiene email visible. Probá con otra cuenta.');
+      }
       throw new Error('El servidor no pudo validar tu usuario. Recargá e intentá de nuevo.');
     }
     if (response.status === 403) {
       throw new Error('No autorizado para esta acción.');
+    }
+    if (response.status === 503) {
+      throw new Error('El servidor está saturado. Esperá un minuto e intentá de nuevo.');
     }
     throw new Error(`HTTP error! status: ${response.status}`);
   }

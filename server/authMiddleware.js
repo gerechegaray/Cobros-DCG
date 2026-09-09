@@ -35,20 +35,59 @@ function primerHeader(value) {
   return value || '';
 }
 
-function extraerToken(req) {
+function extraerCandidatos(req) {
+  const candidatos = [];
   const auth = String(primerHeader(req.headers.authorization)).trim();
   if (auth.startsWith('Bearer ')) {
     const token = auth.slice(7).trim();
     if (token) {
-      return token;
+      candidatos.push(token);
     }
   }
 
   const alt = String(primerHeader(req.headers['x-firebase-token'])).trim();
-  if (alt.startsWith('Bearer ')) {
-    return alt.slice(7).trim();
+  const altToken = alt.startsWith('Bearer ') ? alt.slice(7).trim() : alt;
+  if (altToken && !candidatos.includes(altToken)) {
+    candidatos.push(altToken);
   }
-  return alt;
+  return candidatos;
+}
+
+function emailDesdeToken(decoded) {
+  if (decoded?.email) {
+    return decoded.email;
+  }
+  const identities = decoded?.firebase?.identities?.email;
+  if (Array.isArray(identities) && identities[0]) {
+    return identities[0];
+  }
+  return '';
+}
+
+function esQuotaFirestore(error) {
+  const code = error?.code;
+  return code === 8 || code === '8' || String(error?.message || '').includes('RESOURCE_EXHAUSTED');
+}
+
+async function resolverEmail(decoded) {
+  const desdeToken = emailDesdeToken(decoded);
+  if (desdeToken) {
+    return desdeToken;
+  }
+  const record = await getAuth().getUser(decoded.uid);
+  return record.email || '';
+}
+
+async function cargarUsuario(adminDb, email) {
+  const exacto = await adminDb.collection('usuarios').doc(email).get();
+  if (exacto.exists) {
+    return exacto;
+  }
+  const lower = email.toLowerCase();
+  if (lower !== email) {
+    return adminDb.collection('usuarios').doc(lower).get();
+  }
+  return exacto;
 }
 
 export function crearAuthMiddleware(adminDb) {
@@ -66,21 +105,52 @@ export function crearAuthMiddleware(adminDb) {
       return next();
     }
 
-    const token = extraerToken(req);
-    if (!token) {
+    const candidatos = extraerCandidatos(req);
+    if (!candidatos.length) {
       console.error('[AUTH] NO_TOKEN', req.method, path);
       return res.status(401).json({ error: 'No autenticado', code: 'NO_TOKEN' });
     }
 
+    let decoded = null;
+    let lastVerifyError = null;
+    for (const token of candidatos) {
+      try {
+        decoded = await getAuth().verifyIdToken(token);
+        lastVerifyError = null;
+        break;
+      } catch (error) {
+        lastVerifyError = error;
+      }
+    }
+
+    if (!decoded) {
+      console.error(
+        '[AUTH] INVALID_TOKEN',
+        lastVerifyError?.code || lastVerifyError?.message || lastVerifyError,
+        req.method,
+        path
+      );
+      return res.status(401).json({ error: 'No autenticado', code: 'INVALID_TOKEN' });
+    }
+
     try {
-      const decoded = await getAuth().verifyIdToken(token);
-      const email = decoded.email;
+      const email = await resolverEmail(decoded);
       if (!email) {
-        console.error('[AUTH] INVALID_TOKEN missing email', req.method, path);
-        return res.status(401).json({ error: 'No autenticado', code: 'INVALID_TOKEN' });
+        console.error('[AUTH] MISSING_EMAIL', req.method, path);
+        return res.status(401).json({ error: 'No autenticado', code: 'MISSING_EMAIL' });
       }
 
-      const snap = await adminDb.collection('usuarios').doc(email).get();
+      let snap;
+      try {
+        snap = await cargarUsuario(adminDb, email);
+      } catch (error) {
+        if (esQuotaFirestore(error)) {
+          console.error('[AUTH] FIRESTORE_QUOTA', req.method, path);
+          return res.status(503).json({ error: 'Servicio saturado', code: 'FIRESTORE_QUOTA' });
+        }
+        throw error;
+      }
+
       if (!snap.exists) {
         return res.status(403).json({ error: 'No autorizado' });
       }
@@ -102,7 +172,11 @@ export function crearAuthMiddleware(adminDb) {
 
       return next();
     } catch (error) {
-      console.error('[AUTH] INVALID_TOKEN', error?.code || error?.message || error, req.method, path);
+      if (esQuotaFirestore(error)) {
+        console.error('[AUTH] FIRESTORE_QUOTA', req.method, path);
+        return res.status(503).json({ error: 'Servicio saturado', code: 'FIRESTORE_QUOTA' });
+      }
+      console.error('[AUTH] LOOKUP_ERROR', error?.code || error?.message || error, req.method, path);
       return res.status(401).json({ error: 'No autenticado', code: 'INVALID_TOKEN' });
     }
   };
