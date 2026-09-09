@@ -488,3 +488,123 @@ export async function getAlegraEstimatesUnbilled(maxEstimates = 150) {
     .filter(esEstimateSinFacturar)
     .map(mapEstimateToPedidoRow);
 }
+
+function alegraAuthHeader() {
+  const email = process.env.ALEGRA_EMAIL?.trim();
+  const apiKey = process.env.ALEGRA_API_KEY?.trim();
+  if (!email || !apiKey) {
+    throw new Error('Credenciales de Alegra no configuradas. Verifica ALEGRA_EMAIL y ALEGRA_API_KEY en las variables de entorno.');
+  }
+  return 'Basic ' + Buffer.from(email + ':' + apiKey).toString('base64');
+}
+
+function fechaEnRango(dateStr, desde, hasta) {
+  const d = String(dateStr || '').slice(0, 10);
+  return d >= desde && d <= hasta;
+}
+
+async function paginarAlegra(path, desde, hasta) {
+  const authorization = alegraAuthHeader();
+  const all = [];
+  let start = 0;
+  const limit = 30;
+
+  while (true) {
+    const params = new URLSearchParams({
+      date_afterOrNow: desde,
+      date_beforeOrNow: hasta,
+      order_direction: 'DESC',
+      order_field: 'date',
+      limit: String(limit),
+      start: String(start)
+    });
+    const url = `https://api.alegra.com/api/v1/${path}?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', authorization }
+    });
+
+    if (response.status === 429) {
+      console.warn(`[ALEGRA] 429 en ${path} start=${start}. Reintento en 2s`);
+      await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error al listar ${path} de Alegra: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) break;
+
+    for (const item of data) {
+      if (fechaEnRango(item.date, desde, hasta)) all.push(item);
+    }
+
+    if (data.length < limit) break;
+    start += data.length;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+
+  return all;
+}
+
+export async function getAlegraInvoicesRango(desde, hasta) {
+  console.log(`[ALEGRA] Facturas ${desde} a ${hasta} (todas las páginas, todos los estados)`);
+  const facturas = await paginarAlegra('invoices', desde, hasta);
+  console.log(`[ALEGRA] Facturas en rango: ${facturas.length}`);
+  return facturas;
+}
+
+export async function getAlegraPaymentsRango(desde, hasta, onPage) {
+  const authorization = alegraAuthHeader();
+  let start = 0;
+  const limit = 30;
+  let pages = 0;
+  let total = 0;
+
+  console.log(`[ALEGRA] Payments ${desde} a ${hasta}`);
+
+  while (true) {
+    const params = new URLSearchParams({
+      date_afterOrNow: desde,
+      date_beforeOrNow: hasta,
+      order_direction: 'DESC',
+      order_field: 'date',
+      limit: String(limit),
+      start: String(start)
+    });
+    const url = `https://api.alegra.com/api/v1/payments?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', authorization }
+    });
+
+    if (response.status === 429) {
+      console.warn(`[ALEGRA] 429 en payments start=${start}. Reintento en 2s`);
+      await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error al listar payments de Alegra: ${response.status} ${errorText}`);
+    }
+
+    const payments = await response.json();
+    if (!Array.isArray(payments) || payments.length === 0) break;
+
+    const enRango = payments.filter((p) => fechaEnRango(p.date, desde, hasta));
+    if (enRango.length > 0 && onPage) {
+      await onPage(enRango);
+    }
+    total += enRango.length;
+    pages += 1;
+
+    if (payments.length < limit) break;
+    start += payments.length;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+
+  console.log(`[ALEGRA] Payments en rango: ${total} (${pages} páginas)`);
+  return { total, hasMore: false, nextOffset: start };
+}

@@ -170,6 +170,12 @@ function ComisionesAdmin({ user }) {
     }
     
     setCalculando(true);
+    toast.current?.show({
+      severity: 'info',
+      summary: 'Sincronizando el mes',
+      detail: `Trae cobros y ventas de ${periodo} desde Alegra y después calcula. Puede tardar 1 o 2 minutos.`,
+      life: 5000
+    });
     try {
       await Promise.all([
         calcularComisiones(periodo),
@@ -777,6 +783,7 @@ function ComisionesAdmin({ user }) {
               loading={calculando}
               className="p-button-outlined"
               disabled={comisiones?.estado === 'cerrado' || comisiones?.estado === 'pagado'}
+              tooltip="Sincroniza el mes desde Alegra y recalcula. Puede tardar 1 o 2 minutos."
             />
             {comisiones && user.role === 'admin' && (
               <Button
@@ -1263,6 +1270,7 @@ function ComisionesAdmin({ user }) {
               icon="pi pi-calculator"
               onClick={handleCalcular}
               loading={calculando}
+              tooltip="Sincroniza el mes desde Alegra y recalcula. Puede tardar 1 o 2 minutos."
             />
           </div>
         </Card>

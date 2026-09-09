@@ -95,6 +95,17 @@ export function usaFlete(vendedor) {
   return vendedor === 'Santi';
 }
 
+export function periodoARango(periodo) {
+  if (!/^\d{4}-\d{2}$/.test(periodo)) {
+    throw new Error('Formato de período inválido. Debe ser YYYY-MM');
+  }
+  const [anio, mes] = periodo.split('-').map(Number);
+  const desde = `${periodo}-01`;
+  const ultimo = new Date(anio, mes, 0).getDate();
+  const hasta = `${periodo}-${String(ultimo).padStart(2, '0')}`;
+  return { desde, hasta };
+}
+
 function norm(name) {
   return String(name || '').trim().toLowerCase();
 }

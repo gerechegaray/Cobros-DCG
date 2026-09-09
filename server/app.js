@@ -11,6 +11,7 @@ import { getAlegraInvoices, getAlegraContacts, getAlegraItems, getAlegraEstimate
 import { 
   sincronizarFacturasDesdePayments, 
   calcularComisionesMensuales, 
+  sincronizarPeriodoComisiones,
   getReglasComisiones,
   cerrarPeriodoComisiones,
   agregarAjusteComision,
@@ -3210,17 +3211,22 @@ app.post("/api/comisiones/sync-facturas", async (req, res) => {
 // 🆕 Endpoint para calcular comisiones de un período
 app.post("/api/comisiones/calcular/:periodo", async (req, res) => {
   try {
+    req.setTimeout(180000);
+    res.setTimeout(180000);
     const { periodo } = req.params;
     
     if (!adminDb) {
       return res.status(500).json({ error: 'Firebase no inicializado' });
     }
     
+    console.log(`[COMISIONES] Calculando ${periodo}: sync del mes y liquidación`);
+    const syncPeriodo = await sincronizarPeriodoComisiones(adminDb, periodo);
     const resultados = await calcularComisionesMensuales(adminDb, periodo);
     
     res.json({
       success: true,
       periodo,
+      sync: syncPeriodo,
       resultados
     });
     
