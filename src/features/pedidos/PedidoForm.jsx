@@ -140,14 +140,14 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
 
   // Cuando se selecciona un producto, cargar su precio
   useEffect(() => {
-    if (productoSeleccionado) {
+    if (productoSeleccionado && typeof productoSeleccionado === 'object' && productoSeleccionado.id != null) {
       setPrecioUnitario(productoSeleccionado.precio || 0);
     }
   }, [productoSeleccionado]);
 
   // Agregar producto a la lista
   const agregarProducto = () => {
-    if (!productoSeleccionado) {
+    if (!productoSeleccionado || typeof productoSeleccionado !== 'object' || productoSeleccionado.id == null) {
       toast.current?.show({
         severity: 'warn',
         summary: 'Atención',
