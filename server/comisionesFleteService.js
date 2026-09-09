@@ -1,176 +1,159 @@
-// Servicio para cálculo de comisiones por flete
-// FASE 2.3: Cálculo mensual basado en hojas de ruta
-
 import { Timestamp } from 'firebase-admin/firestore';
+import {
+  BASICO_FLETE_SANTI,
+  PCT_FLETE_SANTI,
+  VENDEDORES_VALIDOS,
+  bonoKgSanti,
+  fleteHojaSanti,
+  kgDeHoja,
+  usaFlete
+} from './comisionesPolitica.js';
 
-// Vendedores válidos
-const VENDEDORES_VALIDOS = ['Guille', 'Santi', 'Victor'];
-const PORCENTAJE_FLETE = 4; // 4% fijo
-
-/**
- * Calcular total de una hoja de ruta sumando los totales de los pedidos
- */
 function calcularTotalHojaRuta(hoja) {
   if (!hoja.pedidos || !Array.isArray(hoja.pedidos)) {
     return 0;
   }
-  
+
   return hoja.pedidos.reduce((total, pedido) => {
     const pedidoTotal = parseFloat(pedido.total) || 0;
     return total + pedidoTotal;
   }, 0);
 }
 
-/**
- * Calcular comisión por flete para un período y vendedor
- */
+function estructuraVacia(vendedor, periodo) {
+  return {
+    vendedor,
+    periodo,
+    totalFlete: 0,
+    totalKg: 0,
+    porcentaje: usaFlete(vendedor) ? PCT_FLETE_SANTI * 100 : 0,
+    comisionVariable: 0,
+    bonoKg: 0,
+    basicoFlete: vendedor === 'Santi' ? BASICO_FLETE_SANTI : 0,
+    comisionFlete: 0,
+    cantidadHojas: 0,
+    updatedAt: Timestamp.now()
+  };
+}
+
 export async function calcularComisionFleteMensual(adminDb, periodo) {
   if (!adminDb) {
     throw new Error('Firebase no inicializado');
   }
-  
+
   console.log(`[COMISIONES FLETE] Calculando comisión por flete para período: ${periodo}`);
-  
-  // Validar formato de período (YYYY-MM)
+
   const periodoRegex = /^\d{4}-\d{2}$/;
   if (!periodoRegex.test(periodo)) {
     throw new Error('Formato de período inválido. Debe ser YYYY-MM');
   }
-  
-  // Obtener año y mes del período
+
   const [anio, mes] = periodo.split('-').map(Number);
-  
-  // Fechas de inicio y fin del período
   const fechaInicio = new Date(anio, mes - 1, 1, 0, 0, 0, 0);
   const fechaFin = new Date(anio, mes, 0, 23, 59, 59, 999);
-  
+
   console.log(`[COMISIONES FLETE] Rango de fechas: ${fechaInicio.toISOString()} a ${fechaFin.toISOString()}`);
-  
-  // Obtener todas las hojas de ruta del período
+
   const snapshot = await adminDb.collection('hojasDeRuta')
     .where('fecha', '>=', Timestamp.fromDate(fechaInicio))
     .where('fecha', '<=', Timestamp.fromDate(fechaFin))
     .get();
-  
+
   console.log(`[COMISIONES FLETE] Hojas de ruta encontradas: ${snapshot.size}`);
-  
-  // Agrupar por vendedor
+
   const comisionesPorVendedor = {};
-  
-  VENDEDORES_VALIDOS.forEach(vendedor => {
-    comisionesPorVendedor[vendedor] = {
-      vendedor,
-      periodo,
-      totalFlete: 0,
-      porcentaje: PORCENTAJE_FLETE,
-      comisionFlete: 0,
-      cantidadHojas: 0,
-      updatedAt: Timestamp.now()
-    };
-  });
-  
-  snapshot.forEach(doc => {
+  for (const vendedor of VENDEDORES_VALIDOS) {
+    comisionesPorVendedor[vendedor] = estructuraVacia(vendedor, periodo);
+  }
+
+  snapshot.forEach((doc) => {
     const hoja = doc.data();
     const responsable = hoja.responsable || hoja.cobrador || '';
-    
-    // Solo procesar si el responsable es un vendedor válido
-    if (!VENDEDORES_VALIDOS.includes(responsable)) {
-      return;
-    }
-    
+    if (responsable !== 'Santi') return;
+
     const totalHoja = calcularTotalHojaRuta(hoja);
-    
-    if (totalHoja > 0) {
-      comisionesPorVendedor[responsable].totalFlete += totalHoja;
-      comisionesPorVendedor[responsable].cantidadHojas += 1;
-    }
+    const kg = kgDeHoja(hoja);
+    const variable = fleteHojaSanti(totalHoja, kg);
+    const bono = bonoKgSanti(kg);
+
+    comisionesPorVendedor.Santi.totalFlete += totalHoja;
+    comisionesPorVendedor.Santi.totalKg += kg;
+    comisionesPorVendedor.Santi.comisionVariable += totalHoja * PCT_FLETE_SANTI;
+    comisionesPorVendedor.Santi.bonoKg += bono;
+    comisionesPorVendedor.Santi.comisionFlete += variable;
+    comisionesPorVendedor.Santi.cantidadHojas += 1;
   });
-  
-  // Calcular comisión para cada vendedor
+
+  comisionesPorVendedor.Santi.comisionFlete += BASICO_FLETE_SANTI;
+  comisionesPorVendedor.Santi.basicoFlete = BASICO_FLETE_SANTI;
+  comisionesPorVendedor.Guille.comisionFlete = 0;
+  comisionesPorVendedor.Guille.basicoFlete = 0;
+  comisionesPorVendedor.Victor.comisionFlete = 0;
+  comisionesPorVendedor.Victor.basicoFlete = 0;
+
   const resultados = [];
-  
+
   for (const vendedor of VENDEDORES_VALIDOS) {
     const datos = comisionesPorVendedor[vendedor];
-    datos.comisionFlete = datos.totalFlete * (PORCENTAJE_FLETE / 100);
-    
-    // Guardar en Firestore (siempre, incluso si es 0 para mantener consistencia)
+    datos.updatedAt = Timestamp.now();
+
     const docRef = adminDb.collection('comisiones_flete_mensuales')
       .doc(vendedor)
       .collection(periodo)
       .doc(periodo);
-    
+
     await docRef.set(datos, { merge: true });
-    
-    console.log(`[COMISIONES FLETE] ${vendedor} - Total: ${datos.totalFlete}, Comisión: ${datos.comisionFlete}, Hojas: ${datos.cantidadHojas}`);
-    
+
+    console.log(`[COMISIONES FLETE] ${vendedor} - Transportado: ${datos.totalFlete}, Kg: ${datos.totalKg}, Comisión: ${datos.comisionFlete}, Hojas: ${datos.cantidadHojas}`);
     resultados.push(datos);
   }
-  
+
   return resultados;
 }
 
-/**
- * Obtener comisión por flete de un vendedor y período
- */
 export async function getComisionFlete(adminDb, vendedor, periodo) {
   if (!adminDb) {
     throw new Error('Firebase no inicializado');
   }
-  
+
   if (!VENDEDORES_VALIDOS.includes(vendedor)) {
     throw new Error(`Vendedor inválido: ${vendedor}`);
   }
-  
-  // Validar formato de período
+
   const periodoRegex = /^\d{4}-\d{2}$/;
   if (periodo && !periodoRegex.test(periodo)) {
     throw new Error('Formato de período inválido. Debe ser YYYY-MM');
   }
-  
+
   if (periodo) {
-    // Obtener comisión de un período específico
     const docRef = adminDb.collection('comisiones_flete_mensuales')
       .doc(vendedor)
       .collection(periodo)
       .doc(periodo);
-    
+
     const doc = await docRef.get();
-    
     if (doc.exists) {
       return doc.data();
     }
-    
-    // Si no existe, retornar estructura vacía
-    return {
-      vendedor,
-      periodo,
-      totalFlete: 0,
-      porcentaje: PORCENTAJE_FLETE,
-      comisionFlete: 0,
-      cantidadHojas: 0
-    };
-  } else {
-    // Obtener todas las comisiones del vendedor
-    const subcollections = await adminDb.collection('comisiones_flete_mensuales')
-      .doc(vendedor)
-      .listCollections();
-    
-    const comisiones = [];
-    
-    for (const subcollection of subcollections) {
-      const periodo = subcollection.id;
-      const docRef = subcollection.doc(periodo);
-      const docSnapshot = await docRef.get();
-      
-      if (docSnapshot.exists) {
-        comisiones.push(docSnapshot.data());
-      }
-    }
-    
-    // Ordenar por período descendente
-    comisiones.sort((a, b) => b.periodo.localeCompare(a.periodo));
-    
-    return comisiones;
+    return estructuraVacia(vendedor, periodo);
   }
-}
 
+  const subcollections = await adminDb.collection('comisiones_flete_mensuales')
+    .doc(vendedor)
+    .listCollections();
+
+  const comisiones = [];
+
+  for (const subcollection of subcollections) {
+    const periodoId = subcollection.id;
+    const docRef = subcollection.doc(periodoId);
+    const docSnapshot = await docRef.get();
+
+    if (docSnapshot.exists) {
+      comisiones.push(docSnapshot.data());
+    }
+  }
+
+  comisiones.sort((a, b) => b.periodo.localeCompare(a.periodo));
+  return comisiones;
+}

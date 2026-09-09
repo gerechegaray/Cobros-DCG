@@ -8,7 +8,7 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
-import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, calcularComisionFlete, cerrarPeriodo, agregarAjuste, pagarComision } from './comisionesService';
+import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, calcularComisionFlete, cerrarPeriodo, agregarAjuste, pagarComision, totalALiquidar, leyendaLiquidacion } from './comisionesService';
 import { Dialog } from 'primereact/dialog';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { InputNumber } from 'primereact/inputnumber';
@@ -129,7 +129,9 @@ function ComisionesAdmin({ user }) {
   const totalComisionBruta = comisiones?.totalComision || 0;
   const totalAjustes = (comisiones?.ajustes || []).reduce((sum, a) => sum + (a.tipo === 'positivo' ? a.monto : -a.monto), 0);
   const totalFinal = comisiones?.totalFinal || (totalComisionBruta + totalAjustes);
+  const totalLiquidar = totalALiquidar(vendedorSeleccionado, comisiones, comisionFlete);
   const itemsSinCategoria = (comisiones?.detalle || []).filter(item => (item.porcentaje || 0) === 0);
+  const basicoMensual = comisiones?.basicoMensual || 0;
 
   // Formateadores para la tabla
   const comisionBody = (rowData) => {
@@ -482,9 +484,14 @@ function ComisionesAdmin({ user }) {
     
     doc.text('Comisión Bruta:', 25, 107);
     doc.text(formatearMoneda(totalComisionBruta), pageWidth - 60, 107, { align: 'right' });
-    
-    if (comisionFlete?.comisionFlete > 0) {
-      doc.text(`Comisión Flete (${comisionFlete.porcentaje}%):`, 25, 114);
+
+    if (vendedorSeleccionado === 'Guille' && basicoMensual > 0) {
+      doc.text('Básico mensual:', 25, 114);
+      doc.text(formatearMoneda(basicoMensual), pageWidth - 60, 114, { align: 'right' });
+    }
+
+    if (vendedorSeleccionado === 'Santi' && comisionFlete?.comisionFlete > 0) {
+      doc.text('Flete (1,2% + kg + $400.000):', 25, 114);
       doc.text(formatearMoneda(comisionFlete.comisionFlete), pageWidth - 60, 114, { align: 'right' });
     }
     
@@ -498,7 +505,7 @@ function ComisionesAdmin({ user }) {
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.text('TOTAL A PAGAR:', pageWidth - 80, 143);
-    doc.text(formatearMoneda(totalFinal + (comisionFlete?.comisionFlete || 0)), pageWidth - 20, 143, { align: 'right' });
+    doc.text(formatearMoneda(totalLiquidar), pageWidth - 20, 143, { align: 'right' });
     
     // Tabla de Categorías
     doc.setTextColor(...AZUL_OSCURO);
@@ -873,6 +880,18 @@ function ComisionesAdmin({ user }) {
               </div>
             </Card>
 
+            {vendedorSeleccionado === 'Guille' && (
+            <Card className="comisiones-kpi-card shadow-1">
+              <div className="comisiones-kpi-content">
+                <i className="pi pi-wallet comisiones-kpi-icon" style={{ color: 'var(--dcg-azul-claro)' }}></i>
+                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold' }}>
+                  {formatearMoneda(basicoMensual)}
+                </div>
+                <div className="comisiones-kpi-label">Básico mensual</div>
+              </div>
+            </Card>
+            )}
+
             <Card className={`comisiones-kpi-card shadow-1 ${itemsSinCategoria.length > 0 ? 'border-red-500' : ''}`}>
               <div className="comisiones-kpi-content">
                 <i className="pi pi-search comisiones-kpi-icon" style={{ color: itemsSinCategoria.length > 0 ? 'var(--dcg-error)' : 'var(--dcg-azul-claro)' }}></i>
@@ -887,7 +906,7 @@ function ComisionesAdmin({ user }) {
               <div className="comisiones-kpi-content">
                 <i className="pi pi-dollar comisiones-kpi-icon" style={{ color: 'var(--dcg-azul-oscuro)' }}></i>
                 <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'bold', color: 'var(--dcg-azul-oscuro)' }}>
-                  {formatearMoneda(totalFinal + (comisionFlete?.comisionFlete || 0))}
+                  {formatearMoneda(totalLiquidar)}
                 </div>
                 <div className="comisiones-kpi-label" style={{ fontWeight: 'bold' }}>Total a Liquidar</div>
                 
@@ -895,10 +914,10 @@ function ComisionesAdmin({ user }) {
                   <div style={{ 
                     fontSize: 'var(--font-size-xs)', 
                     marginTop: '4px',
-                    color: (totalFinal + (comisionFlete?.comisionFlete || 0)) >= comisionesPrevias.totalFinal ? 'var(--dcg-success)' : 'var(--dcg-error)',
+                    color: totalLiquidar >= comisionesPrevias.totalFinal ? 'var(--dcg-success)' : 'var(--dcg-error)',
                     fontWeight: 'bold'
                   }}>
-                    <i className={`pi pi-arrow-${(totalFinal + (comisionFlete?.comisionFlete || 0)) >= (comisionesPrevias.totalFinal || 0) ? 'up' : 'down'}`} style={{ fontSize: '10px' }}></i>
+                    <i className={`pi pi-arrow-${totalLiquidar >= (comisionesPrevias.totalFinal || 0) ? 'up' : 'down'}`} style={{ fontSize: '10px' }}></i>
                     {' '}{Math.abs(((totalFinal - (comisionesPrevias.totalFinal || 0)) / (comisionesPrevias.totalFinal || 1)) * 100).toFixed(1)}% vs anterior
                   </div>
                 )}
@@ -932,10 +951,10 @@ function ComisionesAdmin({ user }) {
             </Card>
           )}
           
-          {comisionFlete && (
+          {vendedorSeleccionado === 'Santi' && comisionFlete && (
             <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
               <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Comisión por Flete</h2>
-              <div className="comisiones-kpis-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div className="comisiones-kpis-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                 <div>
                   <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
                     Total Transportado
@@ -946,7 +965,39 @@ function ComisionesAdmin({ user }) {
                 </div>
                 <div>
                   <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
-                    Comisión por Flete ({comisionFlete.porcentaje || 4}%)
+                    Kg (alimentos)
+                  </div>
+                  <div style={{ color: 'var(--dcg-text-primary)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
+                    {(comisionFlete.totalKg || 0).toFixed(1)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
+                    Variable 1,2%
+                  </div>
+                  <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
+                    {formatearMoneda(comisionFlete.comisionVariable || 0)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
+                    Bono por kg
+                  </div>
+                  <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
+                    {formatearMoneda(comisionFlete.bonoKg || 0)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
+                    Básico flete
+                  </div>
+                  <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
+                    {formatearMoneda(comisionFlete.basicoFlete || 0)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
+                    Total flete
                   </div>
                   <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
                     {formatearMoneda(comisionFlete.comisionFlete || 0)}
@@ -1109,16 +1160,14 @@ function ComisionesAdmin({ user }) {
                 color: 'var(--dcg-success)',
                 marginTop: 'var(--spacing-4)'
               }}>
-                {formatearMoneda(
-                  (comisiones?.totalFinal || comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
-                )}
+                {formatearMoneda(totalLiquidar)}
               </div>
               <div style={{ 
                 color: 'var(--dcg-text-secondary)', 
                 fontSize: 'var(--font-size-sm)',
                 marginTop: 'var(--spacing-2)'
               }}>
-                = Comisión por Cobranza {comisiones?.ajustes && comisiones.ajustes.length > 0 ? '+ Ajustes' : ''} + Comisión por Flete
+                {leyendaLiquidacion(vendedorSeleccionado)}
               </div>
               {comisiones?.ajustes && comisiones.ajustes.length > 0 && (
                 <div style={{ 

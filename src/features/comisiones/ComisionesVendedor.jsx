@@ -7,7 +7,7 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
-import { getComisiones, calcularComisiones, getComisionFlete, calcularComisionFlete } from './comisionesService';
+import { getComisiones, calcularComisiones, getComisionFlete, calcularComisionFlete, totalALiquidar, leyendaLiquidacion } from './comisionesService';
 
 // Generar lista de últimos N períodos (YYYY-MM)
 function generarOpcionesPeriodos(cantidad = 12) {
@@ -108,6 +108,8 @@ function ComisionesVendedor({ user }) {
       maximumFractionDigits: 0
     }).format(valor);
   };
+
+  const totalLiquidar = totalALiquidar(vendedorNombre, comisiones, comisionFlete);
   
   // Agrupar detalle por categoría
   const agruparPorCategoria = (detalle) => {
@@ -266,6 +268,18 @@ function ComisionesVendedor({ user }) {
                 <div className="comisiones-kpi-label">Comisión por Cobranza</div>
               </div>
             </Card>
+
+            {vendedorNombre === 'Guille' && (
+            <Card className="comisiones-kpi-card">
+              <div className="comisiones-kpi-content">
+                <i className="pi pi-wallet comisiones-kpi-icon primary"></i>
+                <div className="comisiones-kpi-value primary">
+                  {formatMonto(comisiones.basicoMensual || 0)}
+                </div>
+                <div className="comisiones-kpi-label">Básico mensual</div>
+              </div>
+            </Card>
+            )}
           </div>
           
           {/* 🆕 FASE 3: Badge de estado */}
@@ -312,10 +326,10 @@ function ComisionesVendedor({ user }) {
             </Card>
           )}
           
-          {comisionFlete && (
+          {vendedorNombre === 'Santi' && comisionFlete && (
             <Card className="comisiones-detail-card" style={{ marginTop: 'var(--spacing-4)' }}>
               <h2 style={{ marginBottom: 'var(--spacing-4)' }}>Comisión por Flete</h2>
-              <div className="comisiones-kpis-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div className="comisiones-kpis-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                 <div>
                   <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
                     Total Transportado
@@ -326,7 +340,7 @@ function ComisionesVendedor({ user }) {
                 </div>
                 <div>
                   <div style={{ color: 'var(--dcg-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-1)' }}>
-                    Comisión por Flete ({comisionFlete.porcentaje || 4}%)
+                    Variable 1,2% + bono kg + $400.000
                   </div>
                   <div style={{ color: 'var(--dcg-success)', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>
                     {formatMonto(comisionFlete.comisionFlete || 0)}
@@ -484,16 +498,14 @@ function ComisionesVendedor({ user }) {
                 color: 'var(--dcg-success)',
                 marginTop: 'var(--spacing-4)'
               }}>
-                {formatMonto(
-                  (comisiones?.totalFinal || comisiones?.totalComision || 0) + (comisionFlete?.comisionFlete || 0)
-                )}
+                {formatMonto(totalLiquidar)}
               </div>
               <div style={{ 
                 color: 'var(--dcg-text-secondary)', 
                 fontSize: 'var(--font-size-sm)',
                 marginTop: 'var(--spacing-2)'
               }}>
-                = Comisión por Cobranza {comisiones?.ajustes && comisiones.ajustes.length > 0 ? '+ Ajustes' : ''} + Comisión por Flete
+                {leyendaLiquidacion(vendedorNombre)}
               </div>
               {comisiones?.ajustes && comisiones.ajustes.length > 0 && (
                 <div style={{ 

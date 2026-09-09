@@ -42,3 +42,23 @@ export const pagarComision = (vendedor, periodo, notaPago = '') =>
     method: 'POST',
     body: JSON.stringify({ notaPago })
   });
+
+export function fleteAplicable(vendedor, flete) {
+  if (vendedor !== 'Santi') return 0;
+  return Number(flete?.comisionFlete) || 0;
+}
+
+export function totalALiquidar(vendedor, comisiones, flete) {
+  return (Number(comisiones?.totalFinal) || Number(comisiones?.totalComision) || 0)
+    + fleteAplicable(vendedor, flete);
+}
+
+export function leyendaLiquidacion(vendedor) {
+  if (vendedor === 'Guille') {
+    return '= Comisión por cobranza + básico $1.400.000 (sin flete)';
+  }
+  if (vendedor === 'Santi') {
+    return '= Comisión por cobranza + flete (1,2% + bono por kg + $400.000)';
+  }
+  return '= Comisión por venta (sin flete)';
+}

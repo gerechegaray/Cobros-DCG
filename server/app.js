@@ -21,6 +21,7 @@ import {
   calcularComisionFleteMensual,
   getComisionFlete
 } from "./comisionesFleteService.js";
+import { REGLAS_FAMILIA } from "./comisionesPolitica.js";
 import { registerTelegramRoutes } from "./telegram/routes.js";
 import { crearAuthMiddleware } from "./authMiddleware.js";
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
@@ -3134,30 +3135,17 @@ app.post("/api/comisiones/reglas/seed", async (req, res) => {
       return res.status(500).json({ error: 'Firebase no inicializado' });
     }
     
-    // Reglas a cargar
-    const reglas = [
-      { categoria: 'GENERAR', porcentaje: 5 },
-      { categoria: 'TECNOVAX', porcentaje: 5 },
-      { categoria: 'ZOETIS', porcentaje: 5 },
-      { categoria: 'LEON PHARMA', porcentaje: 5 },
-      { categoria: 'ELMER', porcentaje: 5 },
-      { categoria: 'MERVAK', porcentaje: 5 },
-      { categoria: 'ABOVE', porcentaje: 10 },
-      { categoria: 'RUBICAT', porcentaje: 5 },
-      { categoria: 'Fawna Perro', porcentaje: 6.5 },
-      { categoria: 'Fawna Gato', porcentaje: 6.5 },
-      { categoria: 'Old Prince Equilibrium Perro', porcentaje: 4.5 },
-      { categoria: 'Old Prince Equilibrium Gato', porcentaje: 4.5 },
-      { categoria: 'Old Prince Noveles Perro', porcentaje: 5.5 },
-      { categoria: 'Old Prince Premium Gato', porcentaje: 4 },
-      { categoria: 'Old Prince Premium Perro', porcentaje: 4 },
-      { categoria: 'Company Gato', porcentaje: 3.5 },
-      { categoria: 'Company Perro', porcentaje: 3.5 },
-      { categoria: 'ORIGEN GATO', porcentaje: 3.5 },
-      { categoria: 'ORIGEN PERRO', porcentaje: 3.5 },
-      { categoria: 'Manada', porcentaje: 3 },
-      { categoria: 'Seguidor', porcentaje: 3 }
-    ];
+    const reglas = REGLAS_FAMILIA.map((r) => ({
+      categoria: r.categoria,
+      porcentaje: r.porcentaje
+    }));
+
+    const existentes = await adminDb.collection('comisiones_reglas').get();
+    for (const doc of existentes.docs) {
+      if (!reglas.some((r) => r.categoria === doc.id)) {
+        await doc.ref.set({ activa: false, updatedAt: new Date() }, { merge: true });
+      }
+    }
     
     let creadas = 0;
     let actualizadas = 0;

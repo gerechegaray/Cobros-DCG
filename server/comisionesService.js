@@ -1,53 +1,39 @@
-// Servicio para cálculo de comisiones de vendedores
-// FASE 1: Cálculo simple basado en reglas de categoría
-
-import { getAlegraPayments, getAlegraInvoiceById } from './alegraService.js';
+import { getAlegraPayments, getAlegraInvoiceById, getAlegraInvoices } from './alegraService.js';
 import { Timestamp } from 'firebase-admin/firestore';
+import {
+  CLIENTES_AJUSTE_VICTOR,
+  CLIENTES_EXCLUIR_COBROS,
+  REGLAS_FAMILIA,
+  VENDEDORES_VALIDOS,
+  basicoMensual,
+  classifyBucketCobros,
+  classifyVictor,
+  clientIdOf,
+  totalFinalMensual,
+  vendedorEfectivo
+} from './comisionesPolitica.js';
 
-// Vendedores válidos
-const VENDEDORES_VALIDOS = ['Guille', 'Santi', 'Victor'];
+export { VENDEDORES_VALIDOS };
 
-/**
- * Obtener reglas de comisión desde Firestore
- */
 export async function getReglasComisiones(adminDb) {
   if (!adminDb) {
     throw new Error('Firebase no inicializado');
   }
-  
+
   const snapshot = await adminDb.collection('comisiones_reglas')
     .where('activa', '==', true)
     .get();
-  
+
+  if (snapshot.empty) {
+    return Object.fromEntries(REGLAS_FAMILIA.map((r) => [r.categoria, r.porcentaje]));
+  }
+
   const reglas = {};
-  snapshot.forEach(doc => {
+  snapshot.forEach((doc) => {
     const data = doc.data();
     reglas[data.categoria] = data.porcentaje;
   });
-  
-  console.log(`[COMISIONES] Reglas cargadas: ${Object.keys(reglas).length}`);
   return reglas;
-}
-
-/**
- * Detectar categoría de un producto desde su description
- * FASE 1: Matching simple (case insensitive, contains)
- */
-function detectarCategoria(description, reglas) {
-  if (!description || typeof description !== 'string') {
-    return null;
-  }
-  
-  const descLower = description.toLowerCase().trim();
-  
-  // Buscar regla que coincida (contains, case insensitive)
-  for (const categoria in reglas) {
-    if (descLower.includes(categoria.toLowerCase())) {
-      return categoria;
-    }
-  }
-  
-  return null;
 }
 
 /**
@@ -57,252 +43,205 @@ export async function calcularComisionesMensuales(adminDb, periodo) {
   if (!adminDb) {
     throw new Error('Firebase no inicializado');
   }
-  
+
   console.log(`[COMISIONES] Iniciando cálculo para período: ${periodo}`);
-  
-  // Validar formato de período (YYYY-MM)
+
   if (!/^\d{4}-\d{2}$/.test(periodo)) {
     throw new Error('Formato de período inválido. Debe ser YYYY-MM');
   }
-  
-  // Obtener reglas de comisión
-  const reglas = await getReglasComisiones(adminDb);
-  
-  if (Object.keys(reglas).length === 0) {
-    throw new Error('No hay reglas de comisión activas. Ejecuta el seed de reglas primero.');
-  }
-  
+
   const [anio, mes] = periodo.split('-');
   const fechaInicio = new Date(parseInt(anio), parseInt(mes) - 1, 1);
   const fechaFin = new Date(parseInt(anio), parseInt(mes), 0, 23, 59, 59);
-  
+
   const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
   const fechaFinStr = fechaFin.toISOString().split('T')[0];
-  
-  // 1. Obtener Cobros (para Guille y Santi)
+
   console.log(`[COMISIONES] Buscando COBROS entre ${fechaInicioStr} y ${fechaFinStr}`);
   const snapshotCobros = await adminDb.collection('movimientos_comisiones')
     .where('fecha', '>=', fechaInicioStr)
     .where('fecha', '<=', fechaFinStr)
     .get();
 
-  // 2. Obtener Ventas (para Victor)
   console.log(`[COMISIONES] Buscando VENTAS (Victor) entre ${fechaInicioStr} y ${fechaFinStr}`);
   const snapshotVentas = await adminDb.collection('movimientos_ventas')
     .where('fecha', '>=', fechaInicioStr)
     .where('fecha', '<=', fechaFinStr)
     .get();
-  
-  console.log(`[COMISIONES] Encontrados: ${snapshotCobros.size} cobros, ${snapshotVentas.size} ventas`);
-  
-  const comisionesPorVendedor = {};
 
-  // PROCESAR COBROS (Guille, Santi)
-  snapshotCobros.forEach(doc => {
+  console.log(`[COMISIONES] Encontrados: ${snapshotCobros.size} cobros, ${snapshotVentas.size} ventas`);
+
+  const comisionesPorVendedor = {};
+  for (const vendedorNombre of VENDEDORES_VALIDOS) {
+    comisionesPorVendedor[vendedorNombre] = {
+      vendedor: vendedorNombre,
+      periodo,
+      totalCobrado: 0,
+      totalComision: 0,
+      detalle: []
+    };
+  }
+
+  snapshotCobros.forEach((doc) => {
     const factura = doc.data();
-    const vendedorNombre = factura.seller?.name;
-    
-    if (!vendedorNombre || (vendedorNombre !== 'Guille' && vendedorNombre !== 'Santi')) {
+    const vendedorNombre = vendedorEfectivo(factura);
+
+    if (vendedorNombre !== 'Guille' && vendedorNombre !== 'Santi') {
       return;
     }
-    
-    if (!comisionesPorVendedor[vendedorNombre]) {
-      comisionesPorVendedor[vendedorNombre] = {
-        vendedor: vendedorNombre,
-        periodo: periodo,
-        totalCobrado: 0,
-        totalComision: 0,
-        detalle: []
-      };
+    if (CLIENTES_EXCLUIR_COBROS.has(clientIdOf(factura))) {
+      return;
     }
-    
+
     const items = factura.items || [];
     const amountPaid = parseFloat(factura.amountPaid) || 0;
     const totalInvoice = parseFloat(factura.totalInvoice) || 0;
     const proporcionCobro = totalInvoice > 0 ? (amountPaid / totalInvoice) : 1;
-    
-    items.forEach(item => {
-      const description = item.description || '';
+
+    items.forEach((item) => {
+      const description = item.description || item.name || '';
       const subtotalOriginal = parseFloat(item.subtotal) || 0;
       if (subtotalOriginal <= 0) return;
-      
+
       const subtotalProporcional = subtotalOriginal * proporcionCobro;
-      const categoria = detectarCategoria(description, reglas);
-      if (!categoria) return;
-      
-      const porcentaje = reglas[categoria];
+      const { categoria, porcentaje } = classifyBucketCobros(`${item.category || ''} ${description}`);
       const comision = subtotalProporcional * (porcentaje / 100);
-      
+
       comisionesPorVendedor[vendedorNombre].totalCobrado += subtotalProporcional;
       comisionesPorVendedor[vendedorNombre].totalComision += comision;
-      
       comisionesPorVendedor[vendedorNombre].detalle.push({
         facturaId: factura.invoiceId,
         paymentId: factura.paymentId,
         producto: description,
-        categoria: categoria,
+        categoria,
         subtotal: subtotalProporcional,
-        porcentaje: porcentaje,
-        comision: comision,
+        porcentaje,
+        comision,
         clientName: factura.client?.name || 'S/D'
       });
     });
   });
 
-  // PROCESAR VENTAS (Victor)
-  snapshotVentas.forEach(doc => {
+  snapshotVentas.forEach((doc) => {
     const factura = doc.data();
-    const vendedorNombre = factura.seller?.name;
-    
-    if (vendedorNombre !== 'Victor') return;
-
-    if (!comisionesPorVendedor[vendedorNombre]) {
-      comisionesPorVendedor[vendedorNombre] = {
-        vendedor: vendedorNombre,
-        periodo: periodo,
-        totalCobrado: 0, // En Victor es Total Vendido
-        totalComision: 0,
-        detalle: []
-      };
-    }
+    const esVictor =
+      vendedorEfectivo(factura) === 'Victor' ||
+      CLIENTES_AJUSTE_VICTOR.has(clientIdOf(factura));
+    if (!esVictor) return;
 
     const items = factura.items || [];
-    items.forEach(item => {
-      const description = item.description || '';
-      const lowerDesc = description.toLowerCase();
+    items.forEach((item) => {
+      const description = item.description || item.name || '';
       const subtotal = parseFloat(item.subtotal) || 0;
       if (subtotal <= 0) return;
 
-      // Lógica específica para Victor: 6% para Baires, 8% para el resto
-      const categorias6 = [
-        'fawna', 'equilibrium', 'noveles', 'premium', 
-        'company', 'origen perro', 'origen gato', 'manada', 'seguidor'
-      ];
-      
-      let porcentaje = 8; // Por defecto 8%
-      let categoria = 'RESTO (8%)';
-
-      if (categorias6.some(c => lowerDesc.includes(c))) {
-        porcentaje = 6;
-        categoria = 'BAIRES (6%)';
-      }
-
+      const { categoria, porcentaje } = classifyVictor(`${item.category || ''} ${description}`);
       const comision = subtotal * (porcentaje / 100);
 
-      comisionesPorVendedor[vendedorNombre].totalCobrado += subtotal;
-      comisionesPorVendedor[vendedorNombre].totalComision += comision;
-      comisionesPorVendedor[vendedorNombre].detalle.push({
+      comisionesPorVendedor.Victor.totalCobrado += subtotal;
+      comisionesPorVendedor.Victor.totalComision += comision;
+      comisionesPorVendedor.Victor.detalle.push({
         facturaId: factura.invoiceId,
         producto: description,
-        categoria: categoria,
-        subtotal: subtotal,
-        porcentaje: porcentaje,
-        comision: comision,
+        categoria,
+        subtotal,
+        porcentaje,
+        comision,
         clientName: factura.client?.name || 'S/D'
       });
     });
   });
-  
-  // Guardar resultados en Firestore
+
   const resultados = [];
-  
-  for (const vendedorNombre in comisionesPorVendedor) {
+
+  for (const vendedorNombre of VENDEDORES_VALIDOS) {
     const resultado = comisionesPorVendedor[vendedorNombre];
-    
-    // Guardar en comisiones_mensuales/{vendedor}/{periodo}
     const docRef = adminDb.collection('comisiones_mensuales')
       .doc(vendedorNombre)
       .collection(periodo)
       .doc(periodo);
-    
-    // Verificar si el período ya está cerrado
+
     const docSnapshot = await docRef.get();
     const datosExistentes = docSnapshot.exists ? docSnapshot.data() : {};
-    
-    // Si está cerrado o pagado, no recalcular
+
     if (datosExistentes.estado === 'cerrado' || datosExistentes.estado === 'pagado') {
       console.log(`[COMISIONES] ${vendedorNombre} - Período ${periodo} está ${datosExistentes.estado}, no se recalcula`);
       resultados.push(datosExistentes);
       continue;
     }
-    
-    // Preservar ajustes y estado existentes
+
     const ajustes = datosExistentes.ajustes || [];
     const estado = datosExistentes.estado || 'calculado';
-    
-    // Calcular total final (comisión + ajustes)
-    const totalAjustes = ajustes.reduce((sum, ajuste) => {
-      return sum + (ajuste.tipo === 'positivo' ? ajuste.monto : -ajuste.monto);
-    }, 0);
-    const totalFinal = resultado.totalComision + totalAjustes;
-    
+    const basico = basicoMensual(vendedorNombre);
+    const totalFinal = totalFinalMensual(vendedorNombre, resultado.totalComision, ajustes);
+
     await docRef.set({
       ...resultado,
-      estado: estado,
-      ajustes: ajustes,
-      totalFinal: totalFinal,
+      estado,
+      ajustes,
+      basicoMensual: basico,
+      totalFinal,
       updatedAt: Timestamp.now()
     }, { merge: true });
-    
+
     resultados.push({
       ...resultado,
-      estado: estado,
-      ajustes: ajustes,
-      totalFinal: totalFinal
+      estado,
+      ajustes,
+      basicoMensual: basico,
+      totalFinal
     });
-    
-    console.log(`[COMISIONES] ${vendedorNombre} - Total cobrado: ${resultado.totalCobrado}, Comisión: ${resultado.totalComision}, Total final: ${totalFinal}`);
+
+    console.log(`[COMISIONES] ${vendedorNombre} - Base: ${resultado.totalCobrado}, Comisión: ${resultado.totalComision}, Básico: ${basico}, Total final: ${totalFinal}`);
   }
-  
+
   console.log(`[COMISIONES] Cálculo completado para ${resultados.length} vendedores`);
-  
   return resultados;
 }
 
 /**
- * Sincronizar facturas desde payments de Alegra
- * Obtiene payments, extrae invoice.id, obtiene invoices y guarda en Firestore
- * @param {Object} adminDb - Instancia de Firestore Admin
- * @param {boolean} forzarCompleta - Si es true, sincroniza todos los payments históricos. Si es false, solo los nuevos desd/**
- * Sincronizar facturas de Victor (basado en venta/emisión)
- * @param {Object} adminDb 
- * @param {number} dias 
+ * Sincronizar facturas de Victor (basado en venta/emisión).
+ * Incluye clientes de ajuste (Videla, Monllor, Vet365) aunque la FC tenga otro vendedor.
  */
 export async function sincronizarFacturasVictor(adminDb, dias = 30) {
   console.log(`[VICTOR SYNC] Iniciando sincronización por venta (últimos ${dias} días)...`);
-  
+
   try {
-    const { getAlegraInvoices } = await import('./alegraService.js');
-    
-    // Traer facturas de los últimos días (usamos 5 como bloque, o adaptamos según necesitemos)
-    // Para Victor, pediremos un rango mayor si es forzada, pero por defecto los últimos N días
-    const facturas = await getAlegraInvoices(5, 30, 30); // Usamos el helper existente
-    
-    const facturasVictor = facturas.filter(f => f.seller?.name === 'Victor');
-    console.log(`[VICTOR SYNC] Encontradas ${facturasVictor.length} facturas emitidas por Victor`);
-    
+    const facturas = await getAlegraInvoices(5, 30, 30);
+
+    const facturasVictor = facturas.filter((f) => {
+      const sellerName = vendedorEfectivo(f);
+      const clientId = String(f.client?.id || f.client?.identifier || '');
+      return sellerName === 'Victor' || CLIENTES_AJUSTE_VICTOR.has(clientId);
+    });
+    console.log(`[VICTOR SYNC] Encontradas ${facturasVictor.length} facturas de Victor / ajuste`);
+
     if (facturasVictor.length === 0) return 0;
 
     const batch = adminDb.batch();
     for (const f of facturasVictor) {
+      const clientInfo = f.client || f.clientUser;
+      const clientId = (clientInfo?.id || clientInfo?.identifier)?.toString() || 'S/D';
       const docRef = adminDb.collection('movimientos_ventas').doc(f.id.toString());
       batch.set(docRef, {
         invoiceId: f.id.toString(),
-        fecha: f.date, // Fecha de emisión
-        seller: { name: 'Victor' },
-        client: { 
-          id: (f.client?.id || f.client?.identifier)?.toString() || 'S/D',
-          name: f.client?.name || 'S/D' 
-        },
-        items: (f.items || []).map(item => ({
-          description: item.description || '',
+        fecha: f.date,
+        seller: { name: CLIENTES_AJUSTE_VICTOR.has(clientId) ? 'Victor' : (vendedorEfectivo(f) || 'Victor') },
+        client: clientInfo ? {
+          id: clientId,
+          name: clientInfo.name || clientInfo.organization || 'S/D',
+          sellerName: String(clientInfo.seller?.name || clientInfo.sellerName || '').trim()
+        } : { id: clientId, name: 'S/D' },
+        items: (f.items || []).map((item) => ({
+          description: item.description || item.name || '',
+          category: item.category?.name || item.category || '',
           subtotal: parseFloat(item.subtotal || item.total) || 0
         })),
         totalInvoice: parseFloat(f.total) || 0,
         fechaSync: new Date()
       }, { merge: true });
     }
-    
+
     await batch.commit();
     return facturasVictor.length;
   } catch (error) {
@@ -428,28 +367,30 @@ export async function sincronizarFacturasDesdePayments(adminDb, forzarCompleta =
         for (const mov of movimientosDeLaPagina) {
           const invoice = invoiceCache.get(mov.invoiceId);
           if (!invoice) { errores++; continue; }
-          
-          if (!invoice.seller || !invoice.seller.name) { sinSeller++; continue; }
-          // Omitir Victor aquí, ya que se procesa arriba por venta
-          if (invoice.seller.name === 'Victor') continue;
-          if (!VENDEDORES_VALIDOS.includes(invoice.seller.name)) { vendedorInvalido++; continue; }
-          
+
+          const sellerName = vendedorEfectivo(invoice);
+          if (!sellerName) { sinSeller++; continue; }
+          if (sellerName === 'Victor') continue;
+          if (!VENDEDORES_VALIDOS.includes(sellerName)) { vendedorInvalido++; continue; }
+
           const docId = `pay_${mov.paymentId}_inv_${mov.invoiceId}`;
           const docRef = adminDb.collection('movimientos_comisiones').doc(docId);
-          
+
           const clientInfo = invoice.client || invoice.clientUser;
           dbBatch.set(docRef, {
             paymentId: mov.paymentId,
             invoiceId: mov.invoiceId,
             amountPaid: mov.amountPaid,
             totalInvoice: mov.totalInvoice || parseFloat(invoice.total) || 0,
-            seller: { name: invoice.seller.name },
+            seller: { name: sellerName },
             client: clientInfo ? {
               id: (clientInfo.id ?? clientInfo.identifier)?.toString() || String(clientInfo.id || ''),
-              name: clientInfo.name || clientInfo.organization || 'Sin nombre'
+              name: clientInfo.name || clientInfo.organization || 'Sin nombre',
+              sellerName: String(clientInfo.seller?.name || clientInfo.sellerName || '').trim()
             } : null,
-            items: (invoice.items || []).map(item => ({
-              description: item.description || '',
+            items: (invoice.items || []).map((item) => ({
+              description: item.description || item.name || '',
+              category: item.category?.name || item.category || '',
               subtotal: parseFloat(item.subtotal || item.total || (parseFloat(item.price || 0) * parseFloat(item.quantity || 0))) || 0
             })),
             fecha: mov.fecha,
@@ -610,16 +551,13 @@ export async function agregarAjusteComision(adminDb, vendedor, periodo, ajuste) 
   };
   
   ajustes.push(nuevoAjuste);
-  
-  // Recalcular total final
-  const totalAjustes = ajustes.reduce((sum, a) => {
-    return sum + (a.tipo === 'positivo' ? a.monto : -a.monto);
-  }, 0);
-  const totalFinal = (datos.totalComision || 0) + totalAjustes;
-  
+
+  const totalFinal = totalFinalMensual(vendedor, datos.totalComision, ajustes);
+
   await docRef.update({
     ajustes: ajustes,
     totalFinal: totalFinal,
+    basicoMensual: basicoMensual(vendedor),
     updatedAt: Timestamp.now()
   });
   
