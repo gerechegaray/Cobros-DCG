@@ -25,6 +25,39 @@ export const seedReglas = () =>
 export const calcularComisionFlete = (periodo) =>
   apiRequest(`/api/comisiones/flete/calcular/${encodeURIComponent(periodo)}`, { method: 'POST' });
 
+export const syncPeriodoComisiones = (periodo, { fase = 'cobros', offset = 0, limit = 6 } = {}) =>
+  apiRequest(
+    `/api/comisiones/sync-periodo/${encodeURIComponent(periodo)}?fase=${encodeURIComponent(fase)}&offset=${offset}&limit=${limit}`,
+    { method: 'POST' }
+  );
+
+export async function sincronizarMesComisiones(periodo, onProgress) {
+  let fase = 'cobros';
+  let offset = 0;
+  let guard = 0;
+
+  while (fase !== 'done' && guard < 80) {
+    if (onProgress) onProgress({ fase, offset, paso: guard + 1 });
+    const lote = await syncPeriodoComisiones(periodo, { fase, offset, limit: 6 });
+    if (lote.hasMore) {
+      offset = lote.nextOffset || 0;
+      fase = lote.fase || fase;
+    } else {
+      fase = lote.nextFase || 'done';
+      offset = 0;
+    }
+    guard += 1;
+  }
+}
+
+export async function sincronizarYCalcularPeriodo(periodo, onProgress) {
+  await sincronizarMesComisiones(periodo, onProgress);
+  await Promise.all([
+    calcularComisiones(periodo),
+    calcularComisionFlete(periodo)
+  ]);
+}
+
 export const getComisionFlete = (vendedor, periodo) =>
   apiRequest(`/api/comisiones/flete/${encodeURIComponent(vendedor)}/${encodeURIComponent(periodo)}`);
 

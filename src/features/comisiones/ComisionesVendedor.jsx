@@ -7,7 +7,7 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
-import { getComisiones, calcularComisiones, getComisionFlete, calcularComisionFlete, totalALiquidar, leyendaLiquidacion } from './comisionesService';
+import { getComisiones, getComisionFlete, sincronizarYCalcularPeriodo, totalALiquidar, leyendaLiquidacion } from './comisionesService';
 
 // Generar lista de últimos N períodos (YYYY-MM)
 function generarOpcionesPeriodos(cantidad = 12) {
@@ -77,10 +77,7 @@ function ComisionesVendedor({ user }) {
     
     setCalculando(true);
     try {
-      await Promise.all([
-        calcularComisiones(periodo),
-        calcularComisionFlete(periodo)
-      ]);
+      await sincronizarYCalcularPeriodo(periodo);
       toast.current?.show({
         severity: 'success',
         summary: 'Comisiones calculadas',

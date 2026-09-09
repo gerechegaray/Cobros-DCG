@@ -20,6 +20,7 @@ function esSoloAdmin(path) {
     path === '/api/comisiones/reglas' ||
     path === '/api/comisiones/reglas/seed' ||
     path.startsWith('/api/comisiones/sync-facturas') ||
+    path.startsWith('/api/comisiones/sync-periodo') ||
     path.startsWith('/api/comisiones/calcular') ||
     path.startsWith('/api/comisiones/cerrar') ||
     path === '/api/comisiones/ajuste' ||

@@ -27,9 +27,14 @@ export const apiRequest = async (endpoint, options = {}) => {
     });
   };
 
-  let response = await send(false);
-  if (response.status === 401) {
-    response = await send(true);
+  let response;
+  try {
+    response = await send(false);
+    if (response.status === 401) {
+      response = await send(true);
+    }
+  } catch {
+    throw new Error('El servidor cortó la conexión (timeout). Recargá e intentá Calcular de nuevo.');
   }
 
   if (!response.ok) {

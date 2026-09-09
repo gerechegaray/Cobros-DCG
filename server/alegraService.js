@@ -503,13 +503,15 @@ function fechaEnRango(dateStr, desde, hasta) {
   return d >= desde && d <= hasta;
 }
 
-async function paginarAlegra(path, desde, hasta) {
+async function paginarAlegra(path, desde, hasta, opciones = {}) {
   const authorization = alegraAuthHeader();
   const all = [];
-  let start = 0;
+  let start = Number(opciones.start) || 0;
+  const maxPages = opciones.maxPages == null ? Infinity : Math.max(1, Number(opciones.maxPages) || 1);
   const limit = 30;
+  let pages = 0;
 
-  while (true) {
+  while (pages < maxPages) {
     const params = new URLSearchParams({
       date_afterOrNow: desde,
       date_beforeOrNow: hasta,
@@ -535,35 +537,41 @@ async function paginarAlegra(path, desde, hasta) {
     }
 
     const data = await response.json();
-    if (!Array.isArray(data) || data.length === 0) break;
+    if (!Array.isArray(data) || data.length === 0) {
+      return { items: all, hasMore: false, nextOffset: start };
+    }
 
     for (const item of data) {
       if (fechaEnRango(item.date, desde, hasta)) all.push(item);
     }
 
-    if (data.length < limit) break;
+    if (data.length < limit) {
+      return { items: all, hasMore: false, nextOffset: start + data.length };
+    }
     start += data.length;
+    pages += 1;
     await new Promise((r) => setTimeout(r, 150));
   }
 
-  return all;
+  return { items: all, hasMore: true, nextOffset: start };
 }
 
-export async function getAlegraInvoicesRango(desde, hasta) {
+export async function getAlegraInvoicesRango(desde, hasta, opciones = {}) {
   console.log(`[ALEGRA] Facturas ${desde} a ${hasta} (todas las páginas, todos los estados)`);
-  const facturas = await paginarAlegra('invoices', desde, hasta);
-  console.log(`[ALEGRA] Facturas en rango: ${facturas.length}`);
-  return facturas;
+  const result = await paginarAlegra('invoices', desde, hasta, opciones);
+  console.log(`[ALEGRA] Facturas en rango (lote): ${result.items.length} hasMore=${result.hasMore}`);
+  return result;
 }
 
-export async function getAlegraPaymentsRango(desde, hasta, onPage) {
+export async function getAlegraPaymentsRango(desde, hasta, onPage, opciones = {}) {
   const authorization = alegraAuthHeader();
-  let start = 0;
+  let start = Number(opciones.start) || 0;
+  const maxPages = opciones.maxPages == null ? Infinity : Math.max(1, Number(opciones.maxPages) || 1);
   const limit = 30;
   let pages = 0;
   let total = 0;
 
-  console.log(`[ALEGRA] Payments ${desde} a ${hasta}`);
+  console.log(`[ALEGRA] Payments ${desde} a ${hasta} start=${start} maxPages=${maxPages}`);
 
   while (true) {
     const params = new URLSearchParams({
@@ -600,8 +608,15 @@ export async function getAlegraPaymentsRango(desde, hasta, onPage) {
     total += enRango.length;
     pages += 1;
 
-    if (payments.length < limit) break;
+    if (payments.length < limit) {
+      console.log(`[ALEGRA] Payments en rango: ${total} (${pages} páginas)`);
+      return { total, hasMore: false, nextOffset: start + payments.length };
+    }
     start += payments.length;
+    if (pages >= maxPages) {
+      console.log(`[ALEGRA] Payments lote: ${total} (${pages} páginas) hasMore=true`);
+      return { total, hasMore: true, nextOffset: start };
+    }
     await new Promise((r) => setTimeout(r, 150));
   }
 

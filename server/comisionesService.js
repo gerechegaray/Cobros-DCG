@@ -357,28 +357,48 @@ async function guardarVentasVictor(adminDb, facturas) {
 /**
  * Trae cobros y ventas de un mes desde Alegra (todas las páginas) y los guarda en Firestore.
  */
-export async function sincronizarPeriodoComisiones(adminDb, periodo) {
+export async function sincronizarPeriodoComisiones(adminDb, periodo, opciones = {}) {
   const { desde, hasta } = periodoARango(periodo);
-  console.log(`[COMISIONES SYNC] Sincronizando período ${periodo} (${desde} a ${hasta})`);
+  const fase = opciones.fase === 'ventas' ? 'ventas' : 'cobros';
+  const start = Math.max(0, parseInt(opciones.offset, 10) || 0);
+  const maxPages = Math.min(10, Math.max(1, parseInt(opciones.maxPages, 10) || 6));
 
-  const invoiceCache = new Map();
-  const stats = { nuevas: 0, errores: 0, sinSeller: 0, vendedorInvalido: 0, totalMovimientosProcesados: 0 };
+  console.log(`[COMISIONES SYNC] ${periodo} fase=${fase} offset=${start} maxPages=${maxPages}`);
 
-  const paymentsResult = await getAlegraPaymentsRango(desde, hasta, async (page) => {
-    await procesarPaginaCobros(adminDb, page, invoiceCache, stats);
-  });
+  if (fase === 'cobros') {
+    const invoiceCache = new Map();
+    const stats = { nuevas: 0, errores: 0, sinSeller: 0, vendedorInvalido: 0, totalMovimientosProcesados: 0 };
+    const paymentsResult = await getAlegraPaymentsRango(
+      desde,
+      hasta,
+      async (page) => {
+        await procesarPaginaCobros(adminDb, page, invoiceCache, stats);
+      },
+      { start, maxPages }
+    );
 
-  const facturas = await getAlegraInvoicesRango(desde, hasta);
-  const ventas = await guardarVentasVictor(adminDb, facturas);
+    return {
+      periodo,
+      fase: 'cobros',
+      cobros: stats.totalMovimientosProcesados,
+      errores: stats.errores,
+      hasMore: Boolean(paymentsResult.hasMore),
+      nextOffset: paymentsResult.nextOffset || 0,
+      nextFase: paymentsResult.hasMore ? 'cobros' : 'ventas'
+    };
+  }
 
-  console.log(`[COMISIONES SYNC] Período ${periodo}: cobros=${stats.totalMovimientosProcesados} ventasVictor=${ventas} errores=${stats.errores}`);
+  const invoicesResult = await getAlegraInvoicesRango(desde, hasta, { start, maxPages });
+  const ventas = await guardarVentasVictor(adminDb, invoicesResult.items || []);
 
   return {
     periodo,
-    cobros: stats.totalMovimientosProcesados,
+    fase: 'ventas',
     ventasVictor: ventas,
-    errores: stats.errores,
-    payments: paymentsResult.total
+    errores: 0,
+    hasMore: Boolean(invoicesResult.hasMore),
+    nextOffset: invoicesResult.nextOffset || 0,
+    nextFase: invoicesResult.hasMore ? 'ventas' : 'done'
   };
 }
 
@@ -394,7 +414,7 @@ export async function sincronizarFacturasVictor(adminDb, dias = 30) {
   const hastaStr = hasta.toISOString().split('T')[0];
   console.log(`[VICTOR SYNC] Rango ${desde} a ${hastaStr}`);
   try {
-    const facturas = await getAlegraInvoicesRango(desde, hastaStr);
+    const { items: facturas } = await getAlegraInvoicesRango(desde, hastaStr);
     return await guardarVentasVictor(adminDb, facturas);
   } catch (error) {
     console.error('[VICTOR SYNC] Error:', error);

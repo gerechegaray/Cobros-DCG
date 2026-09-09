@@ -8,7 +8,7 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
-import { getComisiones, calcularComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, calcularComisionFlete, cerrarPeriodo, agregarAjuste, pagarComision, totalALiquidar, leyendaLiquidacion } from './comisionesService';
+import { getComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, sincronizarYCalcularPeriodo, cerrarPeriodo, agregarAjuste, pagarComision, totalALiquidar, leyendaLiquidacion } from './comisionesService';
 import { Dialog } from 'primereact/dialog';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { InputNumber } from 'primereact/inputnumber';
@@ -173,14 +173,11 @@ function ComisionesAdmin({ user }) {
     toast.current?.show({
       severity: 'info',
       summary: 'Sincronizando el mes',
-      detail: `Trae cobros y ventas de ${periodo} desde Alegra y después calcula. Puede tardar 1 o 2 minutos.`,
-      life: 5000
+      detail: `Trae cobros y ventas de ${periodo} desde Alegra en tandas cortas y después calcula. Puede tardar unos minutos.`,
+      life: 6000
     });
     try {
-      await Promise.all([
-        calcularComisiones(periodo),
-        calcularComisionFlete(periodo)
-      ]);
+      await sincronizarYCalcularPeriodo(periodo);
       toast.current?.show({
         severity: 'success',
         summary: 'Comisiones calculadas',

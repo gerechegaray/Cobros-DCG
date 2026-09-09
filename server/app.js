@@ -3240,25 +3240,36 @@ app.post("/api/comisiones/sync-facturas", async (req, res) => {
   }
 });
 
+// Sincroniza un lote del mes (cobros o ventas) para no exceder el timeout de Render
+app.post("/api/comisiones/sync-periodo/:periodo", async (req, res) => {
+  try {
+    const { periodo } = req.params;
+    const fase = req.query.fase === 'ventas' ? 'ventas' : 'cobros';
+    const offset = parseInt(req.query.offset || '0', 10) || 0;
+    const maxPages = parseInt(req.query.limit || '6', 10) || 6;
+    const resultado = await sincronizarPeriodoComisiones(adminDb, periodo, { fase, offset, maxPages });
+    res.json({ success: true, ...resultado });
+  } catch (error) {
+    console.error('[COMISIONES] Error sincronizando período:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // 🆕 Endpoint para calcular comisiones de un período
 app.post("/api/comisiones/calcular/:periodo", async (req, res) => {
   try {
-    req.setTimeout(180000);
-    res.setTimeout(180000);
     const { periodo } = req.params;
     
     if (!adminDb) {
       return res.status(500).json({ error: 'Firebase no inicializado' });
     }
     
-    console.log(`[COMISIONES] Calculando ${periodo}: sync del mes y liquidación`);
-    const syncPeriodo = await sincronizarPeriodoComisiones(adminDb, periodo);
+    console.log(`[COMISIONES] Calculando ${periodo} con datos ya sincronizados`);
     const resultados = await calcularComisionesMensuales(adminDb, periodo);
     
     res.json({
       success: true,
       periodo,
-      sync: syncPeriodo,
       resultados
     });
     
