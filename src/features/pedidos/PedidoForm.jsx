@@ -425,12 +425,17 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
                           setProductoSeleccionado(e.value);
                           setProductosFiltrados([]);
                         }}
+                        onBlur={() => {
+                          // Si quedó texto suelto sin elegir de la lista, limpiar
+                          setProductoSeleccionado((actual) =>
+                            actual && typeof actual === 'object' && actual.id != null ? actual : null
+                          );
+                        }}
                         placeholder="Buscar producto..."
                         dropdown
-                        forceSelection
                       />
                       {/* Mostrar información del producto seleccionado */}
-                      {productoSeleccionado && (
+                      {productoSeleccionado && typeof productoSeleccionado === 'object' && productoSeleccionado.id != null && (
                         <div className="mt-2 p-2 border-round surface-ground">
                           <div className="flex align-items-center gap-2">
                             <span className="font-semibold text-color">{productoSeleccionado.nombre}</span>
