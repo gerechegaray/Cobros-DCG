@@ -25,20 +25,23 @@ export const seedReglas = () =>
 export const calcularComisionFlete = (periodo) =>
   apiRequest(`/api/comisiones/flete/calcular/${encodeURIComponent(periodo)}`, { method: 'POST' });
 
-export const syncPeriodoComisiones = (periodo, { fase = 'cobros', offset = 0, limit = 6 } = {}) =>
+export const syncPeriodoComisiones = (periodo, { fase = 'cobros', offset = 0, limit = 6, forzar = false } = {}) =>
   apiRequest(
-    `/api/comisiones/sync-periodo/${encodeURIComponent(periodo)}?fase=${encodeURIComponent(fase)}&offset=${offset}&limit=${limit}`,
+    `/api/comisiones/sync-periodo/${encodeURIComponent(periodo)}?fase=${encodeURIComponent(fase)}&offset=${offset}&limit=${limit}${forzar ? '&forzar=1' : ''}`,
     { method: 'POST' }
   );
 
-export async function sincronizarMesComisiones(periodo, onProgress) {
+export async function sincronizarMesComisiones(periodo, onProgress, { forzar = false } = {}) {
   let fase = 'cobros';
   let offset = 0;
   let guard = 0;
 
   while (fase !== 'done' && guard < 80) {
     if (onProgress) onProgress({ fase, offset, paso: guard + 1 });
-    const lote = await syncPeriodoComisiones(periodo, { fase, offset, limit: 6 });
+    const lote = await syncPeriodoComisiones(periodo, { fase, offset, limit: 6, forzar: forzar && guard === 0 });
+    if (lote.skipped || lote.nextFase === 'done') {
+      break;
+    }
     if (lote.hasMore) {
       offset = lote.nextOffset || 0;
       fase = lote.fase || fase;
@@ -50,12 +53,36 @@ export async function sincronizarMesComisiones(periodo, onProgress) {
   }
 }
 
-export async function sincronizarYCalcularPeriodo(periodo, onProgress) {
-  await sincronizarMesComisiones(periodo, onProgress);
+export async function sincronizarYCalcularPeriodo(periodo, onProgress, opciones = {}) {
+  await sincronizarMesComisiones(periodo, onProgress, opciones);
   await Promise.all([
     calcularComisiones(periodo),
     calcularComisionFlete(periodo)
   ]);
+}
+
+export function topProductosDesdeDetalle(detalle, limit = 10) {
+  const agrupado = {};
+  (detalle || []).forEach((item) => {
+    const nombre = String(item.producto || 'Sin nombre').trim() || 'Sin nombre';
+    if (!agrupado[nombre]) {
+      agrupado[nombre] = {
+        id: nombre,
+        nombre,
+        codigo: '-',
+        cantidadTotal: 0,
+        montoTotal: 0
+      };
+    }
+    agrupado[nombre].cantidadTotal += 1;
+    agrupado[nombre].montoTotal += parseFloat(item.subtotal) || 0;
+  });
+  const lista = Object.values(agrupado).sort((a, b) => b.montoTotal - a.montoTotal);
+  const total = lista.reduce((sum, row) => sum + row.montoTotal, 0);
+  return {
+    top: lista.slice(0, limit),
+    total
+  };
 }
 
 export const getComisionFlete = (vendedor, periodo) =>

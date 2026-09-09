@@ -70,6 +70,29 @@ function esQuotaFirestore(error) {
   return code === 8 || code === '8' || String(error?.message || '').includes('RESOURCE_EXHAUSTED');
 }
 
+const CACHE_USUARIOS_MS = 15 * 60 * 1000;
+const cacheUsuarios = new Map();
+
+function usuarioDesdeCache(email) {
+  const key = String(email || '').toLowerCase();
+  const hit = cacheUsuarios.get(key);
+  if (!hit) {
+    return null;
+  }
+  if (Date.now() - hit.at > CACHE_USUARIOS_MS) {
+    cacheUsuarios.delete(key);
+    return null;
+  }
+  return hit.user;
+}
+
+function guardarCacheUsuario(email, user) {
+  cacheUsuarios.set(String(email || '').toLowerCase(), {
+    at: Date.now(),
+    user
+  });
+}
+
 async function resolverEmail(decoded) {
   const desdeToken = emailDesdeToken(decoded);
   if (desdeToken) {
@@ -141,6 +164,15 @@ export function crearAuthMiddleware(adminDb) {
         return res.status(401).json({ error: 'No autenticado', code: 'MISSING_EMAIL' });
       }
 
+      const cacheado = usuarioDesdeCache(email);
+      if (cacheado) {
+        req.user = cacheado;
+        if (esSoloAdmin(path) && req.user.role !== 'admin') {
+          return res.status(403).json({ error: 'No autorizado' });
+        }
+        return next();
+      }
+
       let snap;
       try {
         snap = await cargarUsuario(adminDb, email);
@@ -166,6 +198,7 @@ export function crearAuthMiddleware(adminDb) {
         role: data.role,
         name: data.name || ''
       };
+      guardarCacheUsuario(email, req.user);
 
       if (esSoloAdmin(path) && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'No autorizado' });

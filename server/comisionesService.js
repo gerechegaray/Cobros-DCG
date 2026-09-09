@@ -354,15 +354,74 @@ async function guardarVentasVictor(adminDb, facturas) {
   return seleccionadas.length;
 }
 
+const TTL_SYNC_MES_ACTUAL_MS = 6 * 60 * 60 * 1000;
+
+function periodoEsActual(periodo) {
+  const now = new Date();
+  const actual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return periodo === actual;
+}
+
+function fechaDeSync(data) {
+  if (!data) return null;
+  if (data.fechaSync?.toDate) return data.fechaSync.toDate();
+  if (data.fechaSync) {
+    const parsed = new Date(data.fechaSync);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+async function periodoRecienSincronizado(adminDb, periodo) {
+  const snap = await adminDb.collection('comisiones_sync_metadata').doc(periodo).get();
+  if (!snap.exists) {
+    return false;
+  }
+  const data = snap.data() || {};
+  if (!data.completa) {
+    return false;
+  }
+  if (!periodoEsActual(periodo)) {
+    return true;
+  }
+  const fecha = fechaDeSync(data);
+  if (!fecha) {
+    return false;
+  }
+  return (Date.now() - fecha.getTime()) < TTL_SYNC_MES_ACTUAL_MS;
+}
+
+async function marcarPeriodoSincronizado(adminDb, periodo) {
+  await adminDb.collection('comisiones_sync_metadata').doc(periodo).set({
+    completa: true,
+    fechaSync: Timestamp.now()
+  }, { merge: true });
+}
+
 /**
- * Trae cobros y ventas de un mes desde Alegra (todas las páginas) y los guarda en Firestore.
+ * Trae cobros y ventas de un mes desde Alegra en tandas.
  */
 export async function sincronizarPeriodoComisiones(adminDb, periodo, opciones = {}) {
-  const { desde, hasta } = periodoARango(periodo);
+  const forzar = Boolean(opciones.forzar);
   const fase = opciones.fase === 'ventas' ? 'ventas' : 'cobros';
   const start = Math.max(0, parseInt(opciones.offset, 10) || 0);
   const maxPages = Math.min(10, Math.max(1, parseInt(opciones.maxPages, 10) || 6));
 
+  if (!forzar && fase === 'cobros' && start === 0 && await periodoRecienSincronizado(adminDb, periodo)) {
+    console.log(`[COMISIONES SYNC] ${periodo} omitido: sync reciente`);
+    return {
+      periodo,
+      fase: 'cobros',
+      skipped: true,
+      cobros: 0,
+      errores: 0,
+      hasMore: false,
+      nextOffset: 0,
+      nextFase: 'done'
+    };
+  }
+
+  const { desde, hasta } = periodoARango(periodo);
   console.log(`[COMISIONES SYNC] ${periodo} fase=${fase} offset=${start} maxPages=${maxPages}`);
 
   if (fase === 'cobros') {
@@ -390,15 +449,19 @@ export async function sincronizarPeriodoComisiones(adminDb, periodo, opciones = 
 
   const invoicesResult = await getAlegraInvoicesRango(desde, hasta, { start, maxPages });
   const ventas = await guardarVentasVictor(adminDb, invoicesResult.items || []);
+  const hasMore = Boolean(invoicesResult.hasMore);
+  if (!hasMore) {
+    await marcarPeriodoSincronizado(adminDb, periodo);
+  }
 
   return {
     periodo,
     fase: 'ventas',
     ventasVictor: ventas,
     errores: 0,
-    hasMore: Boolean(invoicesResult.hasMore),
+    hasMore,
     nextOffset: invoicesResult.nextOffset || 0,
-    nextFase: invoicesResult.hasMore ? 'ventas' : 'done'
+    nextFase: hasMore ? 'ventas' : 'done'
   };
 }
 

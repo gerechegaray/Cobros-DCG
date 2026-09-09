@@ -3247,7 +3247,8 @@ app.post("/api/comisiones/sync-periodo/:periodo", async (req, res) => {
     const fase = req.query.fase === 'ventas' ? 'ventas' : 'cobros';
     const offset = parseInt(req.query.offset || '0', 10) || 0;
     const maxPages = parseInt(req.query.limit || '6', 10) || 6;
-    const resultado = await sincronizarPeriodoComisiones(adminDb, periodo, { fase, offset, maxPages });
+    const forzar = req.query.forzar === 'true' || req.query.forzar === '1';
+    const resultado = await sincronizarPeriodoComisiones(adminDb, periodo, { fase, offset, maxPages, forzar });
     res.json({ success: true, ...resultado });
   } catch (error) {
     console.error('[COMISIONES] Error sincronizando período:', error);

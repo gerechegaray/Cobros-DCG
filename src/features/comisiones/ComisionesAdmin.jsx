@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from 'primereact/card';
 import { Button } from 'primereact/button';
 import { Toast } from 'primereact/toast';
@@ -8,18 +8,12 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
-import { getComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, sincronizarYCalcularPeriodo, cerrarPeriodo, agregarAjuste, pagarComision, totalALiquidar, leyendaLiquidacion } from './comisionesService';
+import { getComisiones, getComisionesVendedor, seedReglas, syncFacturas, syncFacturasCompleta, getComisionFlete, sincronizarYCalcularPeriodo, topProductosDesdeDetalle, cerrarPeriodo, agregarAjuste, pagarComision, totalALiquidar, leyendaLiquidacion } from './comisionesService';
 import { Dialog } from 'primereact/dialog';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { InputNumber } from 'primereact/inputnumber';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
-import {
-  formatearMoneda,
-  esPedidoDelVendedorSanti,
-  filterPedidosFacturadosPorPeriodo,
-  topProductosDesdePedidosFacturados
-} from '../pedidos/utils';
-import { getPedidos } from '../pedidos/pedidosService';
+import { formatearMoneda } from '../pedidos/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 function ComisionesAdmin({ user }) {
@@ -37,9 +31,6 @@ function ComisionesAdmin({ user }) {
   const [pagando, setPagando] = useState(false);
   const [mostrarDialogAjuste, setMostrarDialogAjuste] = useState(false);
   const [ajusteForm, setAjusteForm] = useState({ tipo: 'positivo', monto: 0, motivo: '' });
-  const [topProductosPedidosSanti, setTopProductosPedidosSanti] = useState([]);
-  /** Suma de montos de todos los productos en pedidos facturados del período (para % en top 10). */
-  const [totalMontoProductosPedidosSantiPeriodo, setTotalMontoProductosPedidosSantiPeriodo] = useState(0);
   
   const vendedores = [
     { label: 'Guille', value: 'Guille' },
@@ -62,35 +53,14 @@ function ComisionesAdmin({ user }) {
     }
   }, [vendedorSeleccionado, periodo]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (vendedorSeleccionado !== 'Santi' || !periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
-      setTopProductosPedidosSanti([]);
-      setTotalMontoProductosPedidosSantiPeriodo(0);
-      return undefined;
+  const topSanti = useMemo(() => {
+    if (vendedorSeleccionado !== 'Santi') {
+      return { top: [], total: 0 };
     }
-    (async () => {
-      try {
-        const todos = await getPedidos();
-        if (cancelled) return;
-        const pedidos = todos.filter(esPedidoDelVendedorSanti);
-        const filtrados = filterPedidosFacturadosPorPeriodo(pedidos, periodo);
-        const todosProductos = topProductosDesdePedidosFacturados(filtrados, 9999);
-        const totalPeriodo = todosProductos.reduce((s, p) => s + (p.montoTotal || 0), 0);
-        setTopProductosPedidosSanti(todosProductos.slice(0, 10));
-        setTotalMontoProductosPedidosSantiPeriodo(totalPeriodo);
-      } catch (e) {
-        console.error('Error cargando pedidos para comisiones:', e);
-        if (!cancelled) {
-          setTopProductosPedidosSanti([]);
-          setTotalMontoProductosPedidosSantiPeriodo(0);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [vendedorSeleccionado, periodo]);
+    return topProductosDesdeDetalle(comisiones?.detalle, 10);
+  }, [vendedorSeleccionado, comisiones]);
+  const topProductosPedidosSanti = topSanti.top;
+  const totalMontoProductosPedidosSantiPeriodo = topSanti.total;
   
   const cargarComisiones = async () => {
     if (!vendedorSeleccionado || !periodo) return;
@@ -599,18 +569,18 @@ function ComisionesAdmin({ user }) {
       doc.setFontSize(12);
       doc.setTextColor(...AZUL_OSCURO);
       doc.setFont(undefined, 'bold');
-      doc.text('TOP PRODUCTOS (PEDIDOS FACTURADOS EN APP)', 15, currentY);
+      doc.text('TOP PRODUCTOS COBRADOS (LIQUIDACIÓN)', 15, currentY);
       currentY += 8;
       doc.setFont(undefined, 'normal');
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text('Datos de la colección pedidos (Firestore). Período por fecha de facturación en la app o, si no hay, fecha del pedido. No es cobranza Alegra.', 15, currentY);
+      doc.text('Agrupado del detalle de comisiones de Santi en este período (cobros Alegra).', 15, currentY);
       currentY += 10;
 
       if (!topProductosPedidosSanti.length) {
         doc.setFontSize(9);
         doc.setTextColor(120, 120, 120);
-        doc.text('Sin pedidos facturados en app con ítems en este período (revisá facturación y mes).', 15, currentY);
+        doc.text('Sin productos en el detalle de comisiones de este período.', 15, currentY);
         currentY += 8;
       } else {
         doc.setFillColor(230, 230, 230);
@@ -618,7 +588,7 @@ function ComisionesAdmin({ user }) {
         doc.setFontSize(9);
         doc.setTextColor(0, 0, 0);
         doc.text('Producto', 20, currentY + 5);
-        doc.text('Cant.', 115, currentY + 5);
+        doc.text('Lín.', 115, currentY + 5);
         doc.text('Monto', pageWidth - 80, currentY + 5);
         doc.text('%', pageWidth - 25, currentY + 5, { align: 'right' });
         currentY += 8;
@@ -1050,10 +1020,10 @@ function ComisionesAdmin({ user }) {
             <Card className="comisiones-detail-card comisiones-top-card" style={{ marginTop: 'var(--spacing-4)' }}>
               <h2 className="comisiones-top-title">
                 <i className="pi pi-shopping-cart" style={{ marginRight: 'var(--spacing-2)' }}></i>
-                Top productos por pedidos facturados (app)
+                Top productos cobrados (liquidación)
               </h2>
               <p className="comisiones-top-subtitle">
-                Datos del módulo <strong>pedidos</strong> (Firebase). Se usa la <strong>fecha en que se marcó facturado</strong> en la app; si el pedido es viejo sin esa fecha, la fecha del pedido. No viene de Alegra.
+                Del detalle de comisiones de Santi en este período (cobros de Alegra). No baja el listado de pedidos.
               </p>
               {topProductosPedidosSanti.length > 0 ? (
                 <DataTable value={topProductosPedidosSanti} size="small" className="comisiones-top-table">
@@ -1068,7 +1038,7 @@ function ComisionesAdmin({ user }) {
                   />
                   <Column
                     field="cantidadTotal"
-                    header="Cantidad"
+                    header="Líneas"
                     body={(row) => String(row.cantidadTotal ?? 0)}
                     style={{ textAlign: 'right', width: '5rem' }}
                   />
@@ -1092,7 +1062,7 @@ function ComisionesAdmin({ user }) {
                 </DataTable>
               ) : (
                 <p className="comisiones-top-subtitle" style={{ marginBottom: 0 }}>
-                  No hay pedidos facturados en la app con ítems en este período para Santi (revisá el mes del período y que el admin haya marcado facturado).
+                  No hay detalle de comisiones de Santi en este período. Calculá el mes para ver el top.
                 </p>
               )}
             </Card>
