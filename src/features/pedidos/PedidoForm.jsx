@@ -429,16 +429,16 @@ const PedidoForm = ({ visible, onHide, pedido, onSuccess, user }) => {
                         dropdown
                         forceSelection
                       />
-                      {/* 🆕 Mostrar información del producto seleccionado */}
+                      {/* Mostrar información del producto seleccionado */}
                       {productoSeleccionado && (
-                        <div className="mt-2 p-2 border-round" style={{ backgroundColor: '#f8f9fa' }}>
+                        <div className="mt-2 p-2 border-round surface-ground">
                           <div className="flex align-items-center gap-2">
-                            <span className="font-semibold">{productoSeleccionado.nombre}</span>
-                            <span className="text-gray-600">-</span>
+                            <span className="font-semibold text-color">{productoSeleccionado.nombre}</span>
+                            <span className="text-color-secondary">-</span>
                             <span className="font-semibold text-primary">{formatearMoneda(productoSeleccionado.precio || 0)}</span>
                           </div>
                           <div className="mt-1">
-                            <span className={`text-sm ${(productoSeleccionado.stock || 0) > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                            <span className={`text-sm ${(productoSeleccionado.stock || 0) > 0 ? 'text-green-400' : 'text-orange-400'}`}>
                               {(productoSeleccionado.stock || 0) > 0 ? '✓ Hay stock' : '⚠ Sin stock'}
                             </span>
                           </div>
