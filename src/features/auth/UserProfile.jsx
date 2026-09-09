@@ -1,6 +1,7 @@
 import React from "react";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
+import { Button } from "primereact/button";
 
 function etiquetaRol(role) {
   if (role === "admin") return "Administrador";
@@ -10,7 +11,7 @@ function etiquetaRol(role) {
   return "Usuario";
 }
 
-function UserProfile({ user }) {
+function UserProfile({ user, onLogout }) {
   return (
     <div className="p-p-3 p-p-md-4 p-p-lg-5" style={{ maxWidth: "800px", margin: "0 auto" }}>
       <div className="p-mb-4">
@@ -53,6 +54,14 @@ function UserProfile({ user }) {
               </span>
             </div>
           </div>
+        </div>
+        <div className="mt-4">
+          <Button
+            label="Cerrar sesión"
+            icon="pi pi-sign-out"
+            className="p-button-danger p-button-outlined"
+            onClick={onLogout}
+          />
         </div>
       </Card>
     </div>

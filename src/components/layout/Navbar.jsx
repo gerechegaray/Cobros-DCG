@@ -51,7 +51,9 @@ function Navbar({ user, onLogout, menuItems }) {
     {
       label: "Cerrar Sesión",
       icon: "pi pi-sign-out",
-      command: onLogout
+      command: () => {
+        if (typeof onLogout === "function") onLogout();
+      }
     }
   ];
 
@@ -311,7 +313,7 @@ function Navbar({ user, onLogout, menuItems }) {
               padding: "0.875rem 1rem"
             }}
             onClick={() => {
-              onLogout();
+              if (typeof onLogout === "function") onLogout();
               setSidebarVisible(false);
             }}
           />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "./services/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import Navbar from "./components/layout/Navbar";
@@ -75,6 +75,16 @@ function App() {
     setUser(userData);
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    } finally {
+      setUser(null);
+    }
+  };
+
   const getMenuItems = () => {
     const baseItems = [
       { label: "Dashboard", icon: "pi pi-chart-bar", path: "/dashboard" },
@@ -105,7 +115,7 @@ function App() {
   return (
     <Router>
       <div className={`App ${esMovil ? 'has-bottom-nav' : ''}`}>
-        <Navbar user={user} menuItems={getMenuItems()} />
+        <Navbar user={user} menuItems={getMenuItems()} onLogout={handleLogout} />
         <OfflineBanner />
         <div className="content">
           <Routes>
@@ -119,7 +129,7 @@ function App() {
             } />
             <Route path="/pedidos" element={<PedidosMain user={user} />} />
             <Route path="/cobros" element={<CobrosMain user={user} />} />
-            <Route path="/profile" element={<UserProfile user={user} />} />
+            <Route path="/profile" element={<UserProfile user={user} onLogout={handleLogout} />} />
             <Route path="/gestion-datos" element={
               user && user.role === 'admin' ?
               <GestionDatos user={user} /> :
