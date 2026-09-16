@@ -24,6 +24,7 @@ const GetnetMain = () => {
   const [dcg, setDcg] = useState('');
   const [archivoNombre, setArchivoNombre] = useState('');
   const [filas, setFilas] = useState(null);
+  const [tieneColumnaCuotas, setTieneColumnaCuotas] = useState(false);
   const [informe, setInforme] = useState(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [filename, setFilename] = useState('');
@@ -44,7 +45,7 @@ const GetnetMain = () => {
     }
 
     try {
-      const siguiente = construirInforme(filas, resolverPropietario(dcg));
+      const siguiente = construirInforme(filas, resolverPropietario(dcg), { tieneColumnaCuotas });
       const generado = generarInformePdf(siguiente);
       url = URL.createObjectURL(generado.blob);
       setInforme(siguiente);
@@ -68,7 +69,7 @@ const GetnetMain = () => {
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
-  }, [filas, dcg]);
+  }, [filas, dcg, tieneColumnaCuotas]);
 
   const mostrarError = (detail) => {
     toastRef.current?.show({
@@ -91,9 +92,11 @@ const GetnetMain = () => {
       } else if (!dcg) {
         mostrarError('Elegí el establecimiento (DCG1 a DCG9) para nombrar el PDF.');
       }
+      setTieneColumnaCuotas(Boolean(leido.tieneColumnaCuotas));
       setFilas(leido.filas);
     } catch (error) {
       setFilas(null);
+      setTieneColumnaCuotas(false);
       setArchivoNombre('');
       mostrarError(error.message || 'El archivo no se pudo leer.');
     } finally {
@@ -106,6 +109,7 @@ const GetnetMain = () => {
     setDcg('');
     setArchivoNombre('');
     setFilas(null);
+    setTieneColumnaCuotas(false);
     if (inputRef.current) inputRef.current.value = '';
   };
 

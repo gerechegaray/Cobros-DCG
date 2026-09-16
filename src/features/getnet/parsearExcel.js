@@ -37,13 +37,45 @@ function mapearCampo(encabezado) {
   if (clave === 'monto neto transaccion' || clave === 'monto neto' || clave === 'neto') return CAMPOS.neto;
   if (clave === 'costo financiero') return CAMPOS.costo;
   if (clave === 'iva cft') return CAMPOS.ivaCft;
-  if (clave === 'plan cuotas') return CAMPOS.cuotas;
+  if (esEncabezadoCuotas(clave)) return CAMPOS.cuotas;
   if (clave === 'billetera' || clave === 'medio pago') return CAMPOS.billetera;
   if (clave === 'marca') return CAMPOS.marca;
   if (clave === 'tipo' || clave === 'tipo ticket') return CAMPOS.tipo;
   if (clave === 'nro de cupon' || clave === 'cupon') return CAMPOS.cupon;
   if (clave === 'estado' || clave.includes('estado')) return CAMPOS.estado;
   return null;
+}
+
+function esEncabezadoCuotas(clave) {
+  if (!clave || clave.includes('cupon')) return false;
+  return (
+    clave === 'plan cuotas' ||
+    clave === 'plan de cuotas' ||
+    clave === 'cuotas' ||
+    clave === 'cuota' ||
+    clave.includes('cuota')
+  );
+}
+
+function textoCuotas(valor) {
+  if (valor == null || valor === '') return '';
+  if (typeof valor === 'number' && Number.isFinite(valor)) {
+    return Number.isInteger(valor) ? String(valor) : String(valor);
+  }
+  const texto = String(valor).trim();
+  if (!texto || texto.toLowerCase() === 'nan') return '';
+  const numero = parseNumero(texto);
+  if (numero !== 0 && Number.isInteger(numero) && String(numero) === texto.replace(',', '.')) {
+    return String(numero);
+  }
+  return texto;
+}
+
+function tieneDatoCuotas(valor) {
+  if (valor == null || valor === '') return false;
+  if (typeof valor === 'number') return Number.isFinite(valor);
+  const texto = String(valor).trim().toLowerCase();
+  return texto !== '' && texto !== 'nan' && texto !== 'undefined' && texto !== 'null';
 }
 
 function encontrarFilaEncabezado(matriz) {
@@ -62,18 +94,18 @@ function leerWorkbook(file, buffer) {
   if (nombre.endsWith('.csv')) {
     return XLSX.read(new TextDecoder('utf-8').decode(buffer), { type: 'string', raw: false });
   }
-  return XLSX.read(buffer, { type: 'array', cellDates: true, raw: false });
+  return XLSX.read(buffer, { type: 'array', cellDates: true });
 }
 
 function filasDesdeSheet(sheet) {
-  const matriz = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
-  if (!matriz.length) return [];
+  const matriz = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true, blankrows: false });
+  if (!matriz.length) return { rows: [], tieneColumnaCuotas: false };
 
   const headerIdx = encontrarFilaEncabezado(matriz);
   const encabezados = matriz[headerIdx] || [];
   const mapa = encabezados.map((titulo) => mapearCampo(titulo));
 
-  return matriz.slice(headerIdx + 1).map((fila) => {
+  const rows = matriz.slice(headerIdx + 1).map((fila) => {
     const raw = {};
     mapa.forEach((campo, idx) => {
       if (!campo) return;
@@ -81,6 +113,11 @@ function filasDesdeSheet(sheet) {
     });
     return raw;
   });
+
+  return {
+    rows,
+    tieneColumnaCuotas: mapa.includes(CAMPOS.cuotas)
+  };
 }
 
 function normalizarFila(raw) {
@@ -100,9 +137,7 @@ function normalizarFila(raw) {
     marcaDisplay = limpiarTexto(billetera) === 'nan' || esVacio(raw.billetera) ? 'QR / Billetera' : billetera;
   }
 
-  const cuotasNumero = parseNumero(raw.cuotas);
-  const cuotasTexto = esVacio(raw.cuotas) ? '' : String(raw.cuotas).trim();
-  const tieneCuota = Boolean(cuotasTexto) && cuotasTexto !== '0' && cuotasNumero !== 0;
+  const cuotas = tieneDatoCuotas(raw.cuotas) ? textoCuotas(raw.cuotas) : '';
 
   return {
     fecha,
@@ -110,7 +145,7 @@ function normalizarFila(raw) {
     neto,
     costo,
     ivaCft,
-    cuotas: tieneCuota ? cuotasTexto : '',
+    cuotas,
     billetera,
     marca: marcaDisplay,
     tipo: textoCelda(raw.tipo),
@@ -141,7 +176,7 @@ export async function leerFilasArchivo(file) {
     throw new Error('El archivo no tiene hojas para leer.');
   }
 
-  const crudas = filasDesdeSheet(sheet);
+  const { rows: crudas, tieneColumnaCuotas } = filasDesdeSheet(sheet);
   const filas = crudas
     .map(normalizarFila)
     .filter((fila) => fila.fecha)
@@ -160,11 +195,12 @@ export async function leerFilasArchivo(file) {
   return {
     filas,
     dcgDetectado,
-    establecimientos
+    establecimientos,
+    tieneColumnaCuotas
   };
 }
 
-export function construirInforme(filas, propietario) {
+export function construirInforme(filas, propietario, opciones = {}) {
   const fechas = filas.map((fila) => fila.fecha).sort((a, b) => a - b);
   const fechaDesde = fechas[0];
   const fechaHasta = fechas[fechas.length - 1];
@@ -173,7 +209,7 @@ export function construirInforme(filas, propietario) {
   const costo = filas.reduce((acc, fila) => acc + fila.costo, 0);
   const ivaCft = filas.reduce((acc, fila) => acc + fila.ivaCft, 0);
   const mostrarNeto = costo > 0 || ivaCft > 0;
-  const tieneCuotas = filas.some((fila) => fila.cuotas);
+  const tieneCuotas = Boolean(opciones.tieneColumnaCuotas) || filas.some((fila) => tieneDatoCuotas(fila.cuotas));
   const montos = filas.map((fila) => fila.bruto);
 
   const porDia = agrupar(filas, (fila) => claveFecha(fila.fecha), (fila) => fila.fecha)
