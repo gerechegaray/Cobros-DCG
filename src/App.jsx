@@ -16,6 +16,7 @@ import MenuClientes from "./components/MenuClientes";
 import CobrosMain from "./features/cobros/CobrosMain";
 import PedidosMain from "./features/pedidos/PedidosMain";
 import ComisionesMain from "./features/comisiones/ComisionesMain";
+import GetnetMain from "./features/getnet/GetnetMain";
 import { useEsMovil } from "./hooks/useEsMovil";
 import { procesarCola } from "./offline/colaSync";
 
@@ -98,6 +99,8 @@ function App() {
 
     if (user && user.role === 'admin') {
       baseItems.splice(3, 0, { label: "Envíos", icon: "pi pi-file-o", path: "/facturas" });
+      const perfilIdx = baseItems.findIndex((item) => item.path === "/profile");
+      baseItems.splice(perfilIdx, 0, { label: "Getnet", icon: "pi pi-file-excel", path: "/getnet" });
       baseItems.push({ label: "Gestión de Datos", icon: "pi pi-database", path: "/gestion-datos" });
     }
 
@@ -137,6 +140,11 @@ function App() {
             } />
             <Route path="/productos" element={<Navigate to="/dashboard" replace />} />
             <Route path="/comisiones" element={<ComisionesMain user={user} />} />
+            <Route path="/getnet" element={
+              user && user.role === 'admin' ?
+              <GetnetMain user={user} /> :
+              <Navigate to="/dashboard" replace />
+            } />
             <Route path="/visitas" element={<Navigate to="/dashboard" replace />} />
             <Route path="/gastos" element={<Navigate to="/dashboard" replace />} />
             <Route path="/menu-clientes" element={<MenuClientes user={user} />} />
