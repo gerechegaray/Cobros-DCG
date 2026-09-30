@@ -15,6 +15,8 @@ const CAMPOS = {
   fecha: 'fecha',
   bruto: 'bruto',
   neto: 'neto',
+  arancel: 'arancel',
+  ivaArancel: 'ivaArancel',
   costo: 'costo',
   ivaCft: 'ivaCft',
   cuotas: 'cuotas',
@@ -35,6 +37,8 @@ function mapearCampo(encabezado) {
   if (clave === 'fecha de operacion' || clave === 'fecha') return CAMPOS.fecha;
   if (clave === 'monto bruto transaccion' || clave === 'monto bruto' || clave === 'total') return CAMPOS.bruto;
   if (clave === 'monto neto transaccion' || clave === 'monto neto' || clave === 'neto') return CAMPOS.neto;
+  if (clave === 'iva arancel') return CAMPOS.ivaArancel;
+  if (clave === 'arancel') return CAMPOS.arancel;
   if (clave === 'costo financiero') return CAMPOS.costo;
   if (clave === 'iva cft') return CAMPOS.ivaCft;
   if (esEncabezadoCuotas(clave)) return CAMPOS.cuotas;
@@ -123,12 +127,14 @@ function filasDesdeSheet(sheet) {
 function normalizarFila(raw) {
   const fecha = parseFecha(raw.fecha);
   const bruto = parseNumero(raw.bruto);
+  const arancel = parseNumero(raw.arancel);
+  const ivaArancel = parseNumero(raw.ivaArancel);
   const costo = parseNumero(raw.costo);
   const ivaCft = parseNumero(raw.ivaCft);
-  let neto = raw.neto == null || raw.neto === '' ? bruto - costo - ivaCft : parseNumero(raw.neto);
-  if (neto === 0 && bruto > 0) {
-    neto = bruto - costo - ivaCft;
-  }
+  const tieneCostoFinanciero = costo > 0 || ivaCft > 0;
+  const neto = tieneCostoFinanciero
+    ? bruto - arancel - ivaArancel - costo - ivaCft
+    : bruto;
 
   const marcaRaw = textoCelda(raw.marca, '');
   const billetera = textoCelda(raw.billetera);
